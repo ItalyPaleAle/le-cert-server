@@ -63,15 +63,18 @@ type DatabaseConfig struct {
 
 // OAuth2Config holds OAuth2 configuration
 type OAuth2Config struct {
-	// Bearer token for authentication (simple version)
-	// In production, you'd use a proper OAuth2 provider
-	BearerToken string `yaml:"bearerToken"`
+	// OAuth2 issuer URL for token validation (OIDC discovery endpoint)
+	// Example: "https://accounts.google.com" or "https://login.microsoftonline.com/{tenant}/v2.0"
+	IssuerURL string `yaml:"issuerUrl"`
 
-	// Optional: OAuth2 issuer URL for token validation
-	IssuerURL string `yaml:"issuerUrl,omitempty"`
+	// Expected audience (client ID) for token validation
+	Audience string `yaml:"audience"`
 
-	// Optional: OAuth2 audience
-	Audience string `yaml:"audience,omitempty"`
+	// Optional: Additional allowed audiences
+	Audiences []string `yaml:"audiences,omitempty"`
+
+	// Optional: Required scopes (space-separated)
+	RequiredScopes []string `yaml:"requiredScopes,omitempty"`
 }
 
 // LoadConfig loads configuration from a YAML file

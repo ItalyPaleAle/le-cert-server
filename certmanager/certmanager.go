@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/go-acme/lego/v4/certcrypto"
@@ -25,6 +26,7 @@ type CertManager struct {
 	dnsProvider string
 	dnsCreds    map[string]string
 	renewalDays int
+	logger      *slog.Logger
 }
 
 // NewCertManager creates a new certificate manager
@@ -35,7 +37,12 @@ func NewCertManager(
 	dnsProvider string,
 	dnsCreds map[string]string,
 	renewalDays int,
+	logger *slog.Logger,
 ) *CertManager {
+	if logger == nil {
+		logger = slog.Default()
+	}
+
 	return &CertManager{
 		storage:     store,
 		email:       email,
@@ -43,6 +50,7 @@ func NewCertManager(
 		dnsProvider: dnsProvider,
 		dnsCreds:    dnsCreds,
 		renewalDays: renewalDays,
+		logger:      logger,
 	}
 }
 
@@ -286,7 +294,8 @@ func (cm *CertManager) RenewCertificate(domain string) (*storage.Certificate, er
 	cert.NotBefore = x509Cert.NotBefore
 	cert.NotAfter = x509Cert.NotAfter
 
-	if err := cm.storage.SaveCertificate(cert); err != nil {
+	err = cm.storage.SaveCertificate(cert)
+	if err != nil {
 		return nil, fmt.Errorf("failed to save renewed certificate: %w", err)
 	}
 
@@ -300,11 +309,17 @@ func (cm *CertManager) RenewExpiringCertificates() error {
 		return fmt.Errorf("failed to get expiring certificates: %w", err)
 	}
 
+	cm.logger.Info("Checking expiring certificates", "count", len(certs), "threshold_days", cm.renewalDays)
+
 	for _, cert := range certs {
-		_, err := cm.RenewCertificate(cert.Domain)
+		domainLogger := cm.logger.With("domain", cert.Domain)
+		domainLogger.Info("Renewing certificate", "expires", cert.NotAfter)
+		_, err = cm.RenewCertificate(cert.Domain)
 		if err != nil {
 			// Log error but continue with other certificates
-			fmt.Printf("Failed to renew certificate for %s: %v\n", cert.Domain, err)
+			domainLogger.Error("Failed to renew certificate", "error", err)
+		} else {
+			domainLogger.Info("Successfully renewed certificate")
 		}
 	}
 

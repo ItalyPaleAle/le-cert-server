@@ -3,7 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -16,14 +16,20 @@ type Server struct {
 	manager *certmanager.CertManager
 	auth    *auth.Authenticator
 	mux     *http.ServeMux
+	logger  *slog.Logger
 }
 
 // NewServer creates a new API server
-func NewServer(manager *certmanager.CertManager, authenticator *auth.Authenticator) *Server {
+func NewServer(manager *certmanager.CertManager, authenticator *auth.Authenticator, logger *slog.Logger) *Server {
+	if logger == nil {
+		logger = slog.Default()
+	}
+
 	s := &Server{
 		manager: manager,
 		auth:    authenticator,
 		mux:     http.NewServeMux(),
+		logger:  logger,
 	}
 
 	s.registerRoutes()
@@ -87,12 +93,12 @@ func (s *Server) handleGetCertificate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Certificate request for domain: %s", req.Domain)
+	s.logger.Info("certificate request", "domain", req.Domain)
 
 	// Try to get or obtain certificate
 	cert, err := s.manager.ObtainCertificate(req.Domain)
 	if err != nil {
-		log.Printf("Failed to obtain certificate for %s: %v", req.Domain, err)
+		s.logger.Error("failed to obtain certificate", "domain", req.Domain, "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(ErrorResponse{Error: fmt.Sprintf("Failed to obtain certificate: %v", err)})
 		return
@@ -132,12 +138,12 @@ func (s *Server) handleRenewCertificate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	log.Printf("Certificate renewal request for domain: %s", req.Domain)
+	s.logger.Info("certificate renewal request", "domain", req.Domain)
 
 	// Renew certificate
 	cert, err := s.manager.RenewCertificate(req.Domain)
 	if err != nil {
-		log.Printf("Failed to renew certificate for %s: %v", req.Domain, err)
+		s.logger.Error("failed to renew certificate", "domain", req.Domain, "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(ErrorResponse{Error: fmt.Sprintf("Failed to renew certificate: %v", err)})
 		return

@@ -73,12 +73,24 @@ database:
   path: "/var/lib/cert-server/certs.db"
 
 oauth2:
-  # Bearer token for API authentication
-  # Generate a strong random token for production use
-  bearerToken: "your-secret-bearer-token-change-this"
+  # OAuth2/OIDC issuer URL for token validation
+  # This should point to your OAuth2 provider's discovery endpoint
+  # Examples:
+  #   - Google: "https://accounts.google.com"
+  #   - Auth0: "https://your-tenant.auth0.com"
+  #   - Azure AD: "https://login.microsoftonline.com/{tenant-id}/v2.0"
+  #   - Keycloak: "https://keycloak.example.com/realms/your-realm"
+  issuerUrl: "https://accounts.google.com"
 
-  # Optional: OAuth2 issuer URL for token validation
-  # issuerUrl: "https://auth.example.com"
+  # Expected audience (client ID) for token validation
+  # This should match the client ID from your OAuth2 provider
+  audience: "your-client-id.apps.googleusercontent.com"
 
-  # Optional: OAuth2 audience
-  # audience: "cert-server-api"
+  # Optional: Additional allowed audiences
+  # audiences:
+  #   - "another-client-id"
+
+  # Optional: Required scopes that tokens must have
+  # requiredScopes:
+  #   - "cert-server:read"
+  #   - "cert-server:write"

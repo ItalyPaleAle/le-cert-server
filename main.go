@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"flag"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -18,27 +18,35 @@ import (
 )
 
 func main() {
+	// Set up structured logging
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+	slog.SetDefault(logger)
+
 	// Parse command-line flags
 	configPath := flag.String("config", "config.yaml", "Path to configuration file")
 	flag.Parse()
 
 	// Load configuration
-	log.Printf("Loading configuration from %s", *configPath)
+	logger.Info("loading configuration", "path", *configPath)
 	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
-		log.Fatalf("Failed to load configuration: %v", err)
+		logger.Error("failed to load configuration", "error", err)
+		os.Exit(1)
 	}
 
 	// Initialize storage
-	log.Printf("Initializing database at %s", cfg.Database.Path)
+	logger.Info("initializing database", "path", cfg.Database.Path)
 	store, err := storage.NewStorage(cfg.Database.Path)
 	if err != nil {
-		log.Fatalf("Failed to initialize storage: %v", err)
+		logger.Error("failed to initialize storage", "error", err)
+		os.Exit(1)
 	}
 	defer store.Close()
 
 	// Create certificate manager
-	log.Println("Initializing certificate manager")
+	logger.Info("initializing certificate manager")
 	certMgr := certmanager.NewCertManager(
 		store,
 		cfg.LetsEncrypt.Email,
@@ -46,29 +54,41 @@ func main() {
 		cfg.LetsEncrypt.DNSProvider,
 		cfg.LetsEncrypt.DNSCredentials,
 		cfg.LetsEncrypt.RenewalDays,
+		logger,
 	)
 
 	// Obtain initial certificate for the server itself if configured
 	if cfg.LetsEncrypt.Domain != "" {
-		log.Printf("Obtaining certificate for server domain: %s", cfg.LetsEncrypt.Domain)
+		logger.Info("obtaining certificate for server domain", "domain", cfg.LetsEncrypt.Domain)
 		_, err := certMgr.ObtainCertificate(cfg.LetsEncrypt.Domain)
 		if err != nil {
-			log.Printf("Warning: Failed to obtain initial certificate: %v", err)
+			logger.Warn("failed to obtain initial certificate", "error", err)
 		}
 	}
 
 	// Start certificate renewal scheduler
-	log.Printf("Starting certificate renewal scheduler (checking every 12 hours)")
+	logger.Info("starting certificate renewal scheduler", "interval", "12h")
 	scheduler := certmanager.NewScheduler(certMgr, 12*time.Hour)
 	go scheduler.Start()
 	defer scheduler.Stop()
 
 	// Create authenticator
-	authenticator := auth.NewAuthenticator(cfg.OAuth2.BearerToken)
+	logger.Info("initializing OAuth2 authenticator", "issuer", cfg.OAuth2.IssuerURL)
+	authenticator, err := auth.NewAuthenticator(
+		cfg.OAuth2.IssuerURL,
+		cfg.OAuth2.Audience,
+		cfg.OAuth2.Audiences,
+		cfg.OAuth2.RequiredScopes,
+		logger,
+	)
+	if err != nil {
+		logger.Error("failed to initialize authenticator", "error", err)
+		os.Exit(1)
+	}
 
 	// Create HTTP server
-	log.Println("Initializing HTTP server")
-	apiServer := server.NewServer(certMgr, authenticator)
+	logger.Info("initializing HTTP server")
+	apiServer := server.NewServer(certMgr, authenticator, logger)
 
 	// Configure HTTPS server
 	httpServer := &http.Server{
@@ -81,35 +101,37 @@ func main() {
 
 	// Start HTTPS server in a goroutine
 	go func() {
-		log.Printf("Starting HTTPS server on %s", cfg.Server.Address)
 		if cfg.Server.TLSCertPath != "" && cfg.Server.TLSKeyPath != "" {
+			logger.Info("starting HTTPS server", "address", cfg.Server.Address)
 			if err := httpServer.ListenAndServeTLS(cfg.Server.TLSCertPath, cfg.Server.TLSKeyPath); err != nil && err != http.ErrServerClosed {
-				log.Fatalf("Failed to start HTTPS server: %v", err)
+				logger.Error("HTTPS server failed", "error", err)
+				os.Exit(1)
 			}
 		} else {
-			log.Println("Warning: Starting HTTP server (no TLS configured)")
+			logger.Warn("starting HTTP server without TLS - not recommended for production", "address", cfg.Server.Address)
 			if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Fatalf("Failed to start HTTP server: %v", err)
+				logger.Error("HTTP server failed", "error", err)
+				os.Exit(1)
 			}
 		}
 	}()
 
-	log.Println("Certificate server started successfully")
+	logger.Info("certificate server started successfully")
 
 	// Wait for interrupt signal to gracefully shut down the server
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down server...")
+	logger.Info("shutting down server")
 
 	// Gracefully shut down the server with a timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := httpServer.Shutdown(ctx); err != nil {
-		log.Printf("Server forced to shutdown: %v", err)
+		logger.Error("server forced to shutdown", "error", err)
 	}
 
-	log.Println("Server stopped")
+	logger.Info("server stopped")
 }
