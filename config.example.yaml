@@ -1,0 +1,84 @@
+server:
+  # Address for the HTTPS API server
+  address: ":8443"
+
+  # TLS certificate and key for the server itself
+  # These should be valid certificates (can be obtained from Let's Encrypt)
+  tlsCertPath: "/etc/cert-server/server.crt"
+  tlsKeyPath: "/etc/cert-server/server.key"
+
+letsEncrypt:
+  # Email for Let's Encrypt registration
+  email: "admin@example.com"
+
+  # Use staging environment for testing (set to false for production)
+  staging: true
+
+  # DNS provider for DNS-01 challenge
+  # All DNS providers supported by lego can be used here
+  # See full list: https://go-acme.github.io/lego/dns/
+  # Examples: cloudflare, route53, digitalocean, gandi, godaddy, namecheap, etc.
+  dnsProvider: "cloudflare"
+
+  # DNS provider credentials (provider-specific environment variables)
+  # These will be set as environment variables for the DNS provider
+  # You can also set these as system environment variables instead of in the config
+
+  # For Cloudflare:
+  dnsCredentials:
+    CF_API_EMAIL: "user@example.com"
+    CF_API_KEY: "your-cloudflare-api-key"
+    # OR use API token (recommended):
+    # CF_DNS_API_TOKEN: "your-cloudflare-dns-api-token"
+
+  # For AWS Route53:
+  # dnsProvider: "route53"
+  # dnsCredentials:
+  #   AWS_ACCESS_KEY_ID: "your-access-key"
+  #   AWS_SECRET_ACCESS_KEY: "your-secret-key"
+  #   AWS_REGION: "us-east-1"
+
+  # For DigitalOcean:
+  # dnsProvider: "digitalocean"
+  # dnsCredentials:
+  #   DO_AUTH_TOKEN: "your-digitalocean-token"
+
+  # For Azure DNS:
+  # dnsProvider: "azure"
+  # dnsCredentials:
+  #   AZURE_CLIENT_ID: "your-client-id"
+  #   AZURE_CLIENT_SECRET: "your-client-secret"
+  #   AZURE_SUBSCRIPTION_ID: "your-subscription-id"
+  #   AZURE_TENANT_ID: "your-tenant-id"
+  #   AZURE_RESOURCE_GROUP: "your-resource-group"
+
+  # For ACME-DNS:
+  # dnsProvider: "acmedns"
+  # dnsCredentials:
+  #   ACME_DNS_API_BASE: "https://auth.acme-dns.io"
+  #   ACME_DNS_STORAGE_PATH: "/var/lib/cert-server/acme-dns.json"
+
+  # See https://go-acme.github.io/lego/dns/ for all providers and their required environment variables
+
+  # Certificate renewal threshold in days (default: 30)
+  # Certificates will be renewed when they expire within this many days
+  renewalDays: 30
+
+  # Domain for the server's own certificate (optional)
+  # If set, the server will obtain a certificate for itself on startup
+  domain: "cert-server.example.com"
+
+database:
+  # Path to SQLite database file
+  path: "/var/lib/cert-server/certs.db"
+
+oauth2:
+  # Bearer token for API authentication
+  # Generate a strong random token for production use
+  bearerToken: "your-secret-bearer-token-change-this"
+
+  # Optional: OAuth2 issuer URL for token validation
+  # issuerUrl: "https://auth.example.com"
+
+  # Optional: OAuth2 audience
+  # audience: "cert-server-api"
