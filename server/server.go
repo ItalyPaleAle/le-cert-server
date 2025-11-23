@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/yourusername/cert-server/auth"
-	"github.com/yourusername/cert-server/certmanager"
+	"github.com/italypaleale/le-cert-server/auth"
+	"github.com/italypaleale/le-cert-server/certmanager"
 )
 
 // Server represents the HTTPS API server
@@ -16,20 +16,14 @@ type Server struct {
 	manager *certmanager.CertManager
 	auth    *auth.Authenticator
 	mux     *http.ServeMux
-	logger  *slog.Logger
 }
 
 // NewServer creates a new API server
-func NewServer(manager *certmanager.CertManager, authenticator *auth.Authenticator, logger *slog.Logger) *Server {
-	if logger == nil {
-		logger = slog.Default()
-	}
-
+func NewServer(manager *certmanager.CertManager, authenticator *auth.Authenticator) *Server {
 	s := &Server{
 		manager: manager,
 		auth:    authenticator,
 		mux:     http.NewServeMux(),
-		logger:  logger,
 	}
 
 	s.registerRoutes()
@@ -65,10 +59,10 @@ type CertificateRequest struct {
 type CertificateResponse struct {
 	Domain      string    `json:"domain"`
 	Certificate string    `json:"certificate"`
-	PrivateKey  string    `json:"private_key"`
-	IssuerCert  string    `json:"issuer_cert,omitempty"`
-	NotBefore   time.Time `json:"not_before"`
-	NotAfter    time.Time `json:"not_after"`
+	PrivateKey  string    `json:"privateKey"`
+	IssuerCert  string    `json:"issuerCert,omitempty"`
+	NotBefore   time.Time `json:"notBefore"`
+	NotAfter    time.Time `json:"notAfter"`
 	Cached      bool      `json:"cached"`
 }
 
@@ -81,7 +75,8 @@ type ErrorResponse struct {
 func (s *Server) handleGetCertificate(w http.ResponseWriter, r *http.Request) {
 	// Parse request
 	var req CertificateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(ErrorResponse{Error: "Invalid request body"})
 		return
@@ -93,12 +88,12 @@ func (s *Server) handleGetCertificate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.logger.Info("certificate request", "domain", req.Domain)
+	slog.Info("Certificate request", "domain", req.Domain)
 
 	// Try to get or obtain certificate
 	cert, err := s.manager.ObtainCertificate(req.Domain)
 	if err != nil {
-		s.logger.Error("failed to obtain certificate", "domain", req.Domain, "error", err)
+		slog.Error("Failed to obtain certificate", "domain", req.Domain, "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(ErrorResponse{Error: fmt.Sprintf("Failed to obtain certificate: %v", err)})
 		return
@@ -126,7 +121,8 @@ func (s *Server) handleGetCertificate(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleRenewCertificate(w http.ResponseWriter, r *http.Request) {
 	// Parse request
 	var req CertificateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(ErrorResponse{Error: "Invalid request body"})
 		return
@@ -138,12 +134,12 @@ func (s *Server) handleRenewCertificate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	s.logger.Info("certificate renewal request", "domain", req.Domain)
+	slog.Info("Certificate renewal request", "domain", req.Domain)
 
 	// Renew certificate
 	cert, err := s.manager.RenewCertificate(req.Domain)
 	if err != nil {
-		s.logger.Error("failed to renew certificate", "domain", req.Domain, "error", err)
+		slog.Error("Failed to renew certificate", "domain", req.Domain, "error", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(ErrorResponse{Error: fmt.Sprintf("Failed to renew certificate: %v", err)})
 		return

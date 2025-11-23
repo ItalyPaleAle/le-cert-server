@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -17,12 +18,10 @@ import (
 type Authenticator struct {
 	issuerURL      string
 	audience       string
-	audiences      []string
 	requiredScopes []string
 	jwksURL        string
 	keySet         *JSONWebKeySet
 	keySetMu       sync.RWMutex
-	logger         *slog.Logger
 }
 
 // JSONWebKeySet represents a JWKS (JSON Web Key Set)
@@ -49,26 +48,22 @@ type OIDCDiscovery struct {
 }
 
 // NewAuthenticator creates a new OAuth2/OIDC authenticator
-func NewAuthenticator(issuerURL, audience string, audiences []string, requiredScopes []string, logger *slog.Logger) (*Authenticator, error) {
-	if logger == nil {
-		logger = slog.Default()
-	}
-
+func NewAuthenticator(issuerURL, audience string, requiredScopes []string) (*Authenticator, error) {
 	a := &Authenticator{
 		issuerURL:      issuerURL,
 		audience:       audience,
-		audiences:      audiences,
 		requiredScopes: requiredScopes,
-		logger:         logger,
 	}
 
 	// Discover JWKS endpoint
-	if err := a.discoverJWKS(); err != nil {
+	err := a.discoverJWKS()
+	if err != nil {
 		return nil, fmt.Errorf("failed to discover JWKS endpoint: %w", err)
 	}
 
 	// Fetch initial key set
-	if err := a.refreshKeySet(); err != nil {
+	err = a.refreshKeySet()
+	if err != nil {
 		return nil, fmt.Errorf("failed to fetch initial key set: %w", err)
 	}
 
@@ -82,7 +77,7 @@ func NewAuthenticator(issuerURL, audience string, audiences []string, requiredSc
 func (a *Authenticator) discoverJWKS() error {
 	discoveryURL := strings.TrimSuffix(a.issuerURL, "/") + "/.well-known/openid-configuration"
 
-	a.logger.Info("discovering OIDC configuration", "url", discoveryURL)
+	slog.Info("Discovering OIDC configuration", "url", discoveryURL)
 
 	resp, err := http.Get(discoveryURL)
 	if err != nil {
@@ -95,23 +90,24 @@ func (a *Authenticator) discoverJWKS() error {
 	}
 
 	var discovery OIDCDiscovery
-	if err := json.NewDecoder(resp.Body).Decode(&discovery); err != nil {
+	err = json.NewDecoder(resp.Body).Decode(&discovery)
+	if err != nil {
 		return fmt.Errorf("failed to decode OIDC discovery document: %w", err)
 	}
 
 	if discovery.JWKSURI == "" {
-		return fmt.Errorf("JWKS URI not found in discovery document")
+		return errors.New("JWKS URI not found in discovery document")
 	}
 
 	a.jwksURL = discovery.JWKSURI
-	a.logger.Info("discovered JWKS endpoint", "url", a.jwksURL)
+	slog.Info("Discovered JWKS endpoint", "url", a.jwksURL)
 
 	return nil
 }
 
 // refreshKeySet fetches the JWKS from the issuer
 func (a *Authenticator) refreshKeySet() error {
-	a.logger.Debug("refreshing JWKS key set", "url", a.jwksURL)
+	slog.Debug("Refreshing JWKS key set", "url", a.jwksURL)
 
 	resp, err := http.Get(a.jwksURL)
 	if err != nil {
@@ -127,7 +123,8 @@ func (a *Authenticator) refreshKeySet() error {
 		Keys []JSONWebKey `json:"keys"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&keySet); err != nil {
+	err = json.NewDecoder(resp.Body).Decode(&keySet)
+	if err != nil {
 		return fmt.Errorf("failed to decode JWKS: %w", err)
 	}
 
@@ -138,7 +135,7 @@ func (a *Authenticator) refreshKeySet() error {
 	}
 	a.keySetMu.Unlock()
 
-	a.logger.Info("refreshed JWKS key set", "keys", len(keySet.Keys))
+	slog.Info("Refreshed JWKS key set", "keys", len(keySet.Keys))
 
 	return nil
 }
@@ -148,9 +145,11 @@ func (a *Authenticator) startKeySetRefresh() {
 	ticker := time.NewTicker(30 * time.Minute)
 	defer ticker.Stop()
 
+	var err error
 	for range ticker.C {
-		if err := a.refreshKeySet(); err != nil {
-			a.logger.Error("failed to refresh key set", "error", err)
+		err = a.refreshKeySet()
+		if err != nil {
+			slog.Error("Failed to refresh key set", "error", err)
 		}
 	}
 }
@@ -161,7 +160,7 @@ func (a *Authenticator) Middleware(next http.Handler) http.Handler {
 		// Extract the Authorization header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			a.logger.Warn("missing authorization header", "path", r.URL.Path)
+			slog.Warn("Missing authorization header", "path", r.URL.Path)
 			http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
 			return
 		}
@@ -169,7 +168,7 @@ func (a *Authenticator) Middleware(next http.Handler) http.Handler {
 		// Check if it's a Bearer token
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			a.logger.Warn("invalid authorization header format", "path", r.URL.Path)
+			slog.Warn("Invalid authorization header format", "path", r.URL.Path)
 			http.Error(w, "Invalid Authorization header format", http.StatusUnauthorized)
 			return
 		}
@@ -179,7 +178,7 @@ func (a *Authenticator) Middleware(next http.Handler) http.Handler {
 		// Validate the token
 		claims, err := a.validateToken(tokenString)
 		if err != nil {
-			a.logger.Warn("token validation failed", "error", err, "path", r.URL.Path)
+			slog.Warn("Token validation failed", "error", err, "path", r.URL.Path)
 			http.Error(w, fmt.Sprintf("Invalid token: %v", err), http.StatusUnauthorized)
 			return
 		}
@@ -189,7 +188,7 @@ func (a *Authenticator) Middleware(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, userContextKey, claims.Subject)
 		ctx = context.WithValue(ctx, claimsContextKey, claims)
 
-		a.logger.Info("authenticated request", "subject", claims.Subject, "path", r.URL.Path)
+		slog.Info("Authenticated request", "subject", claims.Subject, "path", r.URL.Path)
 
 		// Token is valid, proceed to the next handler
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -217,7 +216,7 @@ func (a *Authenticator) validateToken(tokenString string) (*Claims, error) {
 
 	// Parse and validate token
 	claims := &Claims{}
-	parsedToken, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+	parsedToken, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (any, error) {
 		return key, nil
 	})
 
@@ -251,13 +250,9 @@ func (a *Authenticator) validateToken(tokenString string) (*Claims, error) {
 
 // validateAudience checks if the token audience is valid
 func (a *Authenticator) validateAudience(tokenAud jwt.ClaimStrings) bool {
-	allowedAudiences := append([]string{a.audience}, a.audiences...)
-
-	for _, allowed := range allowedAudiences {
-		for _, aud := range tokenAud {
-			if aud == allowed {
-				return true
-			}
+	for _, aud := range tokenAud {
+		if aud == a.audience {
+			return true
 		}
 	}
 
@@ -282,12 +277,12 @@ func (a *Authenticator) validateScopes(tokenScope string) bool {
 }
 
 // getKey retrieves a key from the key set by kid
-func (a *Authenticator) getKey(kid string) (interface{}, error) {
+func (a *Authenticator) getKey(kid string) (any, error) {
 	a.keySetMu.RLock()
 	defer a.keySetMu.RUnlock()
 
 	if a.keySet == nil {
-		return nil, fmt.Errorf("key set not initialized")
+		return nil, errors.New("key set not initialized")
 	}
 
 	// Check if key set is expired
@@ -295,7 +290,7 @@ func (a *Authenticator) getKey(kid string) (interface{}, error) {
 		// Try to refresh in background
 		go func() {
 			if err := a.refreshKeySet(); err != nil {
-				a.logger.Error("failed to refresh expired key set", "error", err)
+				slog.Error("Failed to refresh expired key set", "error", err)
 			}
 		}()
 	}

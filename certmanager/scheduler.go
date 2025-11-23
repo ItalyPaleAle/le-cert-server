@@ -2,6 +2,7 @@ package certmanager
 
 import (
 	"context"
+	"log/slog"
 	"time"
 )
 
@@ -29,7 +30,7 @@ func (s *Scheduler) Start() {
 	ticker := time.NewTicker(s.interval)
 	defer ticker.Stop()
 
-	s.manager.logger.Info("scheduler started", "interval", s.interval)
+	slog.Info("Scheduler started", "interval", s.interval)
 
 	// Run once immediately
 	s.checkAndRenew()
@@ -39,7 +40,7 @@ func (s *Scheduler) Start() {
 		case <-ticker.C:
 			s.checkAndRenew()
 		case <-s.ctx.Done():
-			s.manager.logger.Info("scheduler stopped")
+			slog.Info("Scheduler stopped")
 			return
 		}
 	}
@@ -47,11 +48,11 @@ func (s *Scheduler) Start() {
 
 // checkAndRenew checks for expiring certificates and renews them
 func (s *Scheduler) checkAndRenew() {
-	s.manager.logger.Info("starting certificate renewal check")
+	slog.Info("Starting certificate renewal check")
 	if err := s.manager.RenewExpiringCertificates(); err != nil {
-		s.manager.logger.Error("certificate renewal check failed", "error", err)
+		slog.Error("Certificate renewal check failed", "error", err)
 	} else {
-		s.manager.logger.Info("certificate renewal check completed successfully")
+		slog.Info("Certificate renewal check completed successfully")
 	}
 }
 

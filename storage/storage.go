@@ -3,6 +3,7 @@ package storage
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -53,8 +54,11 @@ func NewStorage(dbPath string) (*Storage, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	storage := &Storage{db: db}
-	if err := storage.initialize(); err != nil {
+	storage := &Storage{
+		db: db,
+	}
+	err = storage.initialize()
+	if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to initialize database: %w", err)
 	}
@@ -64,7 +68,7 @@ func NewStorage(dbPath string) (*Storage, error) {
 
 // initialize creates the database schema
 func (s *Storage) initialize() error {
-	schema := `
+	const schema = `
 	CREATE TABLE IF NOT EXISTS certificates (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		domain TEXT UNIQUE NOT NULL,
@@ -109,7 +113,7 @@ func (s *Storage) Close() error {
 
 // SaveCertificate saves or updates a certificate
 func (s *Storage) SaveCertificate(cert *Certificate) error {
-	query := `
+	const query = `
 	INSERT INTO certificates (domain, certificate, private_key, issuer_cert, not_before, not_after, updated_at)
 	VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
 	ON CONFLICT(domain) DO UPDATE SET
@@ -138,29 +142,20 @@ func (s *Storage) SaveCertificate(cert *Certificate) error {
 
 // GetCertificate retrieves a certificate by domain
 func (s *Storage) GetCertificate(domain string) (*Certificate, error) {
-	query := `
+	const query = `
 	SELECT id, domain, certificate, private_key, issuer_cert, not_before, not_after, created_at, updated_at
 	FROM certificates
 	WHERE domain = ?
 	`
 
 	cert := &Certificate{}
-	err := s.db.QueryRow(query, domain).Scan(
-		&cert.ID,
-		&cert.Domain,
-		&cert.Certificate,
-		&cert.PrivateKey,
-		&cert.IssuerCert,
-		&cert.NotBefore,
-		&cert.NotAfter,
-		&cert.CreatedAt,
-		&cert.UpdatedAt,
-	)
+	err := s.db.
+		QueryRow(query, domain).
+		Scan(&cert.ID, &cert.Domain, &cert.Certificate, &cert.PrivateKey, &cert.IssuerCert, &cert.NotBefore, &cert.NotAfter, &cert.CreatedAt, &cert.UpdatedAt)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, fmt.Errorf("failed to get certificate: %w", err)
 	}
 
@@ -169,7 +164,7 @@ func (s *Storage) GetCertificate(domain string) (*Certificate, error) {
 
 // GetExpiringCertificates retrieves certificates expiring within the specified days
 func (s *Storage) GetExpiringCertificates(days int) ([]*Certificate, error) {
-	query := `
+	const query = `
 	SELECT id, domain, certificate, private_key, issuer_cert, not_before, not_after, created_at, updated_at
 	FROM certificates
 	WHERE not_after <= datetime('now', '+' || ? || ' days')
@@ -184,17 +179,7 @@ func (s *Storage) GetExpiringCertificates(days int) ([]*Certificate, error) {
 	var certs []*Certificate
 	for rows.Next() {
 		cert := &Certificate{}
-		err := rows.Scan(
-			&cert.ID,
-			&cert.Domain,
-			&cert.Certificate,
-			&cert.PrivateKey,
-			&cert.IssuerCert,
-			&cert.NotBefore,
-			&cert.NotAfter,
-			&cert.CreatedAt,
-			&cert.UpdatedAt,
-		)
+		err := rows.Scan(&cert.ID, &cert.Domain, &cert.Certificate, &cert.PrivateKey, &cert.IssuerCert, &cert.NotBefore, &cert.NotAfter, &cert.CreatedAt, &cert.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan certificate: %w", err)
 		}
@@ -206,7 +191,7 @@ func (s *Storage) GetExpiringCertificates(days int) ([]*Certificate, error) {
 
 // SaveLECredentials saves or updates Let's Encrypt credentials
 func (s *Storage) SaveLECredentials(creds *LECredentials) error {
-	query := `
+	const query = `
 	INSERT INTO le_credentials (email, key_type, key, updated_at)
 	VALUES (?, ?, ?, CURRENT_TIMESTAMP)
 	ON CONFLICT(email) DO UPDATE SET
@@ -232,26 +217,20 @@ func (s *Storage) SaveLECredentials(creds *LECredentials) error {
 
 // GetLECredentials retrieves Let's Encrypt credentials by email
 func (s *Storage) GetLECredentials(email string) (*LECredentials, error) {
-	query := `
+	const query = `
 	SELECT id, email, key_type, key, created_at, updated_at
 	FROM le_credentials
 	WHERE email = ?
 	`
 
 	creds := &LECredentials{}
-	err := s.db.QueryRow(query, email).Scan(
-		&creds.ID,
-		&creds.Email,
-		&creds.KeyType,
-		&creds.Key,
-		&creds.CreatedAt,
-		&creds.UpdatedAt,
-	)
+	err := s.db.
+		QueryRow(query, email).
+		Scan(&creds.ID, &creds.Email, &creds.KeyType, &creds.Key, &creds.CreatedAt, &creds.UpdatedAt)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, fmt.Errorf("failed to get LE credentials: %w", err)
 	}
 
@@ -265,7 +244,7 @@ func (s *Storage) SaveDNSCredentials(creds *DNSCredentials) error {
 		return fmt.Errorf("failed to marshal DNS credentials: %w", err)
 	}
 
-	query := `
+	const query = `
 	INSERT INTO dns_credentials (provider, credentials, updated_at)
 	VALUES (?, ?, CURRENT_TIMESTAMP)
 	ON CONFLICT(provider) DO UPDATE SET
@@ -290,7 +269,7 @@ func (s *Storage) SaveDNSCredentials(creds *DNSCredentials) error {
 
 // GetDNSCredentials retrieves DNS provider credentials
 func (s *Storage) GetDNSCredentials(provider string) (*DNSCredentials, error) {
-	query := `
+	const query = `
 	SELECT id, provider, credentials, created_at, updated_at
 	FROM dns_credentials
 	WHERE provider = ?
@@ -298,22 +277,18 @@ func (s *Storage) GetDNSCredentials(provider string) (*DNSCredentials, error) {
 
 	var credsJSON string
 	creds := &DNSCredentials{}
-	err := s.db.QueryRow(query, provider).Scan(
-		&creds.ID,
-		&creds.Provider,
-		&credsJSON,
-		&creds.CreatedAt,
-		&creds.UpdatedAt,
-	)
+	err := s.db.
+		QueryRow(query, provider).
+		Scan(&creds.ID, &creds.Provider, &credsJSON, &creds.CreatedAt, &creds.UpdatedAt)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
-	}
-	if err != nil {
+	} else if err != nil {
 		return nil, fmt.Errorf("failed to get DNS credentials: %w", err)
 	}
 
-	if err := json.Unmarshal([]byte(credsJSON), &creds.Credentials); err != nil {
+	err = json.Unmarshal([]byte(credsJSON), &creds.Credentials)
+	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal DNS credentials: %w", err)
 	}
 

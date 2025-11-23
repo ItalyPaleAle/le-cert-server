@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -15,42 +16,19 @@ import (
 	"github.com/go-acme/lego/v4/certificate"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
-	"github.com/yourusername/cert-server/storage"
+	"github.com/italypaleale/le-cert-server/pkg/config"
+	"github.com/italypaleale/le-cert-server/storage"
 )
 
 // CertManager handles certificate acquisition and renewal
 type CertManager struct {
-	storage     *storage.Storage
-	email       string
-	staging     bool
-	dnsProvider string
-	dnsCreds    map[string]string
-	renewalDays int
-	logger      *slog.Logger
+	storage *storage.Storage
 }
 
 // NewCertManager creates a new certificate manager
-func NewCertManager(
-	store *storage.Storage,
-	email string,
-	staging bool,
-	dnsProvider string,
-	dnsCreds map[string]string,
-	renewalDays int,
-	logger *slog.Logger,
-) *CertManager {
-	if logger == nil {
-		logger = slog.Default()
-	}
-
+func NewCertManager(store *storage.Storage) *CertManager {
 	return &CertManager{
-		storage:     store,
-		email:       email,
-		staging:     staging,
-		dnsProvider: dnsProvider,
-		dnsCreds:    dnsCreds,
-		renewalDays: renewalDays,
-		logger:      logger,
+		storage: store,
 	}
 }
 
@@ -75,8 +53,10 @@ func (u *User) GetPrivateKey() crypto.PrivateKey {
 
 // getOrCreateUser gets or creates a Let's Encrypt user
 func (cm *CertManager) getOrCreateUser() (*User, error) {
+	cfg := config.Get()
+
 	// Try to load existing credentials
-	creds, err := cm.storage.GetLECredentials(cm.email)
+	creds, err := cm.storage.GetLECredentials(cfg.LetsEncrypt.Email)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get LE credentials: %w", err)
 	}
@@ -118,18 +98,19 @@ func (cm *CertManager) getOrCreateUser() (*User, error) {
 		})
 
 		newCreds := &storage.LECredentials{
-			Email:   cm.email,
+			Email:   cfg.LetsEncrypt.Email,
 			KeyType: "P256",
 			Key:     keyPEM,
 		}
 
-		if err := cm.storage.SaveLECredentials(newCreds); err != nil {
+		err = cm.storage.SaveLECredentials(newCreds)
+		if err != nil {
 			return nil, fmt.Errorf("failed to save LE credentials: %w", err)
 		}
 	}
 
 	user := &User{
-		Email: cm.email,
+		Email: cfg.LetsEncrypt.Email,
 		key:   privateKey,
 	}
 
@@ -138,17 +119,19 @@ func (cm *CertManager) getOrCreateUser() (*User, error) {
 
 // createLegoClient creates a lego ACME client
 func (cm *CertManager) createLegoClient(user *User) (*lego.Client, error) {
-	config := lego.NewConfig(user)
-	config.Certificate.KeyType = certcrypto.RSA2048
+	cfg := config.Get()
+
+	legoConfig := lego.NewConfig(user)
+	legoConfig.Certificate.KeyType = certcrypto.RSA2048
 
 	// Use staging or production
-	if cm.staging {
-		config.CADirURL = lego.LEDirectoryStaging
+	if cfg.LetsEncrypt.Staging {
+		legoConfig.CADirURL = lego.LEDirectoryStaging
 	} else {
-		config.CADirURL = lego.LEDirectoryProduction
+		legoConfig.CADirURL = lego.LEDirectoryProduction
 	}
 
-	client, err := lego.NewClient(config)
+	client, err := lego.NewClient(legoConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create lego client: %w", err)
 	}
@@ -168,7 +151,8 @@ func (cm *CertManager) createLegoClient(user *User) (*lego.Client, error) {
 		return nil, fmt.Errorf("failed to create DNS provider: %w", err)
 	}
 
-	if err := client.Challenge.SetDNS01Provider(provider); err != nil {
+	err = client.Challenge.SetDNS01Provider(provider)
+	if err != nil {
 		return nil, fmt.Errorf("failed to set DNS provider: %w", err)
 	}
 
@@ -177,13 +161,15 @@ func (cm *CertManager) createLegoClient(user *User) (*lego.Client, error) {
 
 // ObtainCertificate obtains a new certificate for the specified domain
 func (cm *CertManager) ObtainCertificate(domain string) (*storage.Certificate, error) {
+	cfg := config.Get()
+
 	// Check if we already have a valid certificate
 	cert, err := cm.storage.GetCertificate(domain)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check existing certificate: %w", err)
 	}
 
-	if cert != nil && time.Until(cert.NotAfter) > time.Duration(cm.renewalDays)*24*time.Hour {
+	if cert != nil && time.Until(cert.NotAfter) > time.Duration(cfg.LetsEncrypt.RenewalDays)*24*time.Hour {
 		// Certificate is still valid
 		return cert, nil
 	}
@@ -232,7 +218,8 @@ func (cm *CertManager) ObtainCertificate(domain string) (*storage.Certificate, e
 		NotAfter:    x509Cert.NotAfter,
 	}
 
-	if err := cm.storage.SaveCertificate(newCert); err != nil {
+	err = cm.storage.SaveCertificate(newCert)
+	if err != nil {
 		return nil, fmt.Errorf("failed to save certificate: %w", err)
 	}
 
@@ -248,7 +235,7 @@ func (cm *CertManager) RenewCertificate(domain string) (*storage.Certificate, er
 	}
 
 	if cert == nil {
-		return nil, fmt.Errorf("certificate not found for domain: %s", domain)
+		return nil, fmt.Errorf("certificate not found for domain '%s'", domain)
 	}
 
 	// Get or create user
@@ -279,7 +266,7 @@ func (cm *CertManager) RenewCertificate(domain string) (*storage.Certificate, er
 	// Parse the certificate to get validity dates
 	block, _ := pem.Decode(certificates.Certificate)
 	if block == nil {
-		return nil, fmt.Errorf("failed to decode certificate PEM")
+		return nil, errors.New("failed to decode certificate PEM")
 	}
 
 	x509Cert, err := x509.ParseCertificate(block.Bytes)
@@ -304,15 +291,17 @@ func (cm *CertManager) RenewCertificate(domain string) (*storage.Certificate, er
 
 // RenewExpiringCertificates renews all certificates expiring soon
 func (cm *CertManager) RenewExpiringCertificates() error {
-	certs, err := cm.storage.GetExpiringCertificates(cm.renewalDays)
+	cfg := config.Get()
+
+	certs, err := cm.storage.GetExpiringCertificates(cfg.LetsEncrypt.RenewalDays)
 	if err != nil {
 		return fmt.Errorf("failed to get expiring certificates: %w", err)
 	}
 
-	cm.logger.Info("Checking expiring certificates", "count", len(certs), "threshold_days", cm.renewalDays)
+	slog.Info("Checking expiring certificates", "count", len(certs), "threshold_days", cfg.LetsEncrypt.RenewalDays)
 
 	for _, cert := range certs {
-		domainLogger := cm.logger.With("domain", cert.Domain)
+		domainLogger := slog.With("domain", cert.Domain)
 		domainLogger.Info("Renewing certificate", "expires", cert.NotAfter)
 		_, err = cm.RenewCertificate(cert.Domain)
 		if err != nil {
