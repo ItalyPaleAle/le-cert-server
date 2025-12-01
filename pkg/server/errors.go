@@ -1,14 +1,14 @@
 package server
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 )
 
 var (
-	errStatusRecordNameEmpty = newApiError("api_status_recordname_empty", http.StatusBadRequest, "Parameter record name is empty")
-	errStatusDomainNotFound  = newApiError("api_status_domain_notfound", http.StatusNotFound, "Domain not found in the configuration")
+	errInternal         = newApiError("internal", http.StatusInternalServerError, "Internal error")
+	errInvalidBody      = newApiError("invalid_body", http.StatusBadRequest, "Invalid request body")
+	errMissingBodyParam = newApiError("missing_body_param", http.StatusBadRequest, "Missing required parameter in request body")
 )
 
 type apiError struct {
@@ -29,11 +29,11 @@ func newApiError(code string, httpStatus int, message string) *apiError {
 	}
 }
 
-func (e apiError) WriteResponse(ctx context.Context, w http.ResponseWriter) {
+func (e apiError) WriteResponse(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add(headerContentType, jsonContentType)
 	w.WriteHeader(e.httpStatus)
 
-	respondWithJSON(ctx, w, e)
+	respondWithJSON(w, r, e)
 }
 
 // Clone returns a cloned error with the data appended

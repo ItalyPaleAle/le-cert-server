@@ -2,53 +2,10 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
-
-	"github.com/italypaleale/le-cert-server/auth"
-	"github.com/italypaleale/le-cert-server/certmanager"
 )
-
-// Server represents the HTTPS API server
-type Server struct {
-	manager *certmanager.CertManager
-	auth    *auth.Authenticator
-	mux     *http.ServeMux
-}
-
-// NewServer creates a new API server
-func NewServer(manager *certmanager.CertManager, authenticator *auth.Authenticator) *Server {
-	s := &Server{
-		manager: manager,
-		auth:    authenticator,
-		mux:     http.NewServeMux(),
-	}
-
-	s.registerRoutes()
-	return s
-}
-
-// registerRoutes sets up the API routes
-func (s *Server) registerRoutes() {
-	// Health check endpoint (no auth required)
-	s.mux.HandleFunc("GET /health", s.handleHealth)
-
-	// Protected endpoints
-	s.mux.Handle("POST /api/certificate", s.auth.Middleware(http.HandlerFunc(s.handleGetCertificate)))
-	s.mux.Handle("POST /api/certificate/renew", s.auth.Middleware(http.HandlerFunc(s.handleRenewCertificate)))
-}
-
-// Handler returns the HTTP handler
-func (s *Server) Handler() http.Handler {
-	return s.mux
-}
-
-// handleHealth handles health check requests
-func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNoContent)
-}
 
 // CertificateRequest represents a certificate request
 type CertificateRequest struct {
@@ -66,25 +23,20 @@ type CertificateResponse struct {
 	Cached      bool      `json:"cached"`
 }
 
-// ErrorResponse represents an error response
-type ErrorResponse struct {
-	Error string `json:"error"`
-}
-
 // handleGetCertificate handles certificate retrieval/creation requests
 func (s *Server) handleGetCertificate(w http.ResponseWriter, r *http.Request) {
 	// Parse request
 	var req CertificateRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: "Invalid request body"})
+		errInvalidBody.WriteResponse(w, r)
 		return
 	}
 
 	if req.Domain == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: "Domain is required"})
+		errMissingBodyParam.
+			Clone(withMetadata(map[string]string{"name": "domain"})).
+			WriteResponse(w, r)
 		return
 	}
 
@@ -94,8 +46,7 @@ func (s *Server) handleGetCertificate(w http.ResponseWriter, r *http.Request) {
 	cert, err := s.manager.ObtainCertificate(req.Domain)
 	if err != nil {
 		slog.Error("Failed to obtain certificate", "domain", req.Domain, "error", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: fmt.Sprintf("Failed to obtain certificate: %v", err)})
+		errInternal.WriteResponse(w, r)
 		return
 	}
 
@@ -113,8 +64,8 @@ func (s *Server) handleGetCertificate(w http.ResponseWriter, r *http.Request) {
 		Cached:      cached,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	w.Header().Set(headerContentType, jsonContentType)
+	respondWithJSON(w, r, resp)
 }
 
 // handleRenewCertificate handles certificate renewal requests
@@ -123,14 +74,14 @@ func (s *Server) handleRenewCertificate(w http.ResponseWriter, r *http.Request) 
 	var req CertificateRequest
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: "Invalid request body"})
+		errInvalidBody.WriteResponse(w, r)
 		return
 	}
 
 	if req.Domain == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: "Domain is required"})
+		errMissingBodyParam.
+			Clone(withMetadata(map[string]string{"name": "domain"})).
+			WriteResponse(w, r)
 		return
 	}
 
@@ -140,8 +91,7 @@ func (s *Server) handleRenewCertificate(w http.ResponseWriter, r *http.Request) 
 	cert, err := s.manager.RenewCertificate(req.Domain)
 	if err != nil {
 		slog.Error("Failed to renew certificate", "domain", req.Domain, "error", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(ErrorResponse{Error: fmt.Sprintf("Failed to renew certificate: %v", err)})
+		errInternal.WriteResponse(w, r)
 		return
 	}
 
@@ -156,6 +106,6 @@ func (s *Server) handleRenewCertificate(w http.ResponseWriter, r *http.Request) 
 		Cached:      false,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	w.Header().Set(headerContentType, jsonContentType)
+	respondWithJSON(w, r, resp)
 }

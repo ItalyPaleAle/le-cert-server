@@ -58,7 +58,7 @@ func (cm *CertManager) getOrCreateUser() (*User, error) {
 	// Try to load existing credentials
 	creds, err := cm.storage.GetLECredentials(cfg.LetsEncrypt.Email)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get LE credentials: %w", err)
+		return nil, fmt.Errorf("failed to get Let's Encrypt credentials: %w", err)
 	}
 
 	var privateKey crypto.PrivateKey
@@ -70,14 +70,9 @@ func (cm *CertManager) getOrCreateUser() (*User, error) {
 			return nil, fmt.Errorf("failed to decode PEM block")
 		}
 
-		// Try PKCS#8 first, then fall back to EC format for compatibility
 		privateKey, err = x509.ParsePKCS8PrivateKey(block.Bytes)
 		if err != nil {
-			// Try EC format for backward compatibility
-			privateKey, err = x509.ParseECPrivateKey(block.Bytes)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse private key: %w", err)
-			}
+			return nil, fmt.Errorf("failed to parse private key: %w", err)
 		}
 	} else {
 		// Generate new key
@@ -258,7 +253,9 @@ func (cm *CertManager) RenewCertificate(domain string) (*storage.Certificate, er
 		IssuerCertificate: cert.IssuerCert,
 	}
 
-	certificates, err := client.Certificate.Renew(certResource, true, false, "")
+	certificates, err := client.Certificate.RenewWithOptions(certResource, &certificate.RenewOptions{
+		Bundle: true,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to renew certificate: %w", err)
 	}
@@ -303,13 +300,15 @@ func (cm *CertManager) RenewExpiringCertificates() error {
 	for _, cert := range certs {
 		domainLogger := slog.With("domain", cert.Domain)
 		domainLogger.Info("Renewing certificate", "expires", cert.NotAfter)
+
 		_, err = cm.RenewCertificate(cert.Domain)
 		if err != nil {
 			// Log error but continue with other certificates
 			domainLogger.Error("Failed to renew certificate", "error", err)
-		} else {
-			domainLogger.Info("Successfully renewed certificate")
+			continue
 		}
+
+		domainLogger.Info("Successfully renewed certificate")
 	}
 
 	return nil
