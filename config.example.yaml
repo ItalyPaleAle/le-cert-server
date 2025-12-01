@@ -1,6 +1,10 @@
 server:
-  # Address for the HTTPS API server
-  address: ":8443"
+  # Interface for the HTTPS API server
+  # Set to "0.0.0.0" for listening on all interfaces
+  bind: "127.0.0.1"
+
+  # Port for the HTTPS API server
+  port: 8443
 
   # TLS certificate and key for the server itself
   # These should be valid certificates (can be obtained from Let's Encrypt)
@@ -26,10 +30,11 @@ letsEncrypt:
 
   # For Cloudflare:
   dnsCredentials:
-    CF_API_EMAIL: "user@example.com"
-    CF_API_KEY: "your-cloudflare-api-key"
-    # OR use API token (recommended):
-    # CF_DNS_API_TOKEN: "your-cloudflare-dns-api-token"
+    # Use API token (recommended):
+    CF_DNS_API_TOKEN: "your-cloudflare-dns-api-token"
+    # Or use API key:
+    # CF_API_EMAIL: "user@example.com"
+    # CF_API_KEY: "your-cloudflare-api-key"
 
   # For AWS Route53:
   # dnsProvider: "route53"
@@ -72,7 +77,7 @@ database:
   # Path to SQLite database file
   path: "/var/lib/cert-server/certs.db"
 
-oauth2:
+auth:
   # OAuth2/OIDC issuer URL for token validation
   # This should point to your OAuth2 provider's discovery endpoint
   # Examples:
@@ -85,10 +90,6 @@ oauth2:
   # Expected audience (client ID) for token validation
   # This should match the client ID from your OAuth2 provider
   audience: "your-client-id.apps.googleusercontent.com"
-
-  # Optional: Additional allowed audiences
-  # audiences:
-  #   - "another-client-id"
 
   # Optional: Required scopes that tokens must have
   # requiredScopes:
