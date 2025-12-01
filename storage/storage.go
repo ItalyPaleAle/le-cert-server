@@ -2,7 +2,6 @@ package storage
 
 import (
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -89,14 +88,6 @@ func (s *Storage) initialize() error {
 		email TEXT UNIQUE NOT NULL,
 		key_type TEXT NOT NULL,
 		key BLOB NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-
-	CREATE TABLE IF NOT EXISTS dns_credentials (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		provider TEXT UNIQUE NOT NULL,
-		credentials TEXT NOT NULL,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
@@ -232,64 +223,6 @@ func (s *Storage) GetLECredentials(email string) (*LECredentials, error) {
 		return nil, nil
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get LE credentials: %w", err)
-	}
-
-	return creds, nil
-}
-
-// SaveDNSCredentials saves or updates DNS provider credentials
-func (s *Storage) SaveDNSCredentials(creds *DNSCredentials) error {
-	credsJSON, err := json.Marshal(creds.Credentials)
-	if err != nil {
-		return fmt.Errorf("failed to marshal DNS credentials: %w", err)
-	}
-
-	const query = `
-	INSERT INTO dns_credentials (provider, credentials, updated_at)
-	VALUES (?, ?, CURRENT_TIMESTAMP)
-	ON CONFLICT(provider) DO UPDATE SET
-		credentials = excluded.credentials,
-		updated_at = CURRENT_TIMESTAMP
-	`
-
-	result, err := s.db.Exec(query, creds.Provider, string(credsJSON))
-	if err != nil {
-		return fmt.Errorf("failed to save DNS credentials: %w", err)
-	}
-
-	if creds.ID == 0 {
-		id, err := result.LastInsertId()
-		if err == nil {
-			creds.ID = id
-		}
-	}
-
-	return nil
-}
-
-// GetDNSCredentials retrieves DNS provider credentials
-func (s *Storage) GetDNSCredentials(provider string) (*DNSCredentials, error) {
-	const query = `
-	SELECT id, provider, credentials, created_at, updated_at
-	FROM dns_credentials
-	WHERE provider = ?
-	`
-
-	var credsJSON string
-	creds := &DNSCredentials{}
-	err := s.db.
-		QueryRow(query, provider).
-		Scan(&creds.ID, &creds.Provider, &credsJSON, &creds.CreatedAt, &creds.UpdatedAt)
-
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	} else if err != nil {
-		return nil, fmt.Errorf("failed to get DNS credentials: %w", err)
-	}
-
-	err = json.Unmarshal([]byte(credsJSON), &creds.Credentials)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal DNS credentials: %w", err)
 	}
 
 	return creds, nil
