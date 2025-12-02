@@ -12,11 +12,11 @@ import (
 	"github.com/italypaleale/le-cert-server/pkg/config"
 	appmetrics "github.com/italypaleale/le-cert-server/pkg/metrics"
 	"github.com/italypaleale/le-cert-server/pkg/server"
+	"github.com/italypaleale/le-cert-server/pkg/storage"
 	"github.com/italypaleale/le-cert-server/pkg/utils"
 	"github.com/italypaleale/le-cert-server/pkg/utils/logging"
 	"github.com/italypaleale/le-cert-server/pkg/utils/servicerunner"
 	"github.com/italypaleale/le-cert-server/pkg/utils/signals"
-	"github.com/italypaleale/le-cert-server/storage"
 )
 
 func main() {

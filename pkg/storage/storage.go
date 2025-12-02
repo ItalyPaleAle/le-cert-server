@@ -20,7 +20,7 @@ import (
 )
 
 // Storage uses a JSON-based SQL convention where each table has a single concrete
-// Data JSONB column, with all other columns generated from it. The SQL column
+// Data JSON column, with all other columns generated from it. The SQL column
 // constraints act as dynamic checks on the quality of the JSON data.
 
 //go:embed migrations
@@ -159,7 +159,7 @@ func (s *Storage) Run(ctx context.Context) error {
 func (s *Storage) SaveCertificate(cert *Certificate) error {
 	const query = `
 	INSERT INTO certificates (data)
-	VALUES (jsonb(?))
+	VALUES (json(?))
 	ON CONFLICT(domain) DO UPDATE SET
 		data = excluded.data
 	`
@@ -262,7 +262,7 @@ func (s *Storage) GetExpiringCertificates(days int) ([]*Certificate, error) {
 func (s *Storage) SaveLECredentials(creds *LECredentials) error {
 	const query = `
 	INSERT INTO le_credentials (data)
-	VALUES (jsonb(?))
+	VALUES (json(?))
 	ON CONFLICT(email) DO UPDATE SET
 		data = excluded.data
 	`

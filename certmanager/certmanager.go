@@ -16,8 +16,9 @@ import (
 	"github.com/go-acme/lego/v4/certificate"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
+
 	"github.com/italypaleale/le-cert-server/pkg/config"
-	"github.com/italypaleale/le-cert-server/storage"
+	"github.com/italypaleale/le-cert-server/pkg/storage"
 )
 
 // CertManager handles certificate acquisition and renewal
@@ -76,31 +77,9 @@ func (cm *CertManager) getOrCreateUser() (*User, error) {
 		}
 	} else {
 		// Generate new key
-		privateKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		privateKey, err = cm.generateNewKey(cfg.LetsEncrypt.Email)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate private key: %w", err)
-		}
-
-		// Save the key using PKCS#8 format
-		keyBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal private key: %w", err)
-		}
-
-		keyPEM := pem.EncodeToMemory(&pem.Block{
-			Type:  "PRIVATE KEY",
-			Bytes: keyBytes,
-		})
-
-		newCreds := &storage.LECredentials{
-			Email:   cfg.LetsEncrypt.Email,
-			KeyType: "P256",
-			Key:     keyPEM,
-		}
-
-		err = cm.storage.SaveLECredentials(newCreds)
-		if err != nil {
-			return nil, fmt.Errorf("failed to save LE credentials: %w", err)
+			return nil, fmt.Errorf("failed to generate LE key: %w", err)
 		}
 	}
 
@@ -110,6 +89,38 @@ func (cm *CertManager) getOrCreateUser() (*User, error) {
 	}
 
 	return user, nil
+}
+
+func (cm *CertManager) generateNewKey(email string) (privateKey crypto.PrivateKey, err error) {
+	// Generate new key
+	privateKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate private key: %w", err)
+	}
+
+	// Save the key using PKCS#8 format
+	keyBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal private key: %w", err)
+	}
+
+	keyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: keyBytes,
+	})
+
+	newCreds := &storage.LECredentials{
+		Email:   email,
+		KeyType: "P256",
+		Key:     keyPEM,
+	}
+
+	err = cm.storage.SaveLECredentials(newCreds)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save LE credentials: %w", err)
+	}
+
+	return privateKey, nil
 }
 
 // createLegoClient creates a lego ACME client
@@ -133,7 +144,9 @@ func (cm *CertManager) createLegoClient(user *User) (*lego.Client, error) {
 
 	// Register if needed
 	if user.Registration == nil {
-		reg, err := client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
+		reg, err := client.Registration.Register(registration.RegisterOptions{
+			TermsOfServiceAgreed: true,
+		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to register: %w", err)
 		}
