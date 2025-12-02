@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -18,6 +19,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// Storage uses a JSON-based SQL convention where each table has a single concrete
+// Data JSONB column, with all other columns generated from it. The SQL column
+// constraints act as dynamic checks on the quality of the JSON data.
+
 //go:embed migrations
 var migrationScripts embed.FS
 
@@ -29,25 +34,25 @@ type Storage struct {
 
 // Certificate represents a stored TLS certificate
 type Certificate struct {
-	ID          int64
-	Domain      string
-	Certificate []byte
-	PrivateKey  []byte
-	IssuerCert  []byte
-	NotBefore   time.Time
-	NotAfter    time.Time
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID          int64     `json:"-"`
+	Domain      string    `json:"domain"`
+	Certificate []byte    `json:"certificate"`
+	PrivateKey  []byte    `json:"private_key"`
+	IssuerCert  []byte    `json:"issuer_cert,omitempty"`
+	NotBefore   time.Time `json:"not_before"`
+	NotAfter    time.Time `json:"not_after"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // LECredentials represents stored Let's Encrypt credentials
 type LECredentials struct {
-	ID        int64
-	Email     string
-	KeyType   string
-	Key       []byte
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID        int64     `json:"-"`
+	Email     string    `json:"email"`
+	KeyType   string    `json:"key_type"`
+	Key       []byte    `json:"key"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // DNSCredentials represents stored DNS provider credentials
@@ -153,18 +158,26 @@ func (s *Storage) Run(ctx context.Context) error {
 // SaveCertificate saves or updates a certificate
 func (s *Storage) SaveCertificate(cert *Certificate) error {
 	const query = `
-	INSERT INTO certificates (domain, certificate, private_key, issuer_cert, not_before, not_after, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+	INSERT INTO certificates (data)
+	VALUES (jsonb(?))
 	ON CONFLICT(domain) DO UPDATE SET
-		certificate = excluded.certificate,
-		private_key = excluded.private_key,
-		issuer_cert = excluded.issuer_cert,
-		not_before = excluded.not_before,
-		not_after = excluded.not_after,
-		updated_at = CURRENT_TIMESTAMP
+		data = excluded.data
 	`
 
-	result, err := s.db.Exec(query, cert.Domain, cert.Certificate, cert.PrivateKey, cert.IssuerCert, cert.NotBefore, cert.NotAfter)
+	// Set timestamps
+	now := time.Now()
+	if cert.CreatedAt.IsZero() {
+		cert.CreatedAt = now
+	}
+	cert.UpdatedAt = now
+
+	// Marshal certificate to JSON
+	jsonData, err := json.Marshal(cert)
+	if err != nil {
+		return fmt.Errorf("failed to marshal certificate: %w", err)
+	}
+
+	result, err := s.db.Exec(query, jsonData)
 	if err != nil {
 		return fmt.Errorf("failed to save certificate: %w", err)
 	}
@@ -182,20 +195,28 @@ func (s *Storage) SaveCertificate(cert *Certificate) error {
 // GetCertificate retrieves a certificate by domain
 func (s *Storage) GetCertificate(domain string) (*Certificate, error) {
 	const query = `
-	SELECT id, domain, certificate, private_key, issuer_cert, not_before, not_after, created_at, updated_at
+	SELECT id, data
 	FROM certificates
 	WHERE domain = ?
 	`
 
-	cert := &Certificate{}
+	var id int64
+	var jsonData []byte
 	err := s.db.
 		QueryRow(query, domain).
-		Scan(&cert.ID, &cert.Domain, &cert.Certificate, &cert.PrivateKey, &cert.IssuerCert, &cert.NotBefore, &cert.NotAfter, &cert.CreatedAt, &cert.UpdatedAt)
+		Scan(&id, &jsonData)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get certificate: %w", err)
+	}
+
+	// Unmarshal JSON data
+	cert := &Certificate{ID: id}
+	err = json.Unmarshal(jsonData, cert)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal certificate data: %w", err)
 	}
 
 	return cert, nil
@@ -204,9 +225,9 @@ func (s *Storage) GetCertificate(domain string) (*Certificate, error) {
 // GetExpiringCertificates retrieves certificates expiring within the specified days
 func (s *Storage) GetExpiringCertificates(days int) ([]*Certificate, error) {
 	const query = `
-	SELECT id, domain, certificate, private_key, issuer_cert, not_before, not_after, created_at, updated_at
+	SELECT id, data
 	FROM certificates
-	WHERE not_after <= datetime('now', '+' || ? || ' days')
+	WHERE not_after <= unixepoch('now', '+' || ? || ' days')
 	`
 
 	rows, err := s.db.Query(query, days)
@@ -217,11 +238,20 @@ func (s *Storage) GetExpiringCertificates(days int) ([]*Certificate, error) {
 
 	var certs []*Certificate
 	for rows.Next() {
-		cert := &Certificate{}
-		err := rows.Scan(&cert.ID, &cert.Domain, &cert.Certificate, &cert.PrivateKey, &cert.IssuerCert, &cert.NotBefore, &cert.NotAfter, &cert.CreatedAt, &cert.UpdatedAt)
+		var id int64
+		var jsonData []byte
+		err = rows.Scan(&id, &jsonData)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan certificate: %w", err)
 		}
+
+		// Unmarshal JSON data
+		cert := &Certificate{ID: id}
+		err = json.Unmarshal(jsonData, cert)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal certificate data: %w", err)
+		}
+
 		certs = append(certs, cert)
 	}
 
@@ -231,15 +261,26 @@ func (s *Storage) GetExpiringCertificates(days int) ([]*Certificate, error) {
 // SaveLECredentials saves or updates Let's Encrypt credentials
 func (s *Storage) SaveLECredentials(creds *LECredentials) error {
 	const query = `
-	INSERT INTO le_credentials (email, key_type, key, updated_at)
-	VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+	INSERT INTO le_credentials (data)
+	VALUES (jsonb(?))
 	ON CONFLICT(email) DO UPDATE SET
-		key_type = excluded.key_type,
-		key = excluded.key,
-		updated_at = CURRENT_TIMESTAMP
+		data = excluded.data
 	`
 
-	result, err := s.db.Exec(query, creds.Email, creds.KeyType, creds.Key)
+	// Set timestamps
+	now := time.Now()
+	if creds.CreatedAt.IsZero() {
+		creds.CreatedAt = now
+	}
+	creds.UpdatedAt = now
+
+	// Marshal credentials to JSON
+	jsonData, err := json.Marshal(creds)
+	if err != nil {
+		return fmt.Errorf("failed to marshal LE credentials: %w", err)
+	}
+
+	result, err := s.db.Exec(query, jsonData)
 	if err != nil {
 		return fmt.Errorf("failed to save LE credentials: %w", err)
 	}
@@ -257,20 +298,26 @@ func (s *Storage) SaveLECredentials(creds *LECredentials) error {
 // GetLECredentials retrieves Let's Encrypt credentials by email
 func (s *Storage) GetLECredentials(email string) (*LECredentials, error) {
 	const query = `
-	SELECT id, email, key_type, key, created_at, updated_at
+	SELECT id, data
 	FROM le_credentials
 	WHERE email = ?
 	`
 
-	creds := &LECredentials{}
-	err := s.db.
-		QueryRow(query, email).
-		Scan(&creds.ID, &creds.Email, &creds.KeyType, &creds.Key, &creds.CreatedAt, &creds.UpdatedAt)
+	var id int64
+	var jsonData []byte
+	err := s.db.QueryRow(query, email).Scan(&id, &jsonData)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get LE credentials: %w", err)
+	}
+
+	// Unmarshal JSON data
+	creds := &LECredentials{ID: id}
+	err = json.Unmarshal(jsonData, creds)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal LE credentials data: %w", err)
 	}
 
 	return creds, nil

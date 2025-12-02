@@ -1,23 +1,17 @@
+-- SQL Convention: Each table has a single concrete Data JSON column, all other columns are generated from it. This acts as a poor man's ORM
+
 CREATE TABLE certificates (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	domain TEXT UNIQUE NOT NULL,
-	certificate BLOB NOT NULL,
-	private_key BLOB NOT NULL,
-	issuer_cert BLOB,
-	not_before DATETIME NOT NULL,
-	not_after DATETIME NOT NULL,
-	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-	updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	domain     TEXT NOT NULL AS (data->>'domain') STORED UNIQUE,
+	not_after  INTEGER NOT NULL AS (unixepoch(data->>'not_after')) STORED,
+	data       JSONB NOT NULL
 );
 
 CREATE INDEX idx_certificates_domain ON certificates(domain);
 CREATE INDEX idx_certificates_not_after ON certificates(not_after);
 
 CREATE TABLE le_credentials (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	email TEXT UNIQUE NOT NULL,
-	key_type TEXT NOT NULL,
-	key BLOB NOT NULL,
-	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-	updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	id         INTEGER PRIMARY KEY AUTOINCREMENT,
+	email      TEXT NOT NULL AS (data->>'email') STORED UNIQUE,
+	data       JSONB NOT NULL
 );
