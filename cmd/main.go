@@ -82,10 +82,15 @@ func main() {
 	log.Info("Initializing database", "path", cfg.Database.Path)
 	store, err := storage.NewStorage(cfg.Database.Path)
 	if err != nil {
+		utils.FatalError(log, "Failed to create storage", err)
+		return
+	}
+	err = store.Init(ctx)
+	if err != nil {
 		utils.FatalError(log, "Failed to init storage", err)
 		return
 	}
-	defer store.Close()
+	services = append(services, store.Run)
 
 	// Create certificate manager
 	log.Info("Initializing certificate manager")
@@ -103,8 +108,7 @@ func main() {
 	// Start certificate renewal scheduler
 	log.Info("Starting certificate renewal scheduler", "interval", "12h")
 	scheduler := certmanager.NewScheduler(certMgr, 12*time.Hour)
-	go scheduler.Start()
-	defer scheduler.Stop()
+	services = append(services, scheduler.Run)
 
 	// Create authenticator
 	log.Info("Initializing OAuth2 authenticator", "issuer", cfg.Auth.IssuerURL)

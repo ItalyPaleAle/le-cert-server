@@ -1,13 +1,15 @@
 module github.com/italypaleale/le-cert-server
 
-go 1.25
+go 1.25.4
 
 require (
 	github.com/go-acme/lego/v4 v4.28.1
 	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/italypaleale/go-sql-utils v0.1.0
 	github.com/lmittmann/tint v1.1.2
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/samber/slog-http v1.9.0
 	github.com/spf13/cast v1.7.0
 	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/contrib/bridges/otelslog v0.13.0
@@ -174,7 +176,6 @@ require (
 	github.com/sacloud/packages-go v0.0.11 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
-	github.com/samber/slog-http v1.9.0 // indirect
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.35 // indirect
 	github.com/selectel/domains-go v1.1.0 // indirect
 	github.com/selectel/go-selvpcclient/v4 v4.1.0 // indirect

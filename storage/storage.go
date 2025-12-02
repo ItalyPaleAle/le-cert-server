@@ -1,17 +1,30 @@
 package storage
 
 import (
+	"context"
 	"database/sql"
+	"embed"
 	"errors"
 	"fmt"
+	"log/slog"
+	"path/filepath"
+	"slices"
+	"sync/atomic"
 	"time"
+
+	"github.com/italypaleale/go-sql-utils/migrations"
+	sqlitemigrations "github.com/italypaleale/go-sql-utils/migrations/sqlite"
 
 	_ "modernc.org/sqlite"
 )
 
+//go:embed migrations
+var migrationScripts embed.FS
+
 // Storage handles certificate and credential persistence
 type Storage struct {
-	db *sql.DB
+	db      *sql.DB
+	running atomic.Bool
 }
 
 // Certificate represents a stored TLS certificate
@@ -56,50 +69,85 @@ func NewStorage(dbPath string) (*Storage, error) {
 	storage := &Storage{
 		db: db,
 	}
-	err = storage.initialize()
-	if err != nil {
-		db.Close()
-		return nil, fmt.Errorf("failed to initialize database: %w", err)
-	}
 
 	return storage, nil
 }
 
-// initialize creates the database schema
-func (s *Storage) initialize() error {
-	const schema = `
-	CREATE TABLE IF NOT EXISTS certificates (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		domain TEXT UNIQUE NOT NULL,
-		certificate BLOB NOT NULL,
-		private_key BLOB NOT NULL,
-		issuer_cert BLOB,
-		not_before DATETIME NOT NULL,
-		not_after DATETIME NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
+func (s *Storage) Init(ctx context.Context) error {
+	// Perform schema migrations
+	err := s.performMigrations(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to perform schema migrations: %w", err)
+	}
 
-	CREATE INDEX IF NOT EXISTS idx_certificates_domain ON certificates(domain);
-	CREATE INDEX IF NOT EXISTS idx_certificates_not_after ON certificates(not_after);
-
-	CREATE TABLE IF NOT EXISTS le_credentials (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		email TEXT UNIQUE NOT NULL,
-		key_type TEXT NOT NULL,
-		key BLOB NOT NULL,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-	);
-	`
-
-	_, err := s.db.Exec(schema)
-	return err
+	return nil
 }
 
-// Close closes the database connection
-func (s *Storage) Close() error {
-	return s.db.Close()
+func (s *Storage) performMigrations(ctx context.Context) error {
+	log := slog.Default()
+
+	m := sqlitemigrations.Migrations{
+		Pool:              s.db,
+		MetadataTableName: "metadata",
+		MetadataKey:       "migrations-version",
+	}
+
+	// Get all migration scripts
+	entries, err := migrationScripts.ReadDir("migrations")
+	if err != nil {
+		return fmt.Errorf("error while loading migration scripts: %w", err)
+	}
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() {
+			// Should not happen...
+			continue
+		}
+		names = append(names, e.Name())
+	}
+	slices.Sort(names)
+
+	migrationFns := make([]migrations.MigrationFn, len(entries))
+	for i, e := range names {
+		data, err := migrationScripts.ReadFile(filepath.Join("migrations", e))
+		if err != nil {
+			return fmt.Errorf("error reading migration script '%s': %w", e, err)
+		}
+
+		migrationFns[i] = func(ctx context.Context) error {
+			log.InfoContext(ctx, "Performing SQLite database migration", slog.String("migration", e))
+			_, err := m.GetConn().ExecContext(ctx, string(data))
+			if err != nil {
+				return fmt.Errorf("failed to perform migration '%s': %w", e, err)
+			}
+			return nil
+		}
+	}
+
+	// Execute the migrations
+	err = m.Perform(ctx, migrationFns, log)
+	if err != nil {
+		return fmt.Errorf("migrations failed with error: %w", err)
+	}
+
+	return nil
+}
+
+func (s *Storage) Run(ctx context.Context) error {
+	if !s.running.CompareAndSwap(false, true) {
+		return errors.New("already running")
+	}
+
+	// Wait for the context to be canceled
+	<-ctx.Done()
+
+	// Close the connection
+	err := s.db.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close database connection: %w", err)
+	}
+
+	return nil
 }
 
 // SaveCertificate saves or updates a certificate
