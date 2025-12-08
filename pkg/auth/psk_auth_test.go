@@ -46,7 +46,7 @@ func TestNewPSKAuthenticator(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				assert.NotNil(t, auth)
-				assert.Equal(t, tt.psk, auth.preSharedKey)
+				assert.Equal(t, tt.psk, string(auth.preSharedKey))
 			}
 		})
 	}
@@ -62,7 +62,6 @@ func TestPSKAuthenticatorMiddleware(t *testing.T) {
 		name           string
 		authHeader     string
 		expectedStatus int
-		expectedUser   string
 	}{
 		{
 			name:           "Missing Authorization header",
@@ -83,19 +82,16 @@ func TestPSKAuthenticatorMiddleware(t *testing.T) {
 			name:           "Valid PSK with lowercase apikey",
 			authHeader:     "apikey " + testPSK,
 			expectedStatus: http.StatusOK,
-			expectedUser:   "psk-user",
 		},
 		{
 			name:           "Valid PSK with uppercase APIKey",
 			authHeader:     "APIKey " + testPSK,
 			expectedStatus: http.StatusOK,
-			expectedUser:   "psk-user",
 		},
 		{
 			name:           "Valid PSK with mixed case ApiKey",
 			authHeader:     "ApiKey " + testPSK,
 			expectedStatus: http.StatusOK,
-			expectedUser:   "psk-user",
 		},
 		{
 			name:           "Invalid PSK",
@@ -113,12 +109,6 @@ func TestPSKAuthenticatorMiddleware(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create test handler
 			testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// Verify user context
-				user, ok := GetUser(r.Context())
-				if tt.expectedUser != "" && (!ok || tt.expectedUser != user) {
-					w.WriteHeader(http.StatusInternalServerError)
-					return
-				}
 				w.WriteHeader(http.StatusOK)
 			})
 

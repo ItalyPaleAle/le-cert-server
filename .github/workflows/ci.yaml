@@ -34,24 +34,6 @@ jobs:
           # Use cache from golangci-lint
           cache: false
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          package_json_file: 'dashboard/package.json'
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: '.node-version'
-          cache: 'pnpm'
-          cache-dependency-path: 'dashboard/pnpm-lock.yaml'
-
-      - name: Build dashboard
-        working-directory: dashboard
-        run: |
-          pnpm install
-          pnpm build
-
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
