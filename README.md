@@ -6,13 +6,9 @@ A Go application that manages Let's Encrypt TLS certificates using DNS-01 challe
 
 - **Automated Certificate Management**: Obtains and renews Let's Encrypt certificates using the DNS-01 challenge
 - **Universal DNS Provider Support**: Supports **all DNS providers** supported by lego (100+ providers including Cloudflare, AWS Route53, Google Cloud DNS, Azure, GoDaddy, Namecheap, and many more)
-- **SQLite Storage**: Certificates and Let's Encrypt credentials are stored in a SQLite database
-- **HTTPS API**: RESTful API for requesting certificates
 - **OAuth2/OIDC Authentication**: Secure API access using OAuth2/OIDC bearer tokens with automatic JWKS discovery
-- **Structured Logging**: JSON-formatted structured logging using slog
 - **Automatic Renewal**: Background scheduler checks and renews certificates before expiration
 - **Certificate Caching**: Returns cached certificates if still valid
-
 
 ## Installation
 
@@ -252,19 +248,6 @@ curl -X POST https://localhost:8443/api/certificate/renew \
   -d '{"domain": "example.com"}'
 ```
 
-## Certificate Storage
-
-Certificates are stored in SQLite with the following information:
-
-- Domain name
-- Certificate (PEM format)
-- Private key (PEM format, PKCS#8)
-- Issuer certificate
-- Validity period (notBefore, notAfter)
-- Creation and update timestamps
-
-Let's Encrypt account credentials are also stored securely in the database.
-
 ## Automatic Renewal
 
 The server runs a background scheduler that:
@@ -286,60 +269,6 @@ The server runs a background scheduler that:
 ```bash
 openssl rand -base64 32
 ```
-
-### Generating Self-Signed Certificates (for testing)
-
-```bash
-openssl req -x509 -newkey rsa:4096 -keyout server.key -out server.crt \
-  -days 365 -nodes -subj "/CN=localhost"
-```
-
-## Development
-
-### Running Tests
-
-```bash
-go test ./...
-```
-
-### Adding DNS Providers
-
-To add support for additional DNS providers:
-
-1. Import the provider in [certmanager/dnsprovider.go](certmanager/dnsprovider.go)
-2. Add a case in the `createDNSProvider()` switch statement
-3. Update the configuration example and documentation
-
-Example:
-
-```go
-import "github.com/go-acme/lego/v4/providers/dns/yourprovider"
-
-case "yourprovider":
-    provider, err = yourprovider.NewDNSProvider()
-```
-
-See the [Lego DNS providers documentation](https://go-acme.github.io/lego/dns/) for a complete list of supported providers.
-
-## Troubleshooting
-
-### Certificate Acquisition Fails
-
-- Verify DNS provider credentials are correct
-- Check that the domain's DNS is managed by the configured provider
-- Ensure the server can make outbound HTTPS requests
-- Check Let's Encrypt rate limits (use staging for testing)
-- For DNS-01 challenge, ensure DNS records can be created and are publicly accessible
-
-### Database Errors
-
-- Ensure the database path directory exists and is writable
-- Check file permissions on the database file
-
-### Authentication Errors
-
-- Verify the bearer token matches the configuration
-- Check that the Authorization header is properly formatted: `Bearer <token>`
 
 ## API Client Examples
 
@@ -446,53 +375,6 @@ echo "Certificate saved to certificate.pem"
 echo "Private key saved to private_key.pem"
 ```
 
-## Project Structure Details
-
-### Storage Layer ([storage/storage.go](storage/storage.go))
-
-Manages SQLite database operations for:
-- Certificates (domain, PEM-encoded cert and key, validity dates)
-- Let's Encrypt credentials (email, private key in PKCS#8 format)
-- DNS provider credentials (encrypted storage)
-
-### Certificate Manager ([certmanager/certmanager.go](certmanager/certmanager.go))
-
-Handles:
-- Let's Encrypt account creation and registration
-- Certificate acquisition via DNS-01 challenge
-- Certificate renewal logic
-- Integration with lego ACME library
-
-### DNS Providers ([certmanager/dnsprovider.go](certmanager/dnsprovider.go))
-
-Factory function for creating DNS challenge providers:
-- Cloudflare
-- AWS Route53
-- DigitalOcean
-- ACME-DNS
-- Azure DNS
-
-### Scheduler ([certmanager/scheduler.go](certmanager/scheduler.go))
-
-Background service that:
-- Runs periodic checks (every 12 hours)
-- Identifies expiring certificates
-- Triggers automatic renewal
-
-### HTTP Server ([server/server.go](server/server.go))
-
-REST API endpoints:
-- `GET /health` - Health check (no auth)
-- `POST /api/certificate` - Request or retrieve cached certificate
-- `POST /api/certificate/renew` - Force certificate renewal
-
-### Authentication ([auth/auth.go](auth/auth.go))
-
-OAuth2 bearer token middleware:
-- Validates Authorization header
-- Protects API endpoints
-- Extensible for JWT validation
-
 ## Production Deployment
 
 ### Systemd Service
@@ -556,11 +438,3 @@ docker run -d -p 8443:8443 \
 ## License
 
 MIT License - See LICENSE file for details
-
-## References
-
-- [Let's Encrypt Documentation](https://letsencrypt.org/docs/)
-- [Lego ACME Library](https://go-acme.github.io/lego/)
-- [Lego DNS Providers](https://go-acme.github.io/lego/dns/)
-- [DNS-01 Challenge](https://letsencrypt.org/docs/challenge-types/#dns-01-challenge)
-- [ACME Protocol (RFC 8555)](https://tools.ietf.org/html/rfc8555)
