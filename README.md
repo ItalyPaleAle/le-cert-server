@@ -233,7 +233,7 @@ Any OAuth2/OIDC compliant provider is supported:
 #### Example: Google OAuth2
 
 ```yaml
-oauth2:
+auth:
   issuerUrl: "https://accounts.google.com"
   audience: "123456789-abcdefgh.apps.googleusercontent.com"
 ```
@@ -246,7 +246,7 @@ oauth2:
 #### Example: Auth0
 
 ```yaml
-oauth2:
+auth:
   issuerUrl: "https://your-tenant.auth0.com"
   audience: "https://cert-server-api"
   requiredScopes:
@@ -257,7 +257,7 @@ oauth2:
 #### Example: Azure AD
 
 ```yaml
-oauth2:
+auth:
   issuerUrl: "https://login.microsoftonline.com/your-tenant-id/v2.0"
   audience: "api://cert-server"
 ```
