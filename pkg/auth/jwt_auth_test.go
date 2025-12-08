@@ -160,7 +160,7 @@ func TestAuthenticatorMiddleware(t *testing.T) {
 	}
 
 	// Create authenticator with mock client
-	auth := &Authenticator{
+	auth := &JWTAuthenticator{
 		issuerURL:      issuerURL,
 		audience:       audience,
 		requiredScopes: requiredScopes,
@@ -317,7 +317,7 @@ func TestValidateScopes(t *testing.T) {
 	)
 
 	// Create authenticator
-	auth := &Authenticator{
+	auth := &JWTAuthenticator{
 		issuerURL:      issuerURL,
 		audience:       audience,
 		requiredScopes: []string{"read", "write"},
@@ -400,7 +400,7 @@ func TestGetClaimFunctions(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create context with token
-	ctx := context.Background()
+	ctx := t.Context()
 	ctx = context.WithValue(ctx, claimsContextKey{}, token)
 	ctx = context.WithValue(ctx, userContextKey{}, "user123")
 
@@ -410,8 +410,7 @@ func TestGetClaimFunctions(t *testing.T) {
 		assert.Equal(t, "user123", user)
 
 		// Test with empty context
-		emptyCtx := context.Background()
-		user, ok = GetUser(emptyCtx)
+		user, ok = GetUser(t.Context())
 		assert.False(t, ok)
 		assert.Empty(t, user)
 	})
@@ -422,15 +421,13 @@ func TestGetClaimFunctions(t *testing.T) {
 		assert.NotNil(t, claims)
 
 		// Test with empty context
-		emptyCtx := context.Background()
-		claims, ok = GetClaims(emptyCtx)
+		claims, ok = GetClaims(t.Context())
 		assert.False(t, ok)
 		assert.Nil(t, claims)
 	})
 }
 
 func TestDiscoverJWKS(t *testing.T) {
-	ctx := context.Background()
 	issuerURL := "https://auth.example.com"
 
 	tests := []struct {
@@ -492,12 +489,12 @@ func TestDiscoverJWKS(t *testing.T) {
 				},
 			}
 
-			auth := &Authenticator{
+			auth := &JWTAuthenticator{
 				issuerURL:  issuerURL,
 				httpClient: &http.Client{Transport: mockRT},
 			}
 
-			jwksURL, err := auth.discoverJWKS(ctx)
+			jwksURL, err := auth.discoverJWKS(t.Context())
 			if tt.expectError {
 				require.Error(t, err)
 			} else {
@@ -509,7 +506,6 @@ func TestDiscoverJWKS(t *testing.T) {
 }
 
 func TestExpiredToken(t *testing.T) {
-	ctx := context.Background()
 	issuerURL := "https://auth.example.com"
 	audience := "test-audience"
 
@@ -519,7 +515,7 @@ func TestExpiredToken(t *testing.T) {
 	jwks := createTestJWKS(t, kid, publicKey)
 
 	// Create authenticator with mocked JWKS
-	auth := &Authenticator{
+	auth := &JWTAuthenticator{
 		issuerURL: issuerURL,
 		audience:  audience,
 		keySet:    jwks,
@@ -547,7 +543,7 @@ func TestExpiredToken(t *testing.T) {
 	require.NoError(t, err)
 
 	// Validate should fail due to expiration
-	_, err = auth.validateToken(ctx, string(signedToken))
+	_, err = auth.validateToken(t.Context(), string(signedToken))
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "exp")
+	require.ErrorContains(t, err, "exp")
 }

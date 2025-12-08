@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"reflect"
 )
 
 // Config represents the application configuration
@@ -97,6 +98,17 @@ type ConfigDatabase struct {
 
 // ConfigAuth holds auth configuration
 type ConfigAuth struct {
+	// JWT authentication configuration
+	// One and only one of `jwt` or `psk` must be set
+	JWT *ConfigAuthJWT `yaml:"jwt,omitempty"`
+
+	// PSK (Pre-Shared Key) authentication configuration
+	// One and only one of `jwt` or `psk` must be set
+	PSK *ConfigAuthPSK `yaml:"psk,omitempty"`
+}
+
+// ConfigAuthJWT holds JWT/OAuth2 authentication configuration
+type ConfigAuthJWT struct {
 	// OAuth2 issuer URL for token validation (OIDC discovery endpoint)
 	// Example: "https://accounts.google.com" or "https://login.microsoftonline.com/{tenant}/v2.0"
 	IssuerURL string `yaml:"issuerUrl"`
@@ -106,6 +118,12 @@ type ConfigAuth struct {
 
 	// Required scopes (optional)
 	RequiredScopes []string `yaml:"requiredScopes,omitempty"`
+}
+
+// ConfigAuthPSK holds pre-shared key authentication configuration
+type ConfigAuthPSK struct {
+	// Pre-shared key for authentication (minimum 16 characters)
+	Key string `yaml:"key"`
 }
 
 // ConfigDev includes options using during development only
@@ -150,17 +168,59 @@ func (c *Config) Validate(logger *slog.Logger) error {
 		return errors.New("configuration option 'server.port' is required")
 	}
 	if c.LetsEncrypt.Email == "" {
-		return errors.New("configuration option 'letLetsEncrypt.Email' is required")
+		return errors.New("configuration option 'letsEncrypt.email' is required")
 	}
 	if c.LetsEncrypt.DNSProvider == "" {
-		return errors.New("configuration option 'letLetsEncrypt.DNSProvider' is required")
+		return errors.New("configuration option 'letsEncrypt.dnsProvider' is required")
 	}
-	if c.Auth.IssuerURL == "" {
-		return errors.New("configuration option 'auth.issuerURL' is required")
+
+	// Validate auth configuration based on type
+	if countSetProperties(c.Auth) != 1 {
+		return errors.New("configuration section 'auth' must contain one and only one of 'jwt' or 'psk'")
 	}
-	if c.Auth.Audience == "" {
-		return errors.New("configuration option 'auth.audience' is required")
+
+	switch {
+	case c.Auth.JWT != nil:
+		if c.Auth.JWT.IssuerURL == "" {
+			return errors.New("configuration option 'auth.jwt.issuerURL' is required when using JWT authentication")
+		}
+		if c.Auth.JWT.Audience == "" {
+			return errors.New("configuration option 'auth.jwt.audience' is required when using JWT authentication")
+		}
+	case c.Auth.PSK != nil:
+		if c.Auth.PSK.Key == "" {
+			return errors.New("configuration option 'auth.psk.key' is required when using PSK authentication")
+		}
+		if len(c.Auth.PSK.Key) < 16 {
+			return errors.New("configuration option 'auth.psk.key' must be at least 16 characters long")
+		}
+	default:
+		return errors.New("configuration section 'auth' must contain one and only one of 'jwt' or 'psk'")
 	}
 
 	return nil
+}
+
+func countSetProperties(s any) int {
+	typ := reflect.TypeOf(s)
+	val := reflect.ValueOf(s)
+
+	if typ.Kind() == reflect.Pointer {
+		typ = typ.Elem()
+		val = val.Elem()
+	}
+	if typ.Kind() != reflect.Struct {
+		// Indicates a development-time error
+		panic("param must be a struct")
+	}
+
+	var count int
+	for i := range val.NumField() {
+		field := val.Field(i)
+		if field.IsValid() && !field.IsZero() {
+			count++
+		}
+	}
+
+	return count
 }

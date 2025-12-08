@@ -101,11 +101,26 @@ func main() {
 	scheduler := certmanager.NewScheduler(certMgr, renewalSchedulerInterval)
 	services = append(services, scheduler.Run)
 
-	// Create authenticator
-	log.Info("Initializing OAuth2 authenticator", slog.String("issuer", cfg.Auth.IssuerURL))
-	authenticator, err := auth.NewAuthenticator(ctx, cfg.Auth.IssuerURL, cfg.Auth.Audience, cfg.Auth.RequiredScopes)
-	if err != nil {
-		utils.FatalError(log, "Failed to init OAuth2 authenticator", err)
+	// Create authenticator based on config type
+	var authenticator auth.Authenticator
+	switch {
+	case cfg.Auth.JWT != nil:
+		log.Info("Initializing JWT authenticator", slog.String("issuer", cfg.Auth.JWT.IssuerURL))
+		authenticator, err = auth.NewJWTAuthenticator(ctx, cfg.Auth.JWT.IssuerURL, cfg.Auth.JWT.Audience, cfg.Auth.JWT.RequiredScopes)
+		if err != nil {
+			utils.FatalError(log, "Failed to init JWT authenticator", err)
+			return
+		}
+	case cfg.Auth.PSK != nil:
+		log.Info("Initializing PSK authenticator")
+		authenticator, err = auth.NewPSKAuthenticator(cfg.Auth.PSK.Key)
+		if err != nil {
+			utils.FatalError(log, "Failed to init PSK authenticator", err)
+			return
+		}
+	default:
+		// Should never happen at this stage
+		utils.FatalError(log, "Invalid auth configuration", errors.New("missing auth configuration"))
 		return
 	}
 

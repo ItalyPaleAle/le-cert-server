@@ -37,7 +37,7 @@ type Server struct {
 
 	appMetrics *metrics.AppMetrics
 	manager    *certmanager.CertManager
-	auth       *auth.Authenticator
+	auth       auth.Authenticator
 
 	// Method that forces a reload of TLS certificates from disk
 	tlsCertWatchFn tlsCertWatchFn
@@ -54,7 +54,7 @@ type Server struct {
 type NewServerOpts struct {
 	AppMetrics    *metrics.AppMetrics
 	Manager       *certmanager.CertManager
-	Authenticator *auth.Authenticator
+	Authenticator auth.Authenticator
 }
 
 // NewServer creates a new Server object and initializes it
