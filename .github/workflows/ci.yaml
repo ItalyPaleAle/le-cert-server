@@ -41,4 +41,4 @@ jobs:
 
       - name: Test
         run: |
-          make test
+          go test -v -race ./...
