@@ -117,26 +117,19 @@ func parseSqliteConnectionString(connString string) (string, error) {
 
 	// Get existing query parameters
 	qs := connStringUrl.Query()
-	if len(qs) == 0 {
-		qs = make(url.Values, 2)
-	}
 
 	// Check if WAL and busy timeout pragmas are already set
 	hasWAL := false
 	hasBusyTimeout := false
-	
-	if len(qs["_pragma"]) > 0 {
-		for _, p := range qs["_pragma"] {
-			p = strings.ToLower(p)
-			if strings.HasPrefix(p, "journal_mode") {
-				hasWAL = true
-			}
-			if strings.HasPrefix(p, "busy_timeout") {
-				hasBusyTimeout = true
-			}
+
+	for _, p := range qs["_pragma"] {
+		p = strings.ToLower(p)
+		if strings.HasPrefix(p, "journal_mode") {
+			hasWAL = true
 		}
-	} else {
-		qs["_pragma"] = make([]string, 0, 2)
+		if strings.HasPrefix(p, "busy_timeout") {
+			hasBusyTimeout = true
+		}
 	}
 
 	// Add WAL mode if not already present
