@@ -1,14 +1,147 @@
 # Certificate Server
 
-A Go application that manages Let's Encrypt TLS certificates using DNS-01 challenges. It provides an HTTPS API for clients to request certificates, with automatic renewal and caching in SQLite.
+**Centralize and secure your Let's Encrypt certificate management across all your servers.**
 
-## Features
+## Why Certificate Server?
 
-- **Automated Certificate Management**: Obtains and renews Let's Encrypt certificates using the DNS-01 challenge
-- **Universal DNS Provider Support**: Supports **all DNS providers** supported by lego (100+ providers including Cloudflare, AWS Route53, Google Cloud DNS, Azure, GoDaddy, Namecheap, and many more)
-- **OAuth2/OIDC Authentication**: Secure API access using OAuth2/OIDC bearer tokens with automatic JWKS discovery
-- **Automatic Renewal**: Background scheduler checks and renews certificates before expiration
-- **Certificate Caching**: Returns cached certificates if still valid
+Managing TLS certificates across multiple servers is challenging:
+- 🔄 **Manual synchronization** between nodes leads to errors and downtime
+- 🔐 **DNS credentials scattered** across different machines increase security risks
+- ⏰ **Certificate renewals** require coordination or risk service interruptions
+- 🛡️ **Security policies** are harder to enforce in distributed environments
+
+Certificate Server solves these problems by providing a single, secure source of truth for your Let's Encrypt certificates. Request certificates from any server, and they're automatically obtained, renewed, and ready to use—all while keeping your DNS credentials safe in one place.
+
+## Perfect For
+
+- **Load-balanced applications** that need the same certificate on multiple nodes
+- **Container orchestration** (Kubernetes, Docker Swarm) where pods/containers need certificates
+- **Edge servers** that need to fetch certificates dynamically
+- **Development teams** that want to simplify certificate management across environments
+- **Security-conscious organizations** that need centralized credential management
+
+## How It Works
+
+1. **Deploy once**: Run Certificate Server on a trusted machine with your DNS provider credentials
+2. **Request from anywhere**: Your applications call the API to request certificates for their domains
+3. **Get secure certificates**: Certificates are obtained via Let's Encrypt using DNS-01 validation
+4. **Automatic renewal**: Certificates are renewed before expiration—no manual intervention needed
+5. **OAuth2 security**: All API access is secured with industry-standard OAuth2/OIDC authentication
+
+**What you get:**
+- ✅ Automated certificate lifecycle management
+- ✅ Support for 100+ DNS providers (Cloudflare, AWS Route53, Azure DNS, and more)
+- ✅ Centralized, secure credential storage
+- ✅ Wildcard certificate support via DNS-01 challenge
+- ✅ Built-in caching to avoid rate limits
+- ✅ OAuth2/OIDC authentication for API security
+
+## Quick Example: Using with Traefik
+
+Here's how to use Certificate Server with Traefik to automatically fetch and update certificates across your load-balanced services:
+
+**1. Deploy Certificate Server** (one-time setup):
+
+```yaml
+# config.yaml
+server:
+  bind: "0.0.0.0"
+  port: 8443
+
+letsEncrypt:
+  email: "admin@example.com"
+  staging: false
+  dnsProvider: "cloudflare"
+  dnsCredentials:
+    CF_DNS_API_TOKEN: "your-cloudflare-token"
+  renewalDays: 30
+
+auth:
+  issuerUrl: "https://accounts.google.com"
+  audience: "your-client-id.apps.googleusercontent.com"
+
+database:
+  path: "/var/lib/cert-server/certs.db"
+```
+
+**2. Create a Traefik certificate fetcher script**:
+
+```bash
+#!/bin/bash
+# fetch-cert.sh - Run this on each Traefik node
+
+DOMAIN="myapp.example.com"
+ACCESS_TOKEN=$(gcloud auth print-identity-token --audiences="your-client-id.apps.googleusercontent.com")
+CERT_SERVER="https://cert-server.internal:8443"
+
+# Fetch certificate from Certificate Server
+curl -X POST "${CERT_SERVER}/api/certificate" \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d "{\"domain\": \"${DOMAIN}\"}" | \
+  jq -r '.certificate' > /etc/traefik/certs/${DOMAIN}.crt
+
+# Fetch private key
+curl -X POST "${CERT_SERVER}/api/certificate" \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d "{\"domain\": \"${DOMAIN}\"}" | \
+  jq -r '.private_key' > /etc/traefik/certs/${DOMAIN}.key
+
+# Reload Traefik to use new certificate
+docker kill -s HUP traefik
+```
+
+**3. Configure Traefik to use the certificates**:
+
+```yaml
+# traefik.yml
+entryPoints:
+  websecure:
+    address: ":443"
+
+providers:
+  file:
+    filename: /etc/traefik/dynamic.yml
+    watch: true
+
+# dynamic.yml
+tls:
+  certificates:
+    - certFile: /etc/traefik/certs/myapp.example.com.crt
+      keyFile: /etc/traefik/certs/myapp.example.com.key
+```
+
+**4. Automate certificate refresh** (cron on each Traefik node):
+
+```bash
+# Run every 12 hours to check for renewed certificates
+0 */12 * * * /usr/local/bin/fetch-cert.sh >> /var/log/cert-fetch.log 2>&1
+```
+
+**Benefits of this setup:**
+- 🔐 DNS credentials stay on Certificate Server only—not on Traefik nodes
+- 🔄 All Traefik instances get the same certificate automatically
+- ♻️ Certificates renew centrally and propagate to all nodes
+- 🛡️ OAuth2 authentication ensures only authorized nodes can fetch certificates
+- 📦 Works with any number of Traefik instances (containers, VMs, or bare metal)
+
+## Real-World Use Cases
+
+### Multi-Node Web Applications
+Deploy the same certificate across 10 load-balanced web servers without copying files or managing credentials on each node. Each server fetches the certificate via API when needed.
+
+### Kubernetes & Container Orchestration
+Containers can request certificates on startup without requiring persistent storage or secret management for DNS credentials. Perfect for horizontal scaling.
+
+### Edge Computing & CDN Origins
+Edge nodes can dynamically fetch certificates for customer domains without exposing DNS provider access to potentially compromised edge locations.
+
+### Development & Staging Environments
+Developers can request valid Let's Encrypt certificates for testing without needing access to production DNS credentials or certificate files.
+
+### Legacy Application Modernization
+Add HTTPS to applications that don't support Let's Encrypt natively by having a sidecar or init container fetch certificates via the API.
 
 ## Installation
 
@@ -16,6 +149,7 @@ A Go application that manages Let's Encrypt TLS certificates using DNS-01 challe
 
 - Go 1.25 or later
 - DNS provider credentials for any supported provider (see [Lego DNS Providers](https://go-acme.github.io/lego/dns/) for full list)
+- An OAuth2/OIDC provider for API authentication (Google, Auth0, Azure AD, Keycloak, etc.)
 - A valid TLS certificate for the server itself (can be self-signed for testing)
 
 ### Build
@@ -24,37 +158,66 @@ A Go application that manages Let's Encrypt TLS certificates using DNS-01 challe
 go build -o cert-server
 ```
 
-## Configuration
+## Getting Started
 
-Create a `config.yaml` file based on [config.example.yaml](config.example.yaml):
+### Quick Configuration
+
+Create a `config.yaml` file (see [config.example.yaml](config.example.yaml) for full options):
 
 ```yaml
 server:
-  address: ":8443"
-  tlsCertPath: "/etc/cert-server/server.crt"
-  tlsKeyPath: "/etc/cert-server/server.key"
+  bind: "0.0.0.0"
+  port: 8443
 
 letsEncrypt:
   email: "admin@example.com"
-  staging: true  # Use staging for testing
+  staging: true  # Use staging for testing, false for production
   dnsProvider: "cloudflare"
   dnsCredentials:
-    CF_API_EMAIL: "user@example.com"
-    CF_API_KEY: "your-api-key"
+    CF_DNS_API_TOKEN: "your-cloudflare-token"
   renewalDays: 30
-  domain: "cert-server.example.com"  # Optional
 
 database:
   path: "/var/lib/cert-server/certs.db"
 
-oauth2:
+auth:
   issuerUrl: "https://accounts.google.com"
   audience: "your-client-id.apps.googleusercontent.com"
 ```
 
-### OAuth2/OIDC Configuration
+### Start the Server
 
-The server uses OAuth2/OIDC for authentication. You need to configure an OAuth2 provider (Google, Auth0, Azure AD, Keycloak, etc.) and provide the issuer URL and audience.
+```bash
+./cert-server -config config.yaml
+```
+
+The server will:
+- Start an HTTPS API on port 8443
+- Connect to your OAuth2 provider for authentication
+- Begin monitoring certificates for automatic renewal
+
+### Request Your First Certificate
+
+```bash
+# Get an access token from your OAuth2 provider
+ACCESS_TOKEN=$(gcloud auth print-identity-token --audiences="your-client-id.apps.googleusercontent.com")
+
+# Request a certificate
+curl -X POST https://localhost:8443/api/certificate \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"domain": "example.com"}'
+```
+
+That's it! The certificate and private key are returned in JSON format, ready to use.
+
+---
+
+## Detailed Configuration
+
+### OAuth2/OIDC Authentication
+
+The server uses OAuth2/OIDC for secure API access. Configure any OAuth2 provider (Google, Auth0, Azure AD, Keycloak, etc.).
 
 #### Supported OAuth2 Providers
 
@@ -166,13 +329,7 @@ export CF_DNS_API_TOKEN="your-token"
 ./cert-server -config config.yaml
 ```
 
-## Usage
-
-### Start the Server
-
-```bash
-./cert-server -config config.yaml
-```
+## API Reference
 
 ### API Endpoints
 
@@ -250,25 +407,38 @@ curl -X POST https://localhost:8443/api/certificate/renew \
 
 ## Automatic Renewal
 
-The server runs a background scheduler that:
+**Never worry about certificate expiration again.** Certificate Server handles renewal automatically:
 
-1. Checks for expiring certificates every 12 hours
-2. Renews certificates within the configured threshold (default: 30 days)
-3. Updates the database with new certificates
+- 🔄 Background scheduler checks for expiring certificates every 12 hours
+- ⏰ Renews certificates within the configured threshold (default: 30 days before expiration)
+- 💾 Updates the database with fresh certificates automatically
+- 📢 Clients automatically receive renewed certificates on their next API request
 
-## Security Considerations
+**How it helps you:**
+- No manual renewal workflows or reminders needed
+- Prevents service outages from expired certificates
+- Works seamlessly across all your servers—renew once, available everywhere
 
-1. **Bearer Token**: Use a strong, randomly generated token for production
-2. **HTTPS**: Always use HTTPS for the API server
-3. **File Permissions**: Protect the database file and configuration file
-4. **DNS Credentials**: Store DNS provider credentials securely
-5. **Let's Encrypt Rate Limits**: Use staging environment for testing
+## Security & Best Practices
 
-### Generating a Secure Bearer Token
+Certificate Server is designed with security as a priority:
 
-```bash
-openssl rand -base64 32
-```
+- **Centralized Credentials**: DNS provider credentials are stored only on the Certificate Server, not on client nodes
+- **OAuth2/OIDC Authentication**: Industry-standard authentication with automatic token validation using JWKS
+- **HTTPS API**: All communication is encrypted with TLS
+- **Audit Trail**: All certificate requests and renewals are logged
+- **Least Privilege**: Client nodes only need API access, not DNS provider credentials
+
+### Security Checklist
+
+- ✅ Use OAuth2/OIDC with a trusted provider (not simple bearer tokens)
+- ✅ Deploy Certificate Server on a trusted, isolated network segment
+- ✅ Use production Let's Encrypt (not staging) only after testing
+- ✅ Protect the config file with appropriate file permissions (600 or 640)
+- ✅ Use a dedicated service account for the Certificate Server process
+- ✅ Enable firewall rules to restrict API access to known client IPs if possible
+- ✅ Regularly backup the SQLite database to preserve certificate cache
+- ✅ Monitor logs for unauthorized access attempts
 
 ## API Client Examples
 
