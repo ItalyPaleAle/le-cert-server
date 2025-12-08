@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -82,7 +83,14 @@ type DNSCredentials struct {
 func NewStorage(dbPath string) (*Storage, error) {
 	// Configure connection string with WAL mode and busy timeout
 	// Use query parameters to set pragmas for modernc.org/sqlite
-	connStr := dbPath + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+	connStr := dbPath
+	if strings.Contains(dbPath, "?") {
+		// Query parameters already exist, append with &
+		connStr += "&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+	} else {
+		// No query parameters, start with ?
+		connStr += "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+	}
 	db, err := sql.Open("sqlite", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
