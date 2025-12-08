@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/italypaleale/le-cert-server/auth"
-	"github.com/italypaleale/le-cert-server/certmanager"
+	"github.com/italypaleale/le-cert-server/pkg/auth"
 	"github.com/italypaleale/le-cert-server/pkg/buildinfo"
+	"github.com/italypaleale/le-cert-server/pkg/certmanager"
 	"github.com/italypaleale/le-cert-server/pkg/config"
 	appmetrics "github.com/italypaleale/le-cert-server/pkg/metrics"
 	"github.com/italypaleale/le-cert-server/pkg/server"

@@ -16,8 +16,8 @@ import (
 
 	sloghttp "github.com/samber/slog-http"
 
-	"github.com/italypaleale/le-cert-server/auth"
-	"github.com/italypaleale/le-cert-server/certmanager"
+	"github.com/italypaleale/le-cert-server/pkg/auth"
+	"github.com/italypaleale/le-cert-server/pkg/certmanager"
 	"github.com/italypaleale/le-cert-server/pkg/config"
 	"github.com/italypaleale/le-cert-server/pkg/metrics"
 	"github.com/italypaleale/le-cert-server/pkg/utils"

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -250,13 +251,7 @@ func (a *Authenticator) validateToken(tokenString string) (*Claims, error) {
 
 // validateAudience checks if the token audience is valid
 func (a *Authenticator) validateAudience(tokenAud jwt.ClaimStrings) bool {
-	for _, aud := range tokenAud {
-		if aud == a.audience {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(tokenAud, a.audience)
 }
 
 // validateScopes checks if the token has all required scopes
