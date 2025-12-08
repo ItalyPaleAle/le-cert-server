@@ -124,10 +124,10 @@ func parseSqliteConnectionString(connString string) (string, error) {
 
 	for _, p := range qs["_pragma"] {
 		p = strings.ToLower(p)
-		if strings.HasPrefix(p, "journal_mode") {
+		if strings.HasPrefix(p, "journal_mode(") {
 			hasWAL = true
 		}
-		if strings.HasPrefix(p, "busy_timeout") {
+		if strings.HasPrefix(p, "busy_timeout(") {
 			hasBusyTimeout = true
 		}
 	}
