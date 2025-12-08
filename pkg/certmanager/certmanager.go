@@ -194,10 +194,17 @@ func (cm *CertManager) ObtainCertificate(domain string) (*storage.Certificate, e
 		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
 
+	// Generate P256 ECDSA private key for the certificate
+	certificatePrivateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate certificate private key: %w", err)
+	}
+
 	// Request certificate
 	request := certificate.ObtainRequest{
-		Domains: []string{domain},
-		Bundle:  true,
+		Domains:    []string{domain},
+		Bundle:     true,
+		PrivateKey: certificatePrivateKey,
 	}
 
 	certificates, err := client.Certificate.Obtain(request)
@@ -208,7 +215,7 @@ func (cm *CertManager) ObtainCertificate(domain string) (*storage.Certificate, e
 	// Parse the certificate to get validity dates
 	block, _ := pem.Decode(certificates.Certificate)
 	if block == nil {
-		return nil, fmt.Errorf("failed to decode certificate PEM")
+		return nil, errors.New("failed to decode certificate PEM")
 	}
 
 	x509Cert, err := x509.ParseCertificate(block.Bytes)
