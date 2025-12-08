@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -81,16 +82,12 @@ type DNSCredentials struct {
 
 // NewStorage creates a new storage instance
 func NewStorage(dbPath string) (*Storage, error) {
-	// Configure connection string with WAL mode and busy timeout
-	// Use query parameters to set pragmas for modernc.org/sqlite
-	connStr := dbPath
-	if strings.Contains(dbPath, "?") {
-		// Query parameters already exist, append with &
-		connStr += "&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
-	} else {
-		// No query parameters, start with ?
-		connStr += "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+	// Parse and configure the SQLite connection string with WAL mode and busy timeout
+	connStr, err := parseSqliteConnectionString(dbPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse SQLite connection string: %w", err)
 	}
+
 	db, err := sql.Open("sqlite", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
@@ -101,6 +98,61 @@ func NewStorage(dbPath string) (*Storage, error) {
 	}
 
 	return storage, nil
+}
+
+// parseSqliteConnectionString parses and configures the SQLite connection string.
+// It ensures the connection string starts with "file:", properly handles existing
+// query parameters, and adds WAL mode and busy timeout pragmas if not already present.
+func parseSqliteConnectionString(connString string) (string, error) {
+	// Ensure the connection string starts with "file:"
+	if !strings.HasPrefix(connString, "file:") {
+		connString = "file:" + connString
+	}
+
+	// Parse the connection string as a URL
+	connStringUrl, err := url.Parse(connString)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse connection string: %w", err)
+	}
+
+	// Get existing query parameters
+	qs := connStringUrl.Query()
+	if len(qs) == 0 {
+		qs = make(url.Values, 2)
+	}
+
+	// Check if WAL and busy timeout pragmas are already set
+	hasWAL := false
+	hasBusyTimeout := false
+	
+	if len(qs["_pragma"]) > 0 {
+		for _, p := range qs["_pragma"] {
+			p = strings.ToLower(p)
+			if strings.HasPrefix(p, "journal_mode") {
+				hasWAL = true
+			}
+			if strings.HasPrefix(p, "busy_timeout") {
+				hasBusyTimeout = true
+			}
+		}
+	} else {
+		qs["_pragma"] = make([]string, 0, 2)
+	}
+
+	// Add WAL mode if not already present
+	if !hasWAL {
+		qs["_pragma"] = append(qs["_pragma"], "journal_mode(WAL)")
+	}
+
+	// Add busy timeout (5000ms = 5s) if not already present
+	if !hasBusyTimeout {
+		qs["_pragma"] = append(qs["_pragma"], "busy_timeout(5000)")
+	}
+
+	// Update the connection string with the new query parameters
+	connStringUrl.RawQuery = qs.Encode()
+
+	return connStringUrl.String(), nil
 }
 
 func (s *Storage) Init(ctx context.Context) error {
