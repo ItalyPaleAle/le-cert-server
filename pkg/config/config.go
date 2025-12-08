@@ -63,11 +63,11 @@ type ConfigServer struct {
 
 	// Full, PEM-encoded TLS certificate, when not using Let's Encrypt.
 	// Using `tlsCertPEM` and `tlsKeyPEM` is an alternative method of passing TLS certificates than using `tlsPath`.
-	TLSCertPEM string `yaml:"tlsCertPEM"`
+	TLSCertPEM string `yaml:"tlsCertPEM"` //nolint:tagliatelle
 
 	// Full, PEM-encoded TLS key, when not using Let's Encrypt.
 	// Using `tlsCertPEM` and `tlsKeyPEM` is an alternative method of passing TLS certificates than using `tlsPath`.
-	TLSKeyPEM string `yaml:"tlsKeyPEM"`
+	TLSKeyPEM string `yaml:"tlsKeyPEM"` //nolint:tagliatelle
 }
 
 // ConfigLetsEncrypt holds Let's Encrypt configuration

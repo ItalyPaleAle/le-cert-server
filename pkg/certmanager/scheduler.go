@@ -26,7 +26,7 @@ func (s *Scheduler) Run(ctx context.Context) error {
 	slog.Info("Scheduler started", "interval", s.interval)
 
 	// Run once immediately
-	err := s.manager.RenewExpiringCertificates()
+	err := s.manager.RenewExpiringCertificates(ctx)
 	if err != nil {
 		return fmt.Errorf("certificate renewal check failed: %w", err)
 	}
@@ -38,7 +38,7 @@ func (s *Scheduler) Run(ctx context.Context) error {
 		select {
 		case <-ticker.C:
 			slog.Info("Starting certificate renewal check")
-			err = s.manager.RenewExpiringCertificates()
+			err = s.manager.RenewExpiringCertificates(ctx)
 			if err != nil {
 				// Log the error only, since we're in a background goroutine
 				slog.Error("Certificate renewal check failed", "error", err)

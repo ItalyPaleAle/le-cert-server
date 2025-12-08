@@ -20,7 +20,7 @@ const (
 )
 
 // Loads the TLS configuration
-func (s *Server) loadTLSConfig() (tlsConfig *tls.Config, watchFn tlsCertWatchFn, err error) {
+func (s *Server) loadTLSConfig(ctx context.Context) (tlsConfig *tls.Config, watchFn tlsCertWatchFn, err error) {
 	cfg := config.Get()
 
 	tlsConfig = &tls.Config{
@@ -44,7 +44,7 @@ func (s *Server) loadTLSConfig() (tlsConfig *tls.Config, watchFn tlsCertWatchFn,
 	}
 
 	slog.Info("Using server certificate from Let's Encrypt", slog.String("domain", cfg.Server.LetsEncryptDomain))
-	cert, err := s.manager.ObtainCertificate(cfg.Server.LetsEncryptDomain)
+	cert, err := s.manager.ObtainCertificate(ctx, cfg.Server.LetsEncryptDomain)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to obtain server certificate from Let's Encrypt: %w", err)
 	}
@@ -134,17 +134,19 @@ func newTLSCertProvider(path string) (*tlsCertProvider, error) {
 	// Check if the certificate and key exist
 	cert := filepath.Join(path, tlsCertFile)
 	if exists, _ = utils.FileExists(cert); !exists {
+		//nolint:nilnil
 		return nil, nil
 	}
 	key := filepath.Join(path, tlsKeyFile)
 	if exists, _ = utils.FileExists(key); !exists {
+		//nolint:nilnil
 		return nil, nil
 	}
 
 	// Load the certificates initially
 	tlsCert, err := tls.LoadX509KeyPair(cert, key)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read key pair: %w", err)
 	}
 
 	return &tlsCertProvider{
@@ -169,7 +171,7 @@ func (p *tlsCertProvider) GetCertificateFn() func(*tls.ClientHelloInfo) (*tls.Ce
 func (p *tlsCertProvider) Reload() error {
 	tlsCert, err := tls.LoadX509KeyPair(p.cert, p.key)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to read key pair: %w", err)
 	}
 
 	p.SetTLSCert(&tlsCert)

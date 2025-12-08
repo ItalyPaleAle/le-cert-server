@@ -2,6 +2,7 @@ package fsnotify
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 func WatchFolder(ctx context.Context, folder string) (<-chan struct{}, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create watcher: %w", err)
 	}
 
 	msgChan := make(chan struct{}, 1)
@@ -20,7 +21,7 @@ func WatchFolder(ctx context.Context, folder string) (<-chan struct{}, error) {
 
 	// Watch for FS events in background
 	go func() {
-		defer watcher.Close()
+		defer watcher.Close() //nolint:errcheck
 		defer close(msgChan)
 
 		for {
@@ -66,7 +67,7 @@ func WatchFolder(ctx context.Context, folder string) (<-chan struct{}, error) {
 
 	err = watcher.Add(folder)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to add watched folder: %w", err)
 	}
 
 	return msgChan, nil

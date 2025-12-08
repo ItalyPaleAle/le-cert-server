@@ -47,7 +47,7 @@ func (l slogLogger) logFatal(message string) {
 	// See https://pkg.go.dev/log/slog#example-package-Wrapping
 	var pcs [1]uintptr
 	runtime.Callers(2, pcs[:]) // skip [Callers, Infof]
-	r := slog.NewRecord(time.Now(), slog.LevelError, string(message), pcs[0])
+	r := slog.NewRecord(time.Now(), slog.LevelError, message, pcs[0])
 	_ = log.Handler().Handle(context.Background(), r)
 
 	os.Exit(1)

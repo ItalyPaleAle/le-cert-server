@@ -32,13 +32,15 @@ func (m *mockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 		return m.handler(req)
 	}
 	return &http.Response{
-		StatusCode: 404,
+		StatusCode: http.StatusNotFound,
 		Body:       io.NopCloser(strings.NewReader("Not Found")),
 	}, nil
 }
 
 // Helper function to create a test RSA key pair
 func generateTestKeyPair(t *testing.T) (*rsa.PrivateKey, *rsa.PublicKey) {
+	t.Helper()
+
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
 	return privateKey, &privateKey.PublicKey
@@ -46,6 +48,8 @@ func generateTestKeyPair(t *testing.T) (*rsa.PrivateKey, *rsa.PublicKey) {
 
 // Helper function to create a JWK Set with a test key
 func createTestJWKS(t *testing.T, kid string, publicKey *rsa.PublicKey) jwk.Set {
+	t.Helper()
+
 	key, err := jwk.Import(publicKey)
 	require.NoError(t, err)
 
@@ -65,6 +69,8 @@ func createTestJWKS(t *testing.T, kid string, publicKey *rsa.PublicKey) jwk.Set 
 
 // Helper function to create a signed JWT token
 func createTestToken(t *testing.T, privateKey *rsa.PrivateKey, kid string, claims map[string]any) string {
+	t.Helper()
+
 	token := jwt.New()
 	var err error
 
@@ -142,17 +148,17 @@ func TestAuthenticatorMiddleware(t *testing.T) {
 			switch req.URL.String() {
 			case issuerURL + "/.well-known/openid-configuration":
 				return &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(bytes.NewReader(discoveryJSON)),
 				}, nil
 			case issuerURL + "/.well-known/jwks.json":
 				return &http.Response{
-					StatusCode: 200,
+					StatusCode: http.StatusOK,
 					Body:       io.NopCloser(bytes.NewReader(jwksJSON)),
 				}, nil
 			default:
 				return &http.Response{
-					StatusCode: 404,
+					StatusCode: http.StatusNotFound,
 					Body:       io.NopCloser(strings.NewReader("Not Found")),
 				}, nil
 			}
@@ -410,7 +416,7 @@ func TestGetClaimFunctions(t *testing.T) {
 		assert.Equal(t, "user123", user)
 
 		// Test with empty context
-		user, ok = GetUser(t.Context())
+		user, ok = GetUser(t.Context()) //nolint:contextcheck
 		assert.False(t, ok)
 		assert.Empty(t, user)
 	})
@@ -421,7 +427,7 @@ func TestGetClaimFunctions(t *testing.T) {
 		assert.NotNil(t, claims)
 
 		// Test with empty context
-		claims, ok = GetClaims(t.Context())
+		claims, ok = GetClaims(t.Context()) //nolint:contextcheck
 		assert.False(t, ok)
 		assert.Nil(t, claims)
 	})
@@ -443,7 +449,7 @@ func TestDiscoverJWKS(t *testing.T) {
 				Issuer:  issuerURL,
 				JWKSURI: "https://auth.example.com/jwks",
 			},
-			statusCode:   200,
+			statusCode:   http.StatusOK,
 			expectError:  false,
 			expectedJWKS: "https://auth.example.com/jwks",
 		},
@@ -452,7 +458,7 @@ func TestDiscoverJWKS(t *testing.T) {
 			discoveryResp: &OIDCDiscovery{
 				Issuer: issuerURL,
 			},
-			statusCode:  200,
+			statusCode:  http.StatusOK,
 			expectError: true,
 		},
 		{
@@ -483,7 +489,7 @@ func TestDiscoverJWKS(t *testing.T) {
 						}, nil
 					}
 					return &http.Response{
-						StatusCode: 404,
+						StatusCode: http.StatusNotFound,
 						Body:       io.NopCloser(bytes.NewBufferString("Not Found")),
 					}, nil
 				},

@@ -1,6 +1,7 @@
 package certmanager
 
 import (
+	"context"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -53,11 +54,11 @@ func (u *User) GetPrivateKey() crypto.PrivateKey {
 }
 
 // getOrCreateUser gets or creates a Let's Encrypt user
-func (cm *CertManager) getOrCreateUser() (*User, error) {
+func (cm *CertManager) getOrCreateUser(ctx context.Context) (*User, error) {
 	cfg := config.Get()
 
 	// Try to load existing credentials
-	creds, err := cm.storage.GetLECredentials(cfg.LetsEncrypt.Email)
+	creds, err := cm.storage.GetLECredentials(ctx, cfg.LetsEncrypt.Email)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Let's Encrypt credentials: %w", err)
 	}
@@ -68,7 +69,7 @@ func (cm *CertManager) getOrCreateUser() (*User, error) {
 		// Parse existing key
 		block, _ := pem.Decode(creds.Key)
 		if block == nil {
-			return nil, fmt.Errorf("failed to decode PEM block")
+			return nil, errors.New("failed to decode PEM block")
 		}
 
 		privateKey, err = x509.ParsePKCS8PrivateKey(block.Bytes)
@@ -77,7 +78,7 @@ func (cm *CertManager) getOrCreateUser() (*User, error) {
 		}
 	} else {
 		// Generate new key
-		privateKey, err = cm.generateNewKey(cfg.LetsEncrypt.Email)
+		privateKey, err = cm.generateNewKey(ctx, cfg.LetsEncrypt.Email)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate LE key: %w", err)
 		}
@@ -91,7 +92,7 @@ func (cm *CertManager) getOrCreateUser() (*User, error) {
 	return user, nil
 }
 
-func (cm *CertManager) generateNewKey(email string) (privateKey crypto.PrivateKey, err error) {
+func (cm *CertManager) generateNewKey(ctx context.Context, email string) (privateKey crypto.PrivateKey, err error) {
 	// Generate new key
 	privateKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -115,7 +116,7 @@ func (cm *CertManager) generateNewKey(email string) (privateKey crypto.PrivateKe
 		Key:     keyPEM,
 	}
 
-	err = cm.storage.SaveLECredentials(newCreds)
+	err = cm.storage.SaveLECredentials(ctx, newCreds)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save LE credentials: %w", err)
 	}
@@ -168,11 +169,11 @@ func (cm *CertManager) createLegoClient(user *User) (*lego.Client, error) {
 }
 
 // ObtainCertificate obtains a new certificate for the specified domain
-func (cm *CertManager) ObtainCertificate(domain string) (*storage.Certificate, error) {
+func (cm *CertManager) ObtainCertificate(ctx context.Context, domain string) (*storage.Certificate, error) {
 	cfg := config.Get()
 
 	// Check if we already have a valid certificate
-	cert, err := cm.storage.GetCertificate(domain)
+	cert, err := cm.storage.GetCertificate(ctx, domain)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check existing certificate: %w", err)
 	}
@@ -183,7 +184,7 @@ func (cm *CertManager) ObtainCertificate(domain string) (*storage.Certificate, e
 	}
 
 	// Get or create user
-	user, err := cm.getOrCreateUser()
+	user, err := cm.getOrCreateUser(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
@@ -233,7 +234,7 @@ func (cm *CertManager) ObtainCertificate(domain string) (*storage.Certificate, e
 		NotAfter:    x509Cert.NotAfter,
 	}
 
-	err = cm.storage.SaveCertificate(newCert)
+	err = cm.storage.SaveCertificate(ctx, newCert)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save certificate: %w", err)
 	}
@@ -242,9 +243,9 @@ func (cm *CertManager) ObtainCertificate(domain string) (*storage.Certificate, e
 }
 
 // RenewCertificate renews an existing certificate
-func (cm *CertManager) RenewCertificate(domain string) (*storage.Certificate, error) {
+func (cm *CertManager) RenewCertificate(ctx context.Context, domain string) (*storage.Certificate, error) {
 	// Get existing certificate
-	cert, err := cm.storage.GetCertificate(domain)
+	cert, err := cm.storage.GetCertificate(ctx, domain)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get certificate: %w", err)
 	}
@@ -254,7 +255,7 @@ func (cm *CertManager) RenewCertificate(domain string) (*storage.Certificate, er
 	}
 
 	// Get or create user
-	user, err := cm.getOrCreateUser()
+	user, err := cm.getOrCreateUser(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
@@ -298,7 +299,7 @@ func (cm *CertManager) RenewCertificate(domain string) (*storage.Certificate, er
 	cert.NotBefore = x509Cert.NotBefore
 	cert.NotAfter = x509Cert.NotAfter
 
-	err = cm.storage.SaveCertificate(cert)
+	err = cm.storage.SaveCertificate(ctx, cert)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save renewed certificate: %w", err)
 	}
@@ -307,10 +308,10 @@ func (cm *CertManager) RenewCertificate(domain string) (*storage.Certificate, er
 }
 
 // RenewExpiringCertificates renews all certificates expiring soon
-func (cm *CertManager) RenewExpiringCertificates() error {
+func (cm *CertManager) RenewExpiringCertificates(ctx context.Context) error {
 	cfg := config.Get()
 
-	certs, err := cm.storage.GetExpiringCertificates(cfg.LetsEncrypt.RenewalDays)
+	certs, err := cm.storage.GetExpiringCertificates(ctx, cfg.LetsEncrypt.RenewalDays)
 	if err != nil {
 		return fmt.Errorf("failed to get expiring certificates: %w", err)
 	}
@@ -321,7 +322,7 @@ func (cm *CertManager) RenewExpiringCertificates() error {
 		domainLogger := slog.With("domain", cert.Domain)
 		domainLogger.Info("Renewing certificate", "expires", cert.NotAfter)
 
-		_, err = cm.RenewCertificate(cert.Domain)
+		_, err = cm.RenewCertificate(ctx, cert.Domain)
 		if err != nil {
 			// Log error but continue with other certificates
 			domainLogger.Error("Failed to renew certificate", "error", err)

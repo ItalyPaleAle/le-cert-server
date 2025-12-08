@@ -43,7 +43,7 @@ func (s *Server) handleGetCertificate(w http.ResponseWriter, r *http.Request) {
 	slog.Info("Certificate request", "domain", req.Domain)
 
 	// Try to get or obtain certificate
-	cert, err := s.manager.ObtainCertificate(req.Domain)
+	cert, err := s.manager.ObtainCertificate(r.Context(), req.Domain)
 	if err != nil {
 		slog.Error("Failed to obtain certificate", "domain", req.Domain, "error", err)
 		errInternal.WriteResponse(w, r)
@@ -88,7 +88,7 @@ func (s *Server) handleRenewCertificate(w http.ResponseWriter, r *http.Request) 
 	slog.Info("Certificate renewal request", "domain", req.Domain)
 
 	// Renew certificate
-	cert, err := s.manager.RenewCertificate(req.Domain)
+	cert, err := s.manager.RenewCertificate(r.Context(), req.Domain)
 	if err != nil {
 		slog.Error("Failed to renew certificate", "domain", req.Domain, "error", err)
 		errInternal.WriteResponse(w, r)

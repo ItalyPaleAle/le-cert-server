@@ -31,6 +31,8 @@ type JWTAuthenticator struct {
 }
 
 // OIDCDiscovery represents the OIDC discovery document
+//
+//nolint:tagliatelle
 type OIDCDiscovery struct {
 	Issuer  string `json:"issuer"`
 	JWKSURI string `json:"jwks_uri"`
@@ -126,7 +128,7 @@ func (a *JWTAuthenticator) discoverJWKS(parentCtx context.Context) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch OIDC discovery document: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("OIDC discovery returned status %d", resp.StatusCode)

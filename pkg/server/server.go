@@ -87,7 +87,7 @@ func (s *Server) init() error {
 
 func (s *Server) initAppServer() (err error) {
 	// Load the TLS configuration
-	s.tlsConfig, s.tlsCertWatchFn, err = s.loadTLSConfig()
+	s.tlsConfig, s.tlsCertWatchFn, err = s.loadTLSConfig(context.Background())
 	if err != nil {
 		return fmt.Errorf("failed to load TLS configuration: %w", err)
 	}

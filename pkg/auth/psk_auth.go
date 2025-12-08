@@ -68,5 +68,5 @@ func (a *PSKAuthenticator) Middleware(next http.Handler) http.Handler {
 // validateKey performs constant-time comparison of the provided key with the stored key
 func (a *PSKAuthenticator) validateKey(providedKey string) bool {
 	// Use constant-time comparison to prevent timing attacks
-	return subtle.ConstantTimeCompare([]byte(providedKey), []byte(a.preSharedKey)) == 1
+	return subtle.ConstantTimeCompare([]byte(providedKey), a.preSharedKey) == 1
 }

@@ -34,6 +34,8 @@ type Storage struct {
 }
 
 // Certificate represents a stored TLS certificate
+//
+//nolint:tagliatelle
 type Certificate struct {
 	ID          int64     `json:"-"`
 	Domain      string    `json:"domain"`
@@ -56,6 +58,8 @@ func (c Certificate) GetTLSCertificate() (cert tls.Certificate, err error) {
 }
 
 // LECredentials represents stored Let's Encrypt credentials
+//
+//nolint:tagliatelle
 type LECredentials struct {
 	ID        int64     `json:"-"`
 	Email     string    `json:"email"`
@@ -166,7 +170,7 @@ func (s *Storage) Run(ctx context.Context) error {
 }
 
 // SaveCertificate saves or updates a certificate
-func (s *Storage) SaveCertificate(cert *Certificate) error {
+func (s *Storage) SaveCertificate(ctx context.Context, cert *Certificate) error {
 	const query = `
 	INSERT INTO certificates (data)
 	VALUES (json(?))
@@ -187,7 +191,9 @@ func (s *Storage) SaveCertificate(cert *Certificate) error {
 		return fmt.Errorf("failed to marshal certificate: %w", err)
 	}
 
-	result, err := s.db.Exec(query, jsonData)
+	queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	result, err := s.db.ExecContext(queryCtx, query, jsonData)
 	if err != nil {
 		return fmt.Errorf("failed to save certificate: %w", err)
 	}
@@ -203,20 +209,26 @@ func (s *Storage) SaveCertificate(cert *Certificate) error {
 }
 
 // GetCertificate retrieves a certificate by domain
-func (s *Storage) GetCertificate(domain string) (*Certificate, error) {
+func (s *Storage) GetCertificate(ctx context.Context, domain string) (*Certificate, error) {
 	const query = `
 	SELECT id, data
 	FROM certificates
 	WHERE domain = ?
 	`
 
-	var id int64
-	var jsonData []byte
+	queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	var (
+		id       int64
+		jsonData []byte
+	)
 	err := s.db.
-		QueryRow(query, domain).
+		QueryRowContext(queryCtx, query, domain).
 		Scan(&id, &jsonData)
 
 	if errors.Is(err, sql.ErrNoRows) {
+		//nolint:nilnil
 		return nil, nil
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get certificate: %w", err)
@@ -233,18 +245,21 @@ func (s *Storage) GetCertificate(domain string) (*Certificate, error) {
 }
 
 // GetExpiringCertificates retrieves certificates expiring within the specified days
-func (s *Storage) GetExpiringCertificates(days int) ([]*Certificate, error) {
+func (s *Storage) GetExpiringCertificates(ctx context.Context, days int) ([]*Certificate, error) {
 	const query = `
 	SELECT id, data
 	FROM certificates
 	WHERE not_after <= unixepoch('now', '+' || ? || ' days')
 	`
 
-	rows, err := s.db.Query(query, days)
+	queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	rows, err := s.db.QueryContext(queryCtx, query, days)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query expiring certificates: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var certs []*Certificate
 	for rows.Next() {
@@ -265,11 +280,16 @@ func (s *Storage) GetExpiringCertificates(days int) ([]*Certificate, error) {
 		certs = append(certs, cert)
 	}
 
-	return certs, rows.Err()
+	err = rows.Err()
+	if err != nil {
+		return nil, fmt.Errorf("failed to iterate through results: %w", err)
+	}
+
+	return certs, nil
 }
 
 // SaveLECredentials saves or updates Let's Encrypt credentials
-func (s *Storage) SaveLECredentials(creds *LECredentials) error {
+func (s *Storage) SaveLECredentials(ctx context.Context, creds *LECredentials) error {
 	const query = `
 	INSERT INTO le_credentials (data)
 	VALUES (json(?))
@@ -290,7 +310,10 @@ func (s *Storage) SaveLECredentials(creds *LECredentials) error {
 		return fmt.Errorf("failed to marshal LE credentials: %w", err)
 	}
 
-	result, err := s.db.Exec(query, jsonData)
+	queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	result, err := s.db.ExecContext(queryCtx, query, jsonData)
 	if err != nil {
 		return fmt.Errorf("failed to save LE credentials: %w", err)
 	}
@@ -306,18 +329,24 @@ func (s *Storage) SaveLECredentials(creds *LECredentials) error {
 }
 
 // GetLECredentials retrieves Let's Encrypt credentials by email
-func (s *Storage) GetLECredentials(email string) (*LECredentials, error) {
+func (s *Storage) GetLECredentials(ctx context.Context, email string) (*LECredentials, error) {
 	const query = `
 	SELECT id, data
 	FROM le_credentials
 	WHERE email = ?
 	`
 
-	var id int64
-	var jsonData []byte
-	err := s.db.QueryRow(query, email).Scan(&id, &jsonData)
+	queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	var (
+		id       int64
+		jsonData []byte
+	)
+	err := s.db.QueryRowContext(queryCtx, query, email).Scan(&id, &jsonData)
 
 	if errors.Is(err, sql.ErrNoRows) {
+		//nolint:nilnil
 		return nil, nil
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to get LE credentials: %w", err)
