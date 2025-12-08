@@ -1,24 +1,24 @@
-# Certificate Server
+# le-cert-server
 
-**Centralize and secure your Let's Encrypt certificate management across all your servers.**
+Secure, centralized Let's Encrypt certificate management for multiple servers and distributed systems.
 
-## Why Certificate Server?
-
-Managing TLS certificates across multiple servers is challenging:
-- 🔄 **Manual synchronization** between nodes leads to errors and downtime
-- 🔐 **DNS credentials scattered** across different machines increase security risks
-- ⏰ **Certificate renewals** require coordination or risk service interruptions
-- 🛡️ **Security policies** are harder to enforce in distributed environments
-
-Certificate Server solves these problems by providing a single, secure source of truth for your Let's Encrypt certificates. Request certificates from any server, and they're automatically obtained, renewed, and ready to use—all while keeping your DNS credentials safe in one place.
-
-## Perfect For
-
-- **Load-balanced applications** that need the same certificate on multiple nodes
-- **Container orchestration** (Kubernetes, Docker Swarm) where pods/containers need certificates
+- **Load-balanced applications** that need the same certificate on multiple nodes.  
+   When using Traefik, le-cert-server is an alternative to Traefik Enterprise for using Let's Encrypt across multiple instances.
 - **Edge servers** that need to fetch certificates dynamically
 - **Development teams** that want to simplify certificate management across environments
-- **Security-conscious organizations** that need centralized credential management
+
+le-cert-server uses the DNS-01 challenge to prove ownership of a domain and ask Let's Encrypt for a TLS certficate (*note: other challenges, including HTTP-01 are not supported*).
+
+## Why le-cert-server
+
+Managing TLS certificates across multiple servers is challenging:
+
+- 🔄 Manual synchronization between nodes leads to errors and downtime
+- 🔐 DNS credentials scattered across different machines increase security risks
+- ⏰ Certificate renewals require coordination or risk service interruptions
+- 🛡️ Security policies are harder to enforce in distributed environments
+
+le-cert-server solves these problems by providing a single, secure source of truth for your Let's Encrypt certificates. Request certificates from any server, and they're automatically obtained, renewed, and ready to use, all while keeping your DNS credentials safe in one place.
 
 ## How It Works
 
@@ -28,17 +28,18 @@ Certificate Server solves these problems by providing a single, secure source of
 4. **Automatic renewal**: Certificates are renewed before expiration—no manual intervention needed
 5. **OAuth2 security**: All API access is secured with industry-standard OAuth2/OIDC authentication
 
-**What you get:**
+Benefits:
+
 - ✅ Automated certificate lifecycle management
 - ✅ Support for 100+ DNS providers (Cloudflare, AWS Route53, Azure DNS, and more)
 - ✅ Centralized, secure credential storage
 - ✅ Wildcard certificate support via DNS-01 challenge
 - ✅ Built-in caching to avoid rate limits
-- ✅ OAuth2/OIDC authentication for API security
+- ✅ Optional OAuth2/OIDC authentication for API security
 
 ## Quick Example: Using with Traefik
 
-Here's how to use Certificate Server with Traefik to automatically fetch and update certificates across your load-balanced services:
+Here's how to use Certificate Server with Traefik to automatically fetch and update certificates across your load-balanced services, without the need for Traefik Enterprise:
 
 **1. Deploy Certificate Server** (one-time setup):
 
@@ -120,28 +121,12 @@ tls:
 ```
 
 **Benefits of this setup:**
+
 - 🔐 DNS credentials stay on Certificate Server only—not on Traefik nodes
 - 🔄 All Traefik instances get the same certificate automatically
 - ♻️ Certificates renew centrally and propagate to all nodes
 - 🛡️ OAuth2 authentication ensures only authorized nodes can fetch certificates
 - 📦 Works with any number of Traefik instances (containers, VMs, or bare metal)
-
-## Real-World Use Cases
-
-### Multi-Node Web Applications
-Deploy the same certificate across 10 load-balanced web servers without copying files or managing credentials on each node. Each server fetches the certificate via API when needed.
-
-### Kubernetes & Container Orchestration
-Containers can request certificates on startup without requiring persistent storage or secret management for DNS credentials. Perfect for horizontal scaling.
-
-### Edge Computing & CDN Origins
-Edge nodes can dynamically fetch certificates for customer domains without exposing DNS provider access to potentially compromised edge locations.
-
-### Development & Staging Environments
-Developers can request valid Let's Encrypt certificates for testing without needing access to production DNS credentials or certificate files.
-
-### Legacy Application Modernization
-Add HTTPS to applications that don't support Let's Encrypt natively by having a sidecar or init container fetch certificates via the API.
 
 ## Installation
 

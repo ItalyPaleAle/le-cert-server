@@ -68,21 +68,33 @@ database:
   # Path to SQLite database file
   path: "/var/lib/cert-server/certs.db"
 
+# Authentication configuration
+# IMPORTANT: Configure exactly ONE authentication method (jwt OR psk)
 auth:
-  # OAuth2/OIDC issuer URL for token validation
-  # This should point to your OAuth2 provider's discovery endpoint
-  # Examples:
-  #   - Google: "https://accounts.google.com"
-  #   - Auth0: "https://your-tenant.auth0.com"
-  #   - Azure AD: "https://login.microsoftonline.com/{tenant-id}/v2.0"
-  #   - Keycloak: "https://keycloak.example.com/realms/your-realm"
-  issuerUrl: "https://accounts.google.com"
+  # Option 1: OAuth2/OIDC Authentication (recommended for multi-user environments)
+  jwt:
+    # OAuth2/OIDC issuer URL for token validation
+    # This should point to your OAuth2 provider's discovery endpoint
+    # Examples:
+    #   - Google: "https://accounts.google.com"
+    #   - Auth0: "https://your-tenant.auth0.com"
+    #   - Azure AD: "https://login.microsoftonline.com/{tenant-id}/v2.0"
+    #   - Keycloak: "https://keycloak.example.com/realms/your-realm"
+    issuerUrl: "https://accounts.google.com"
 
-  # Expected audience (client ID) for token validation
-  # This should match the client ID from your OAuth2 provider
-  audience: "your-client-id.apps.googleusercontent.com"
+    # Expected audience (client ID) for token validation
+    # This should match the client ID from your OAuth2 provider
+    audience: "your-client-id.apps.googleusercontent.com"
 
-  # Optional: Required scopes that tokens must have
-  # requiredScopes:
-  #   - "cert-server:read"
-  #   - "cert-server:write"
+    # Optional: Required scopes that tokens must have
+    # requiredScopes:
+    #   - "cert-server:read"
+    #   - "cert-server:write"
+
+  # Option 2: Pre-Shared Key Authentication (simpler setup, good for internal services)
+  # To use PSK, comment out the jwt section above and uncomment this section
+  # psk:
+  #   # The pre-shared key for API authentication
+  #   # MUST be at least 16 characters long
+  #   # Generate with: openssl rand -base64 32
+  #   key: "your-secure-pre-shared-key-minimum-16-chars"
