@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"embed"
 	"encoding/json"
@@ -43,6 +44,15 @@ type Certificate struct {
 	NotAfter    time.Time `json:"not_after"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// GetTLSCertificate returns the tls.Certificate from the Certificate resource
+func (c Certificate) GetTLSCertificate() (cert tls.Certificate, err error) {
+	cert, err = tls.X509KeyPair(c.Certificate, c.PrivateKey)
+	if err != nil {
+		return cert, fmt.Errorf("failed to parse TLS certificate or key: %w", err)
+	}
+	return cert, nil
 }
 
 // LECredentials represents stored Let's Encrypt credentials

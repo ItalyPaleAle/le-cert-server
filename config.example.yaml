@@ -6,11 +6,6 @@ server:
   # Port for the HTTPS API server
   port: 8443
 
-  # TLS certificate and key for the server itself
-  # These should be valid certificates (can be obtained from Let's Encrypt)
-  tlsCertPath: "/etc/cert-server/server.crt"
-  tlsKeyPath: "/etc/cert-server/server.key"
-
 letsEncrypt:
   # Email for Let's Encrypt registration
   email: "admin@example.com"
@@ -68,10 +63,6 @@ letsEncrypt:
   # Certificate renewal threshold in days (default: 30)
   # Certificates will be renewed when they expire within this many days
   renewalDays: 30
-
-  # Domain for the server's own certificate (optional)
-  # If set, the server will obtain a certificate for itself on startup
-  domain: "cert-server.example.com"
 
 database:
   # Path to SQLite database file

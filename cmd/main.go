@@ -39,10 +39,10 @@ func main() {
 	cfg := config.Get()
 
 	// List of services to run
-	services := make([]servicerunner.Service, 0, 2)
+	services := make([]servicerunner.Service, 0, 3)
 
 	// Shutdown functions
-	shutdownFns := make([]servicerunner.Service, 0)
+	shutdownFns := make([]servicerunner.Service, 0, 2)
 
 	// Get the logger and set it in the context
 	log, loggerShutdownFn, err := logging.GetLogger(context.Background(), cfg)
@@ -62,7 +62,7 @@ func main() {
 		return
 	}
 
-	log.Info("Starting le-cert-server", "build", buildinfo.BuildDescription)
+	log.Info("Starting le-cert-server", slog.String("build", buildinfo.BuildDescription))
 
 	// Get a context that is canceled when the application receives a termination signal
 	// We store the logger in the context too
@@ -79,7 +79,7 @@ func main() {
 	}
 
 	// Initialize storage
-	log.Info("Initializing database", "path", cfg.Database.Path)
+	log.Info("Initializing database", slog.String("path", cfg.Database.Path))
 	store, err := storage.NewStorage(cfg.Database.Path)
 	if err != nil {
 		utils.FatalError(log, "Failed to create storage", err)
@@ -93,25 +93,16 @@ func main() {
 	services = append(services, store.Run)
 
 	// Create certificate manager
-	log.Info("Initializing certificate manager")
 	certMgr := certmanager.NewCertManager(store)
 
-	// Obtain initial certificate for the server itself if configured
-	if cfg.LetsEncrypt.Domain != "" {
-		log.Info("Obtaining certificate for server domain", "domain", cfg.LetsEncrypt.Domain)
-		_, err := certMgr.ObtainCertificate(cfg.LetsEncrypt.Domain)
-		if err != nil {
-			log.Warn("failed to obtain initial certificate", "error", err)
-		}
-	}
-
 	// Start certificate renewal scheduler
-	log.Info("Starting certificate renewal scheduler", "interval", "12h")
-	scheduler := certmanager.NewScheduler(certMgr, 12*time.Hour)
+	const renewalSchedulerInterval = 12 * time.Hour
+	log.Info("Starting certificate renewal scheduler", slog.String("interval", renewalSchedulerInterval.String()))
+	scheduler := certmanager.NewScheduler(certMgr, renewalSchedulerInterval)
 	services = append(services, scheduler.Run)
 
 	// Create authenticator
-	log.Info("Initializing OAuth2 authenticator", "issuer", cfg.Auth.IssuerURL)
+	log.Info("Initializing OAuth2 authenticator", slog.String("issuer", cfg.Auth.IssuerURL))
 	authenticator, err := auth.NewAuthenticator(cfg.Auth.IssuerURL, cfg.Auth.Audience, cfg.Auth.RequiredScopes)
 	if err != nil {
 		utils.FatalError(log, "Failed to init OAuth2 authenticator", err)

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -37,6 +38,12 @@ type Server struct {
 	appMetrics *metrics.AppMetrics
 	manager    *certmanager.CertManager
 	auth       *auth.Authenticator
+
+	// Method that forces a reload of TLS certificates from disk
+	tlsCertWatchFn tlsCertWatchFn
+
+	// TLS configuration for the app server
+	tlsConfig *tls.Config
 
 	// Listener for the app server
 	// This can be used for testing without having to start an actual TCP listener
@@ -79,6 +86,12 @@ func (s *Server) init() error {
 }
 
 func (s *Server) initAppServer() (err error) {
+	// Load the TLS configuration
+	s.tlsConfig, s.tlsCertWatchFn, err = s.loadTLSConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load TLS configuration: %w", err)
+	}
+
 	// Create the mux
 	mux := http.NewServeMux()
 
@@ -139,6 +152,14 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}()
 
+	// If we have a tlsCertWatchFn, invoke that
+	if s.tlsCertWatchFn != nil {
+		err = s.tlsCertWatchFn(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to watch for TLS certificates: %w", err)
+		}
+	}
+
 	// Block until the context is canceled
 	<-ctx.Done()
 
@@ -160,6 +181,14 @@ func (s *Server) startAppServer(ctx context.Context) error {
 		Handler:           s.handler,
 	}
 
+	if s.tlsConfig == nil {
+		// Not using TLS
+		slog.WarnContext(ctx, "Starting app server without TLS - this is not recommended unless the app is exposed through a proxy that offers TLS termination")
+	} else {
+		// Using TLS
+		s.appSrv.TLSConfig = s.tlsConfig
+	}
+
 	// Create the listener if we don't have one already
 	if s.appListener == nil {
 		var err error
@@ -169,17 +198,22 @@ func (s *Server) startAppServer(ctx context.Context) error {
 		}
 	}
 
-	// Start the HTTPS server in a background goroutine
+	// Start the HTTP(S) server in a background goroutine
 	slog.InfoContext(ctx, "App server started",
 		slog.String("bind", cfg.Server.Bind),
 		slog.Int("port", cfg.Server.Port),
+		slog.Bool("tls", s.tlsConfig != nil),
 	)
 	go func() { //nolint:contextcheck
 		defer s.appListener.Close() //nolint:errcheck
 
 		// Next call blocks until the server is shut down
-		// TODO: Add TLS
-		srvErr := s.appSrv.Serve(s.appListener)
+		var srvErr error
+		if s.tlsConfig != nil {
+			srvErr = s.appSrv.ServeTLS(s.appListener, "", "")
+		} else {
+			srvErr = s.appSrv.Serve(s.appListener)
+		}
 		if !errors.Is(srvErr, http.ErrServerClosed) {
 			utils.FatalError(slog.Default(), "Error starting app server", srvErr)
 		}

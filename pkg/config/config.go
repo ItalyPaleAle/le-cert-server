@@ -51,11 +51,22 @@ type ConfigServer struct {
 	// +default 7701
 	Port int `yaml:"port"`
 
-	// TLS certificate path for the server itself
-	TLSCertPath string `yaml:"tlsCertPath"`
+	// If set, fetch the server certificate from Let's Encrypt for the given domain
+	LetsEncryptDomain string `yaml:"letsEncryptDomain"`
 
-	// TLS key path for the server itself
-	TLSKeyPath string `yaml:"tlsKeyPath"`
+	// Path where to load TLS certificates from, when not using Let's Encrypt.
+	// Within the folder, the files must be named `tls-cert.pem` and `tls-key.pem`. The application watches for changes in this folder and automatically reloads the TLS certificates when they're updated.
+	// If empty, certificates are loaded from the same folder where the loaded `config.yaml` is located.
+	// +default the same folder as the `config.yaml` file
+	TLSPath string `yaml:"tlsPath"`
+
+	// Full, PEM-encoded TLS certificate, when not using Let's Encrypt.
+	// Using `tlsCertPEM` and `tlsKeyPEM` is an alternative method of passing TLS certificates than using `tlsPath`.
+	TLSCertPEM string `yaml:"tlsCertPEM"`
+
+	// Full, PEM-encoded TLS key, when not using Let's Encrypt.
+	// Using `tlsCertPEM` and `tlsKeyPEM` is an alternative method of passing TLS certificates than using `tlsPath`.
+	TLSKeyPEM string `yaml:"tlsKeyPEM"`
 }
 
 // ConfigLetsEncrypt holds Let's Encrypt configuration
@@ -76,9 +87,6 @@ type ConfigLetsEncrypt struct {
 	// Certificate renewal threshold in days
 	// +default 30
 	RenewalDays int `yaml:"renewalDays"`
-
-	// Domain for the initial certificate (for the server itself)
-	Domain string `yaml:"domain"`
 }
 
 // ConfigDatabase holds database configuration
