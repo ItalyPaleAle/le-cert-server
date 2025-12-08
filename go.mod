@@ -5,8 +5,9 @@ go 1.25.4
 require (
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-acme/lego/v4 v4.29.0
-	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/italypaleale/go-sql-utils v0.1.0
+	github.com/lestrrat-go/httprc/v3 v3.0.2
+	github.com/lestrrat-go/jwx/v3 v3.0.12
 	github.com/lmittmann/tint v1.1.2
 	github.com/mattn/go-isatty v0.0.20
 	github.com/mitchellh/go-homedir v1.1.0
@@ -80,6 +81,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clbanning/mxj/v2 v2.7.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/dnsimple/dnsimple-go/v4 v4.0.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -103,9 +105,11 @@ require (
 	github.com/go-playground/validator/v10 v10.23.0 // indirect
 	github.com/go-resty/resty/v2 v2.16.5 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/goccy/go-json v0.10.3 // indirect
 	github.com/goccy/go-yaml v1.9.8 // indirect
 	github.com/gofrs/flock v0.13.0 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
+	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
@@ -130,6 +134,11 @@ require (
 	github.com/labbsr0x/bindman-dns-webhook v1.0.2 // indirect
 	github.com/labbsr0x/goh v1.0.1 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
+	github.com/lestrrat-go/blackmagic v1.0.4 // indirect
+	github.com/lestrrat-go/dsig v1.0.0 // indirect
+	github.com/lestrrat-go/dsig-secp256k1 v1.0.0 // indirect
+	github.com/lestrrat-go/httpcc v1.0.1 // indirect
+	github.com/lestrrat-go/option/v2 v2.0.0 // indirect
 	github.com/linode/linodego v1.61.0 // indirect
 	github.com/liquidweb/liquidweb-cli v0.6.9 // indirect
 	github.com/liquidweb/liquidweb-go v1.6.4 // indirect
@@ -179,6 +188,7 @@ require (
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
 	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.35 // indirect
+	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/selectel/domains-go v1.1.0 // indirect
 	github.com/selectel/go-selvpcclient/v4 v4.1.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
@@ -197,6 +207,7 @@ require (
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/transip/gotransip/v6 v6.26.1 // indirect
 	github.com/ultradns/ultradns-go-sdk v1.8.1-20250722213956-faef419 // indirect
+	github.com/valyala/fastjson v1.6.4 // indirect
 	github.com/vinyldns/go-vinyldns v0.9.16 // indirect
 	github.com/volcengine/volc-sdk-golang v1.0.229 // indirect
 	github.com/vultr/govultr/v3 v3.25.0 // indirect

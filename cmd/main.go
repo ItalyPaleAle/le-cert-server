@@ -103,7 +103,7 @@ func main() {
 
 	// Create authenticator
 	log.Info("Initializing OAuth2 authenticator", slog.String("issuer", cfg.Auth.IssuerURL))
-	authenticator, err := auth.NewAuthenticator(cfg.Auth.IssuerURL, cfg.Auth.Audience, cfg.Auth.RequiredScopes)
+	authenticator, err := auth.NewAuthenticator(ctx, cfg.Auth.IssuerURL, cfg.Auth.Audience, cfg.Auth.RequiredScopes)
 	if err != nil {
 		utils.FatalError(log, "Failed to init OAuth2 authenticator", err)
 		return
