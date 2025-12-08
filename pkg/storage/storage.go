@@ -80,7 +80,10 @@ type DNSCredentials struct {
 
 // NewStorage creates a new storage instance
 func NewStorage(dbPath string) (*Storage, error) {
-	db, err := sql.Open("sqlite", dbPath)
+	// Configure connection string with WAL mode and busy timeout
+	// Use query parameters to set pragmas for modernc.org/sqlite
+	connStr := dbPath + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)"
+	db, err := sql.Open("sqlite", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
