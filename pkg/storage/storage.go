@@ -9,8 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -80,7 +82,13 @@ type DNSCredentials struct {
 
 // NewStorage creates a new storage instance
 func NewStorage(dbPath string) (*Storage, error) {
-	db, err := sql.Open("sqlite", dbPath)
+	// Parse and configure the SQLite connection string with WAL mode and busy timeout
+	connStr, err := parseSqliteConnectionString(dbPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse SQLite connection string: %w", err)
+	}
+
+	db, err := sql.Open("sqlite", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
@@ -90,6 +98,54 @@ func NewStorage(dbPath string) (*Storage, error) {
 	}
 
 	return storage, nil
+}
+
+// parseSqliteConnectionString parses and configures the SQLite connection string.
+// It ensures the connection string starts with "file:", properly handles existing
+// query parameters, and adds WAL mode and busy timeout pragmas if not already present.
+func parseSqliteConnectionString(connString string) (string, error) {
+	// Ensure the connection string starts with "file:"
+	if !strings.HasPrefix(connString, "file:") {
+		connString = "file:" + connString
+	}
+
+	// Parse the connection string as a URL
+	connStringUrl, err := url.Parse(connString)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse connection string: %w", err)
+	}
+
+	// Get existing query parameters
+	qs := connStringUrl.Query()
+
+	// Check if WAL and busy timeout pragmas are already set
+	hasWAL := false
+	hasBusyTimeout := false
+
+	for _, p := range qs["_pragma"] {
+		p = strings.ToLower(p)
+		if strings.HasPrefix(p, "journal_mode(") {
+			hasWAL = true
+		}
+		if strings.HasPrefix(p, "busy_timeout(") {
+			hasBusyTimeout = true
+		}
+	}
+
+	// Add WAL mode if not already present
+	if !hasWAL {
+		qs["_pragma"] = append(qs["_pragma"], "journal_mode(WAL)")
+	}
+
+	// Add busy timeout (5000ms = 5s) if not already present
+	if !hasBusyTimeout {
+		qs["_pragma"] = append(qs["_pragma"], "busy_timeout(5000)")
+	}
+
+	// Update the connection string with the new query parameters
+	connStringUrl.RawQuery = qs.Encode()
+
+	return connStringUrl.String(), nil
 }
 
 func (s *Storage) Init(ctx context.Context) error {
