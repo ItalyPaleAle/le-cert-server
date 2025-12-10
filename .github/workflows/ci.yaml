@@ -20,7 +20,7 @@ jobs:
     permissions:
       contents: read
     env:
-      CGO_ENABLED: "0"
+      CGO_ENABLED: "1"
       GOLANGCI_LINT_VERSION: "v2.4.0"
     steps:
 
