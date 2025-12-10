@@ -86,6 +86,8 @@ func (s *Server) init() error {
 }
 
 func (s *Server) initAppServer() (err error) {
+	cfg := config.Get()
+
 	// Load the TLS configuration
 	s.tlsConfig, s.tlsCertWatchFn, err = s.loadTLSConfig(context.Background())
 	if err != nil {
@@ -111,9 +113,18 @@ func (s *Server) initAppServer() (err error) {
 		MiddlewareMaxBodySize(1<<10),
 	)
 
+	var filters []sloghttp.Filter
+	if cfg.Logs.OmitHealthChecks {
+		filters = []sloghttp.Filter{
+			func(w sloghttp.WrapResponseWriter, r *http.Request) bool {
+				return r.URL.Path != "/healthz"
+			},
+		}
+	}
+
 	middlewares = append(middlewares,
 		// Log requests
-		sloghttp.New(slog.Default()),
+		sloghttp.NewWithFilters(slog.Default(), filters...),
 	)
 
 	// Add middlewares

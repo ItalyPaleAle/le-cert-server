@@ -132,6 +132,12 @@ logs:
   ## Default: "info"
   #level: "info"
 
+  ## logs.omitHealthChecks (boolean)
+  ## Description:
+  ##   If true, calls to the healthcheck endpoint (`/healthz`) are not included in the logs.
+  ## Default: true
+  #omitHealthChecks: true
+
   ## logs.json (boolean)
   ## Description:
   ##   If true, emits logs formatted as JSON, otherwise uses a text-based structured log format.

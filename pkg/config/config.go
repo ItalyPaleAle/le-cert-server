@@ -38,6 +38,10 @@ type ConfigLogs struct {
 	// +default "info"
 	Level string `yaml:"level"`
 
+	// If true, calls to the healthcheck endpoint (`/healthz`) are not included in the logs.
+	// +default true
+	OmitHealthChecks bool `yaml:"omitHealthChecks"`
+
 	// If true, emits logs formatted as JSON, otherwise uses a text-based structured log format.
 	// Defaults to false if a TTY is attached (e.g. when running the binary directly in the terminal or in development); true otherwise.
 	JSON bool `yaml:"json"`

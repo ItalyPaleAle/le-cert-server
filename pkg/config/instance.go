@@ -38,7 +38,8 @@ func Get() *Config {
 func GetDefaultConfig() *Config {
 	return &Config{
 		Logs: ConfigLogs{
-			Level: "info",
+			Level:            "info",
+			OmitHealthChecks: true,
 		},
 		Server: ConfigServer{
 			Bind: "127.0.0.1",

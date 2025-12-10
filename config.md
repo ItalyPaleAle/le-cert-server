@@ -19,4 +19,5 @@
 | <a id="config-opt-auth-jwt-requiredscopes"></a>`auth.jwt.requiredScopes` | list of strings | Required scopes that tokens must have (optional)|  |
 | <a id="config-opt-auth-psk-key"></a>`auth.psk.key` | string | Pre-Shared Key Authentication (simpler setup, good for internal services)<br>Must be at least 16 characters<br>Generate with: `openssl rand -base64 32`|  |
 | <a id="config-opt-logs-level"></a>`logs.level` | string | Controls log level and verbosity. Supported values: `debug`, `info` (default), `warn`, `error`.| Default: _"info"_ |
+| <a id="config-opt-logs-omithealthchecks"></a>`logs.omitHealthChecks` | boolean | If true, calls to the healthcheck endpoint (`/healthz`) are not included in the logs.| Default: _true_ |
 | <a id="config-opt-logs-json"></a>`logs.json` | boolean | If true, emits logs formatted as JSON, otherwise uses a text-based structured log format.<br>Defaults to false if a TTY is attached (e.g. when running the binary directly in the terminal or in development); true otherwise.|  |
