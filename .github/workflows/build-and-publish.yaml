@@ -96,18 +96,6 @@ jobs:
           cp -r README.md .bin/le-cert-server-${{ env.BUILD_ID }}-linux-amd64
           (cd .bin && tar -czvf ../.out/le-cert-server-${{ env.BUILD_ID }}-linux-amd64.tar.gz le-cert-server-${{ env.BUILD_ID }}-linux-amd64)
 
-          echo -e "\n###\nBuilding linux/386\n"
-          mkdir .bin/le-cert-server-${{ env.BUILD_ID }}-linux-386
-          GOOS=linux GOARCH=386 \
-            go build \
-              -ldflags "${{ env.BUILD_LDFLAGS }}" \
-              -o .bin/le-cert-server-${{ env.BUILD_ID }}-linux-386/le-cert-server \
-              -trimpath \
-              ./cmd
-          cp LICENSE.md .bin/le-cert-server-${{ env.BUILD_ID }}-linux-386
-          cp -r README.md .bin/le-cert-server-${{ env.BUILD_ID }}-linux-386
-          (cd .bin && tar -czvf ../.out/le-cert-server-${{ env.BUILD_ID }}-linux-386.tar.gz le-cert-server-${{ env.BUILD_ID }}-linux-386)
-
           echo -e "\n###\nBuilding linux/arm64\n"
           mkdir .bin/le-cert-server-${{ env.BUILD_ID }}-linux-arm64
           GOOS=linux GOARCH=arm64 \
@@ -131,30 +119,6 @@ jobs:
           cp LICENSE.md .bin/le-cert-server-${{ env.BUILD_ID }}-linux-armv7
           cp -r README.md .bin/le-cert-server-${{ env.BUILD_ID }}-linux-armv7
           (cd .bin && tar -czvf ../.out/le-cert-server-${{ env.BUILD_ID }}-linux-armv7.tar.gz le-cert-server-${{ env.BUILD_ID }}-linux-armv7)
-
-          echo -e "\n###\nBuilding darwin/amd64\n"
-          mkdir .bin/le-cert-server-${{ env.BUILD_ID }}-macos-x64
-          GOOS=darwin GOARCH=amd64 \
-            go build \
-              -ldflags "${{ env.BUILD_LDFLAGS }}" \
-              -o .bin/le-cert-server-${{ env.BUILD_ID }}-macos-x64/le-cert-server \
-              -trimpath \
-              ./cmd
-          cp LICENSE.md .bin/le-cert-server-${{ env.BUILD_ID }}-macos-x64
-          cp -r README.md .bin/le-cert-server-${{ env.BUILD_ID }}-macos-x64
-          (cd .bin && tar -czvf ../.out/le-cert-server-${{ env.BUILD_ID }}-macos-x64.tar.gz le-cert-server-${{ env.BUILD_ID }}-macos-x64)
-
-          echo -e "\n###\nBuilding darwin/arm64\n"
-          mkdir .bin/le-cert-server-${{ env.BUILD_ID }}-macos-arm64
-          GOOS=darwin GOARCH=arm64 \
-            go build \
-              -ldflags "${{ env.BUILD_LDFLAGS }}" \
-              -o .bin/le-cert-server-${{ env.BUILD_ID }}-macos-arm64/le-cert-server \
-              -trimpath \
-              ./cmd
-          cp LICENSE.md .bin/le-cert-server-${{ env.BUILD_ID }}-macos-arm64
-          cp -r README.md .bin/le-cert-server-${{ env.BUILD_ID }}-macos-arm64
-          (cd .bin && tar -czvf ../.out/le-cert-server-${{ env.BUILD_ID }}-macos-arm64.tar.gz le-cert-server-${{ env.BUILD_ID }}-macos-arm64)
 
           echo -e "\n###\nBuilding windows/amd64\n"
           mkdir .bin/le-cert-server-${{ env.BUILD_ID }}-windows-x64
@@ -245,14 +209,6 @@ jobs:
           subject-path: |
             .bin/le-cert-server-*-linux-amd64/le-cert-server
 
-      - name: Binary attestation linux-386
-        uses: actions/attest-build-provenance@v1
-        if: startsWith(github.ref, 'refs/tags/v')
-        with:
-          subject-name: linux-386/le-cert-server
-          subject-path: |
-            .bin/le-cert-server-*-linux-386/le-cert-server
-
       - name: Binary attestation linux-arm64
         uses: actions/attest-build-provenance@v1
         if: startsWith(github.ref, 'refs/tags/v')
@@ -268,22 +224,6 @@ jobs:
           subject-name: linux-armv7/le-cert-server
           subject-path: |
             .bin/le-cert-server-*-linux-armv7/le-cert-server
-
-      - name: Binary attestation macos-x64
-        uses: actions/attest-build-provenance@v1
-        if: startsWith(github.ref, 'refs/tags/v')
-        with:
-          subject-name: macos-x64/le-cert-server
-          subject-path: |
-            .bin/le-cert-server-*-macos-x64/le-cert-server
-
-      - name: Binary attestation macos-arm64
-        uses: actions/attest-build-provenance@v1
-        if: startsWith(github.ref, 'refs/tags/v')
-        with:
-          subject-name: macos-arm64/le-cert-server
-          subject-path: |
-            .bin/le-cert-server-*-macos-arm64/le-cert-server
 
       - name: Binary attestation windows-x64
         uses: actions/attest-build-provenance@v1
