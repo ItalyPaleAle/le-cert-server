@@ -69,10 +69,25 @@ func (l slogLogger) Printf(format string, args ...any) {
 }
 
 func (l slogLogger) log(message string) {
-	after, ok := strings.CutPrefix(message, "[WARN] ")
+	level := slog.LevelInfo
+	message, ok := strings.CutPrefix(message, "[WARN] ")
 	if ok {
-		slog.Warn(after)
+		level = slog.LevelWarn
 	} else {
-		slog.Info(strings.TrimPrefix(message, "[INFO] "))
+		message = strings.TrimPrefix(message, "[INFO] ")
 	}
+
+	attrs := []slog.Attr{
+		slog.String("scope", "lego"),
+	}
+
+	if len(message) > 1 && message[0] == '[' {
+		endIdx := strings.IndexByte(message, ']')
+		if endIdx > 2 {
+			attrs = append(attrs, slog.String("domain", message[1:endIdx]))
+		}
+		message = message[endIdx+1:]
+	}
+
+	slog.LogAttrs(context.Background(), level, message, attrs...)
 }
