@@ -19,6 +19,7 @@ type Config struct {
 	Database ConfigDatabase `yaml:"database"`
 
 	// Auth configuration
+	// You must configure exactly one auth method (jwt or psk)
 	Auth ConfigAuth `yaml:"auth"`
 
 	// Logs contains configuration for logging
@@ -44,11 +45,12 @@ type ConfigLogs struct {
 
 // ConfigServer represents server configuration
 type ConfigServer struct {
-	// Address to bind to
+	// Address to bind the API server to
+	// Set to "0.0.0.0" for listening on all interfaces
 	// +default "127.0.0.1"
 	Bind string `yaml:"bind"`
 
-	// Port to listen on
+	// Port for the API server to listen on
 	// +default 7701
 	Port int `yaml:"port"`
 
@@ -73,16 +75,28 @@ type ConfigServer struct {
 // ConfigLetsEncrypt holds Let's Encrypt configuration
 type ConfigLetsEncrypt struct {
 	// Email address for Let's Encrypt registration
+	// +required
 	Email string `yaml:"email"`
 
-	// Use staging environment (for testing)
+	// Use staging Let's Encrypt environment
+	// Set to true for testing
 	// +default false
 	Staging bool `yaml:"staging"`
 
-	// DNS provider (e.g., "cloudflare", "route53", "digitalocean")
+	// DNS provider for DNS-01 challenge
+	// All DNS providers supported by lego can be used here
+	// See full list: https://go-acme.github.io/lego/dns/
+	// Examples: "cloudflare", "route53", "digitalocean", "godaddy", "namecheap", etc.
+	// +required
 	DNSProvider string `yaml:"dnsProvider"`
 
-	// DNS provider credentials (provider-specific)
+	// DNS provider credentials (provider-specific environment variables)
+	// These will be set as environment variables for the DNS provider
+	// You can also set these as system environment variables instead of in the config
+	// Refer to the Lego provider docs for the supported values: https://go-acme.github.io/lego/dns/
+	// Examples:
+	//   - Cloudflare: set CF_DNS_API_TOKEN
+	//   - AWS Route53, set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
 	DNSCredentials map[string]string `yaml:"dnsCredentials"`
 
 	// Certificate renewal threshold in days
@@ -92,13 +106,14 @@ type ConfigLetsEncrypt struct {
 
 // ConfigDatabase holds database configuration
 type ConfigDatabase struct {
-	// Path to SQLite database file
+	// Path to SQLite database file or connection string
+	// +default "le-cert-server.db" in the current directory
 	Path string `yaml:"path"`
 }
 
 // ConfigAuth holds auth configuration
 type ConfigAuth struct {
-	// JWT authentication configuration
+	// OAuth2/OIDC (JWT) Authentication (recommended for multi-user environments)
 	// One and only one of `jwt` or `psk` must be set
 	JWT *ConfigAuthJWT `yaml:"jwt,omitempty"`
 
@@ -110,19 +125,28 @@ type ConfigAuth struct {
 // ConfigAuthJWT holds JWT/OAuth2 authentication configuration
 type ConfigAuthJWT struct {
 	// OAuth2 issuer URL for token validation (OIDC discovery endpoint)
-	// Example: "https://accounts.google.com" or "https://login.microsoftonline.com/{tenant}/v2.0"
+	// Examples:
+	//   - Google: "https://accounts.google.com"
+	//   - Microsoft Entra ID: "https://login.microsoftonline.com/{tenant}/v2.0"
+	//   - Auth0: "https://your-tenant.auth0.com"
+	//   - Keycloak: "https://keycloak.example.com/realms/your-realm"
+	// +required
 	IssuerURL string `yaml:"issuerUrl"`
 
 	// Expected audience (client ID) for token validation
+	// This should match the client ID from your OAuth2 provider
+	// +required
 	Audience string `yaml:"audience"`
 
-	// Required scopes (optional)
+	// Required scopes that tokens must have (optional)
 	RequiredScopes []string `yaml:"requiredScopes,omitempty"`
 }
 
 // ConfigAuthPSK holds pre-shared key authentication configuration
 type ConfigAuthPSK struct {
-	// Pre-shared key for authentication (minimum 16 characters)
+	// Pre-Shared Key Authentication (simpler setup, good for internal services)
+	// Must be at least 16 characters
+	// Generate with: `openssl rand -base64 32`
 	Key string `yaml:"key"`
 }
 

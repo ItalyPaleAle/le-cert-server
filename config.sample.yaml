@@ -1,0 +1,140 @@
+server:
+  ## server.bind (string)
+  ## Description:
+  ##   Address to bind the API server to
+  ##   Set to "0.0.0.0" for listening on all interfaces
+  ## Default: "127.0.0.1"
+  #bind: "127.0.0.1"
+
+  ## server.port (number)
+  ## Description:
+  ##   Port for the API server to listen on
+  ## Default: 7701
+  #port: 7701
+
+  ## server.letsEncryptDomain (string)
+  ## Description:
+  ##   If set, fetch the server certificate from Let's Encrypt for the given domain
+  #letsEncryptDomain: ""
+
+  ## server.tlsPath (string)
+  ## Description:
+  ##   Path where to load TLS certificates from, when not using Let's Encrypt.
+  ##   Within the folder, the files must be named `tls-cert.pem` and `tls-key.pem`. The application watches for changes in this folder and automatically reloads the TLS certificates when they're updated.
+  ##   If empty, certificates are loaded from the same folder where the loaded `config.yaml` is located.
+  ## Default: the same folder as the `config.yaml` file
+  #tlsPath: the same folder as the `config.yaml` file
+
+  ## server.tlsCertPEM (string)
+  ## Description:
+  ##   Full, PEM-encoded TLS certificate, when not using Let's Encrypt.
+  ##   Using `tlsCertPEM` and `tlsKeyPEM` is an alternative method of passing TLS certificates than using `tlsPath`.
+  #tlsCertPEM: ""
+
+  ## server.tlsKeyPEM (string)
+  ## Description:
+  ##   Full, PEM-encoded TLS key, when not using Let's Encrypt.
+  ##   Using `tlsCertPEM` and `tlsKeyPEM` is an alternative method of passing TLS certificates than using `tlsPath`.
+  #tlsKeyPEM: ""
+
+letsEncrypt:
+  ## letsEncrypt.email (string)
+  ## Description:
+  ##   Email address for Let's Encrypt registration
+  ## Required
+  email: ""
+
+  ## letsEncrypt.staging (boolean)
+  ## Description:
+  ##   Use staging Let's Encrypt environment
+  ##   Set to true for testing
+  ## Default: false
+  #staging: false
+
+  ## letsEncrypt.dnsProvider (string)
+  ## Description:
+  ##   DNS provider for DNS-01 challenge
+  ##   All DNS providers supported by lego can be used here
+  ##   See full list: https://go-acme.github.io/lego/dns/
+  ##   Examples: "cloudflare", "route53", "digitalocean", "godaddy", "namecheap", etc.
+  ## Required
+  dnsProvider: ""
+
+  ## letsEncrypt.dnsCredentials (map)
+  ## Description:
+  ##   DNS provider credentials (provider-specific environment variables)
+  ##   These will be set as environment variables for the DNS provider
+  ##   You can also set these as system environment variables instead of in the config
+  ##   Refer to the Lego provider docs for the supported values: https://go-acme.github.io/lego/dns/
+  ##   Examples:
+  ##     - Cloudflare: set CF_DNS_API_TOKEN
+  ##     - AWS Route53, set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
+  #dnsCredentials: 
+
+  ## letsEncrypt.renewalDays (number)
+  ## Description:
+  ##   Certificate renewal threshold in days
+  ## Default: 30
+  #renewalDays: 30
+
+database:
+  ## database.path (string)
+  ## Description:
+  ##   Path to SQLite database file or connection string
+  ## Default: "le-cert-server.db" in the current directory
+  #path: "le-cert-server.db" in the current directory
+
+auth:
+  ## auth.jwt
+  ## Description:
+  ##   OAuth2/OIDC (JWT) Authentication (recommended for multi-user environments)
+  ##   One and only one of `jwt` or `psk` must be set
+  jwt:
+    ## auth.jwt.issuerUrl (string)
+    ## Description:
+    ##   OAuth2 issuer URL for token validation (OIDC discovery endpoint)
+    ##   Examples:
+    ##     - Google: "https://accounts.google.com"
+    ##     - Microsoft Entra ID: "https://login.microsoftonline.com/{tenant}/v2.0"
+    ##     - Auth0: "https://your-tenant.auth0.com"
+    ##     - Keycloak: "https://keycloak.example.com/realms/your-realm"
+    ## Required
+    issuerUrl: ""
+
+    ## auth.jwt.audience (string)
+    ## Description:
+    ##   Expected audience (client ID) for token validation
+    ##   This should match the client ID from your OAuth2 provider
+    ## Required
+    audience: ""
+
+    ## auth.jwt.requiredScopes (list of strings)
+    ## Description:
+    ##   Required scopes that tokens must have (optional)
+    #requiredScopes: []
+
+  ## auth.psk
+  ## Description:
+  ##   PSK (Pre-Shared Key) authentication configuration
+  ##   One and only one of `jwt` or `psk` must be set
+  psk:
+    ## auth.psk.key (string)
+    ## Description:
+    ##   Pre-Shared Key Authentication (simpler setup, good for internal services)
+    ##   Must be at least 16 characters
+    ##   Generate with: `openssl rand -base64 32`
+    #key: ""
+
+logs:
+  ## logs.level (string)
+  ## Description:
+  ##   Controls log level and verbosity. Supported values: `debug`, `info` (default), `warn`, `error`.
+  ## Default: "info"
+  #level: "info"
+
+  ## logs.json (boolean)
+  ## Description:
+  ##   If true, emits logs formatted as JSON, otherwise uses a text-based structured log format.
+  ##   Defaults to false if a TTY is attached (e.g. when running the binary directly in the terminal or in development); true otherwise.
+  #json: false
+

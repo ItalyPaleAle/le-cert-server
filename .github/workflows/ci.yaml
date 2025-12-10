@@ -20,7 +20,6 @@ jobs:
     permissions:
       contents: read
     env:
-      CGO_ENABLED: "1"
       GOLANGCI_LINT_VERSION: "v2.4.0"
     steps:
 
@@ -41,4 +40,4 @@ jobs:
 
       - name: Test
         run: |
-          go test -v -race ./...
+          make test-race

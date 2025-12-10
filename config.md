@@ -1,0 +1,22 @@
+## Root configuration object
+
+| Name | Type | Description | |
+| --- | --- | --- | --- |
+| <a id="config-opt-server-bind"></a>`server.bind` | string | Address to bind the API server to<br>Set to "0.0.0.0" for listening on all interfaces| Default: _"127.0.0.1"_ |
+| <a id="config-opt-server-port"></a>`server.port` | number | Port for the API server to listen on| Default: _7701_ |
+| <a id="config-opt-server-letsencryptdomain"></a>`server.letsEncryptDomain` | string | If set, fetch the server certificate from Let's Encrypt for the given domain|  |
+| <a id="config-opt-server-tlspath"></a>`server.tlsPath` | string | Path where to load TLS certificates from, when not using Let's Encrypt.<br>Within the folder, the files must be named `tls-cert.pem` and `tls-key.pem`. The application watches for changes in this folder and automatically reloads the TLS certificates when they're updated.<br>If empty, certificates are loaded from the same folder where the loaded `config.yaml` is located.| Default: _the same folder as the `config.yaml` file_ |
+| <a id="config-opt-server-tlscertpem"></a>`server.tlsCertPEM` | string | Full, PEM-encoded TLS certificate, when not using Let's Encrypt.<br>Using `tlsCertPEM` and `tlsKeyPEM` is an alternative method of passing TLS certificates than using `tlsPath`.|  |
+| <a id="config-opt-server-tlskeypem"></a>`server.tlsKeyPEM` | string | Full, PEM-encoded TLS key, when not using Let's Encrypt.<br>Using `tlsCertPEM` and `tlsKeyPEM` is an alternative method of passing TLS certificates than using `tlsPath`.|  |
+| <a id="config-opt-letsencrypt-email"></a>`letsEncrypt.email` | string | Email address for Let's Encrypt registration| **Required** |
+| <a id="config-opt-letsencrypt-staging"></a>`letsEncrypt.staging` | boolean | Use staging Let's Encrypt environment<br>Set to true for testing| Default: _false_ |
+| <a id="config-opt-letsencrypt-dnsprovider"></a>`letsEncrypt.dnsProvider` | string | DNS provider for DNS-01 challenge<br>All DNS providers supported by lego can be used here<br>See full list: https://go-acme.github.io/lego/dns/<br>Examples: "cloudflare", "route53", "digitalocean", "godaddy", "namecheap", etc.| **Required** |
+| <a id="config-opt-letsencrypt-dnscredentials"></a>`letsEncrypt.dnsCredentials` | map | DNS provider credentials (provider-specific environment variables)<br>These will be set as environment variables for the DNS provider<br>You can also set these as system environment variables instead of in the config<br>Refer to the Lego provider docs for the supported values: https://go-acme.github.io/lego/dns/<br>Examples:<br>  - Cloudflare: set CF_DNS_API_TOKEN<br>  - AWS Route53, set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION|  |
+| <a id="config-opt-letsencrypt-renewaldays"></a>`letsEncrypt.renewalDays` | number | Certificate renewal threshold in days| Default: _30_ |
+| <a id="config-opt-database-path"></a>`database.path` | string | Path to SQLite database file or connection string| Default: _"le-cert-server.db" in the current directory_ |
+| <a id="config-opt-auth-jwt-issuerurl"></a>`auth.jwt.issuerUrl` | string | OAuth2 issuer URL for token validation (OIDC discovery endpoint)<br>Examples:<br>  - Google: "https://accounts.google.com"<br>  - Microsoft Entra ID: "https://login.microsoftonline.com/{tenant}/v2.0"<br>  - Auth0: "https://your-tenant.auth0.com"<br>  - Keycloak: "https://keycloak.example.com/realms/your-realm"| **Required** |
+| <a id="config-opt-auth-jwt-audience"></a>`auth.jwt.audience` | string | Expected audience (client ID) for token validation<br>This should match the client ID from your OAuth2 provider| **Required** |
+| <a id="config-opt-auth-jwt-requiredscopes"></a>`auth.jwt.requiredScopes` | list of strings | Required scopes that tokens must have (optional)|  |
+| <a id="config-opt-auth-psk-key"></a>`auth.psk.key` | string | Pre-Shared Key Authentication (simpler setup, good for internal services)<br>Must be at least 16 characters<br>Generate with: `openssl rand -base64 32`|  |
+| <a id="config-opt-logs-level"></a>`logs.level` | string | Controls log level and verbosity. Supported values: `debug`, `info` (default), `warn`, `error`.| Default: _"info"_ |
+| <a id="config-opt-logs-json"></a>`logs.json` | boolean | If true, emits logs formatted as JSON, otherwise uses a text-based structured log format.<br>Defaults to false if a TTY is attached (e.g. when running the binary directly in the terminal or in development); true otherwise.|  |
