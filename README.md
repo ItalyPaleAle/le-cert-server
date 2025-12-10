@@ -35,7 +35,7 @@ Benefits:
 - ✅ Centralized, secure credential storage
 - ✅ Wildcard certificate support via DNS-01 challenge
 - ✅ Built-in caching to avoid rate limits
-- ✅ Optional OAuth2/OIDC authentication for API security
+- ✅ Simple PSK authentication or optional JWT/OIDC for advanced scenarios
 
 ## Quick Example: Using with Traefik
 
@@ -51,6 +51,7 @@ server:
 
 letsEncrypt:
   email: "admin@example.com"
+  # Set to true for testing
   staging: false
   dnsProvider: "cloudflare"
   dnsCredentials:
@@ -58,11 +59,12 @@ letsEncrypt:
   renewalDays: 30
 
 auth:
-  issuerUrl: "https://accounts.google.com"
-  audience: "your-client-id.apps.googleusercontent.com"
+  psk:
+    # Generate with: `openssl rand -base64 32`
+    key: "your-secure-random-key-here"
 
 database:
-  path: "/var/lib/cert-server/certs.db"
+  path: "le-cert-server.db"
 ```
 
 **2. Create a Traefik certificate fetcher script**:
@@ -72,19 +74,19 @@ database:
 # fetch-cert.sh - Run this on each Traefik node
 
 DOMAIN="myapp.example.com"
-ACCESS_TOKEN=$(gcloud auth print-identity-token --audiences="your-client-id.apps.googleusercontent.com")
+API_KEY="your-secure-random-key-here"
 CERT_SERVER="https://cert-server.internal:8443"
 
 # Fetch certificate from Certificate Server
 curl -X POST "${CERT_SERVER}/api/certificate" \
-  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "Authorization: APIKey ${API_KEY}" \
   -H "Content-Type: application/json" \
   -d "{\"domain\": \"${DOMAIN}\"}" | \
   jq -r '.certificate' > /etc/traefik/certs/${DOMAIN}.crt
 
 # Fetch private key
 curl -X POST "${CERT_SERVER}/api/certificate" \
-  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -H "Authorization: APIKey ${API_KEY}" \
   -H "Content-Type: application/json" \
   -d "{\"domain\": \"${DOMAIN}\"}" | \
   jq -r '.private_key' > /etc/traefik/certs/${DOMAIN}.key
@@ -96,17 +98,17 @@ docker kill -s HUP traefik
 **3. Configure Traefik to use the certificates**:
 
 ```yaml
-# traefik.yml
+# traefik.yaml
 entryPoints:
   websecure:
     address: ":443"
 
 providers:
   file:
-    filename: /etc/traefik/dynamic.yml
+    filename: /etc/traefik/dynamic-config.yml
     watch: true
 
-# dynamic.yml
+# dynamic-config.yaml
 tls:
   certificates:
     - certFile: /etc/traefik/certs/myapp.example.com.crt
@@ -122,129 +124,261 @@ tls:
 
 **Benefits of this setup:**
 
-- 🔐 DNS credentials stay on Certificate Server only—not on Traefik nodes
+- 🔐 DNS credentials stay on Certificate Server only, not on Traefik nodes
 - 🔄 All Traefik instances get the same certificate automatically
 - ♻️ Certificates renew centrally and propagate to all nodes
-- 🛡️ OAuth2 authentication ensures only authorized nodes can fetch certificates
+- 🛡️ Authentication ensures only authorized nodes can fetch certificates
 - 📦 Works with any number of Traefik instances (containers, VMs, or bare metal)
 
 ## Installation
 
-### Prerequisites
+### Using Docker (Recommended)
 
-- Go 1.25 or later
-- DNS provider credentials for any supported provider (see [Lego DNS Providers](https://go-acme.github.io/lego/dns/) for full list)
-- An OAuth2/OIDC provider for API authentication (Google, Auth0, Azure AD, Keycloak, etc.)
-- A valid TLS certificate for the server itself (can be self-signed for testing)
+Use the pre-built Docker image:
 
-### Build
+```sh
+docker pull ghcr.io/italypaleale/le-cert-server:v0
+```
+
+### Using Pre-built Binaries
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/ItalyPaleAle/le-cert-server/releases):
+
+```sh
+# Example for linux/amd64
+wget https://github.com/ItalyPaleAle/le-cert-server/releases/latest/download/le-cert-server-linux-amd64
+chmod +x le-cert-server-linux-amd64
+sudo mv le-cert-server-linux-amd64 /usr/local/bin/cert-server
+```
+
+### Building from Source
+
+If you prefer to build from source:
 
 ```bash
-go build -o cert-server
+git clone https://github.com/ItalyPaleAle/le-cert-server.git
+cd le-cert-server
+go build -o le-cert-server ./cmd
 ```
-
-## Getting Started
-
-### Quick Configuration
-
-Create a `config.yaml` file (see [config.example.yaml](config.example.yaml) for full options):
-
-```yaml
-server:
-  bind: "0.0.0.0"
-  port: 8443
-
-letsEncrypt:
-  email: "admin@example.com"
-  staging: true  # Use staging for testing, false for production
-  dnsProvider: "cloudflare"
-  dnsCredentials:
-    CF_DNS_API_TOKEN: "your-cloudflare-token"
-  renewalDays: 30
-
-database:
-  path: "/var/lib/cert-server/certs.db"
-
-auth:
-  issuerUrl: "https://accounts.google.com"
-  audience: "your-client-id.apps.googleusercontent.com"
-```
-
-### Start the Server
-
-```bash
-./cert-server -config config.yaml
-```
-
-The server will:
-- Start an HTTPS API on port 8443
-- Connect to your OAuth2 provider for authentication
-- Begin monitoring certificates for automatic renewal
 
 ### Request Your First Certificate
 
 ```bash
-# Get an access token from your OAuth2 provider
-ACCESS_TOKEN=$(gcloud auth print-identity-token --audiences="your-client-id.apps.googleusercontent.com")
-
-# Request a certificate
-curl -X POST https://localhost:8443/api/certificate \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
+# Request a certificate using your API key
+curl -k -X POST https://localhost:8443/api/certificate \
+  -H "Authorization: APIKey your-secure-random-key-here" \
   -H "Content-Type: application/json" \
   -d '{"domain": "example.com"}'
 ```
 
 That's it! The certificate and private key are returned in JSON format, ready to use.
 
+**Note:** Use `-k` flag to skip certificate verification if using self-signed certificates for testing.
+
 ---
 
 ## Detailed Configuration
 
-### OAuth2/OIDC Authentication
+### Authentication
 
-The server uses OAuth2/OIDC for secure API access. Configure any OAuth2 provider (Google, Auth0, Azure AD, Keycloak, etc.).
+le-cert-server supports two authentication methods:
 
-#### Supported OAuth2 Providers
+1. **Pre-Shared Key (PSK) Authentication** - Simple and secure for most use cases
+2. **JWT/OIDC Authentication** - Advanced scenarios with OAuth2 providers or platform identities
 
-Any OAuth2/OIDC compliant provider is supported:
+#### Pre-Shared Key (PSK) Authentication
 
-- **Google**: `https://accounts.google.com`
-- **Auth0**: `https://your-tenant.auth0.com`
-- **Azure AD**: `https://login.microsoftonline.com/{tenant-id}/v2.0`
-- **Keycloak**: `https://keycloak.example.com/realms/your-realm`
-- **Okta**: `https://your-domain.okta.com`
-- **GitHub**: Not directly supported (requires OAuth2 to OIDC bridge)
-
-#### Example: Google OAuth2
+PSK authentication is a simpler and secure option for most deployments. Configure a single API key that clients use to authenticate:
 
 ```yaml
 auth:
-  issuerUrl: "https://accounts.google.com"
-  audience: "123456789-abcdefgh.apps.googleusercontent.com"
+  psk:
+    key: "your-secure-random-key-here"
 ```
 
-1. Create a project in [Google Cloud Console](https://console.cloud.google.com)
-2. Enable the Identity Platform API
-3. Create OAuth 2.0 credentials (OAuth client ID)
-4. Use the client ID as the `audience` value
+Generate a secure key:
 
-#### Example: Auth0
+```bash
+# Generate a random 32-byte key (base64 encoded)
+openssl rand -base64 32
+```
+
+Clients authenticate by passing the key in the `Authorization` header:
+
+```bash
+curl -X POST https://cert-server:8443/api/certificate \
+  -H "Authorization: APIKey your-secure-random-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{"domain": "example.com"}'
+```
+
+#### JWT/OIDC Authentication (Advanced)
+
+For advanced scenarios, le-cert-server supports JWT token validation. This is useful when:
+
+- Using OAuth2/OIDC providers (Auth0, Okta, Keycloak, etc.)
+- Leveraging platform-managed identities (Azure Managed Identity, AWS IAM roles, GCP Service Accounts)
+- Implementing fine-grained access control with scopes
+
+**Basic JWT Configuration:**
+
+```yaml
+auth:
+  issuerUrl: "https://your-auth-provider.com"
+  audience: "your-api-audience"
+  # Optional
+  requiredScopes:
+    - "read:certificates"
+    - "write:certificates"
+```
+
+##### Example: Auth0 with Client Credentials Flow
+
+Ideal for machine-to-machine authentication:
+
+**1. Configure Auth0:**
+
+- Create an API in Auth0 dashboard with identifier `https://cert-server-api`
+- Create a Machine-to-Machine application
+- Authorize the application to access your API
+- Define custom scopes (optional)
+
+**2. Configure le-cert-server:**
 
 ```yaml
 auth:
   issuerUrl: "https://your-tenant.auth0.com"
   audience: "https://cert-server-api"
   requiredScopes:
-    - "read:certificates"
-    - "write:certificates"
+    - "request:certificates"
 ```
 
-#### Example: Azure AD
+**3. Client obtains token and requests certificate:**
+
+```bash
+# Get access token using client credentials
+ACCESS_TOKEN=$(curl --request POST \
+  --url 'https://your-tenant.auth0.com/oauth/token' \
+  --header 'content-type: application/json' \
+  --data '{
+    "client_id":"YOUR_CLIENT_ID",
+    "client_secret":"YOUR_CLIENT_SECRET",
+    "audience":"https://cert-server-api",
+    "grant_type":"client_credentials"
+  }' | jq -r '.access_token')
+
+# Request certificate
+curl -X POST https://cert-server:8443/api/certificate \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"domain": "example.com"}'
+```
+
+##### Example: Azure Managed Identity
+
+Use Azure Managed Identities to authenticate from an Azure VM, App Service, or other Azure services, without managing credentials:
+
+**1. Configure Microsoft Entra ID:**
+
+- Create an App Registration in Azure AD
+- Note the Application (client) ID: this is your "audience" value
+- Assign Managed Identity to your Azure resources (VM, App Service, etc.)
+- Grant the Managed Identity access to the App Registration
+
+**2. Configure le-cert-server:**
 
 ```yaml
 auth:
-  issuerUrl: "https://login.microsoftonline.com/your-tenant-id/v2.0"
-  audience: "api://cert-server"
+  issuerUrl: "https://login.microsoftonline.com/YOUR_TENANT_ID/v2.0"
+  audience: "YOUR_APP_CLIENT_ID"
+```
+
+**3. Client uses Managed Identity to get token:**
+
+```bash
+# From Azure VM or App Service with Managed Identity
+ACCESS_TOKEN=$(curl -s 'http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=YOUR_APP_CLIENT_ID' \
+  -H 'Metadata: true' | jq -r '.access_token')
+
+# Request certificate
+curl -X POST https://cert-server:8443/api/certificate \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"domain": "example.com"}'
+```
+
+**Azure Managed Identity Benefits:**
+
+- No credentials to manage or rotate
+- Automatic token refresh by Azure platform
+- Integrates with Azure RBAC and identity governance
+
+##### Example: AWS IAM Roles with OIDC
+
+Use AWS IAM roles and OIDC federation for credential-free authentication:
+
+**1. Set up OIDC Provider in AWS IAM:**
+
+- Configure an OIDC identity provider pointing to your auth server
+- Create an IAM role with trust policy for the OIDC provider
+- EC2 instances or ECS tasks assume this role
+
+**2. Configure le-cert-server:**
+
+```yaml
+auth:
+  issuerUrl: "https://your-oidc-provider.com"
+  audience: "sts.amazonaws.com"
+```
+
+**3. Client uses AWS STS to exchange IAM credentials for OIDC token:**
+
+```bash
+# Get OIDC token from AWS STS
+ACCESS_TOKEN=$(aws sts assume-role-with-web-identity \
+  --role-arn arn:aws:iam::ACCOUNT:role/cert-server-role \
+  --role-session-name cert-request \
+  --web-identity-token $(cat /var/run/secrets/eks.amazonaws.com/serviceaccount/token) \
+  --query 'Credentials.SessionToken' \
+  --output text)
+
+# Request certificate
+curl -X POST https://cert-server:8443/api/certificate \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"domain": "example.com"}'
+```
+
+##### Example: GCP Service Account with Workload Identity
+
+Use GCP Workload Identity for GKE workloads or service accounts:
+
+**1. Set up Workload Identity:**
+
+- Enable Workload Identity on your GKE cluster
+- Create a service account and bind it to Kubernetes service account
+- Grant the service account appropriate IAM roles
+
+**2. Configure le-cert-server:**
+
+```yaml
+auth:
+  issuerUrl: "https://accounts.google.com"
+  audience: "YOUR_CLIENT_ID.apps.googleusercontent.com"
+```
+
+**3. Client uses GCP metadata service to get identity token:**
+
+```bash
+# From GKE pod with Workload Identity
+ACCESS_TOKEN=$(curl -s "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity?audience=YOUR_CLIENT_ID.apps.googleusercontent.com" \
+  -H "Metadata-Flavor: Google")
+
+# Request certificate
+curl -X POST https://cert-server:8443/api/certificate \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"domain": "example.com"}'
 ```
 
 ### DNS Provider Configuration
@@ -252,6 +386,7 @@ auth:
 This server supports **all DNS providers** supported by the lego library. The credentials are passed as environment variables that you configure in the `dnsCredentials` section.
 
 **See the [Lego DNS Providers documentation](https://go-acme.github.io/lego/dns/) for:**
+
 - Complete list of supported providers (100+)
 - Required environment variables for each provider
 - Provider-specific configuration details
@@ -261,10 +396,10 @@ This server supports **all DNS providers** supported by the lego library. The cr
 ```yaml
 dnsProvider: "cloudflare"
 dnsCredentials:
-  CF_API_EMAIL: "user@example.com"
-  CF_API_KEY: "your-api-key"
-  # OR use API token (recommended):
-  # CF_DNS_API_TOKEN: "your-dns-api-token"
+  CF_DNS_API_TOKEN: "your-dns-api-token"
+  # OR use API key (not recommended):
+  # CF_API_EMAIL: "user@example.com"
+  # CF_API_KEY: "your-api-key"
 ```
 
 #### Example: AWS Route53
@@ -318,49 +453,23 @@ export CF_DNS_API_TOKEN="your-token"
 
 ### API Endpoints
 
-#### Health Check
-
-```bash
-curl https://localhost:8443/health
-```
-
-**Response:**
-
-```json
-{
-  "status": "healthy",
-  "time": "2025-01-20T22:00:00Z"
-}
-```
-
-#### Obtaining an Access Token
-
-Before making API requests, you need to obtain an OAuth2 access token from your configured provider.
-
-**Example with Google:**
-
-```bash
-# Use gcloud or OAuth2 client library to get a token
-ACCESS_TOKEN=$(gcloud auth print-identity-token --audiences="your-client-id.apps.googleusercontent.com")
-```
-
-**Example with Auth0:**
-
-```bash
-curl --request POST \
-  --url 'https://your-tenant.auth0.com/oauth/token' \
-  --header 'content-type: application/json' \
-  --data '{
-    "client_id":"YOUR_CLIENT_ID",
-    "client_secret":"YOUR_CLIENT_SECRET",
-    "audience":"https://cert-server-api",
-    "grant_type":"client_credentials"
-  }' | jq -r '.access_token'
-```
-
 #### Request a Certificate
 
+**Using PSK Authentication:**
+
 ```bash
+curl -X POST https://localhost:8443/api/certificate \
+  -H "Authorization: APIKey your-secure-random-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{"domain": "example.com"}'
+```
+
+**Using JWT Authentication:**
+
+```bash
+# First obtain a token from your OAuth2 provider (see Authentication section)
+ACCESS_TOKEN="your-jwt-token"
+
 curl -X POST https://localhost:8443/api/certificate \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
@@ -385,7 +494,7 @@ curl -X POST https://localhost:8443/api/certificate \
 
 ```bash
 curl -X POST https://localhost:8443/api/certificate/renew \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Authorization: APIKey your-secure-random-key-here" \
   -H "Content-Type: application/json" \
   -d '{"domain": "example.com"}'
 ```
@@ -400,30 +509,33 @@ curl -X POST https://localhost:8443/api/certificate/renew \
 - 📢 Clients automatically receive renewed certificates on their next API request
 
 **How it helps you:**
+
 - No manual renewal workflows or reminders needed
 - Prevents service outages from expired certificates
 - Works seamlessly across all your servers—renew once, available everywhere
 
 ## Security & Best Practices
 
-Certificate Server is designed with security as a priority:
+le-cert-server is designed with security as a priority:
 
 - **Centralized Credentials**: DNS provider credentials are stored only on the Certificate Server, not on client nodes
-- **OAuth2/OIDC Authentication**: Industry-standard authentication with automatic token validation using JWKS
+- **Flexible Authentication**: Simple PSK for most use cases, or JWT/OIDC for advanced scenarios
 - **HTTPS API**: All communication is encrypted with TLS
 - **Audit Trail**: All certificate requests and renewals are logged
 - **Least Privilege**: Client nodes only need API access, not DNS provider credentials
 
 ### Security Checklist
 
-- ✅ Use OAuth2/OIDC with a trusted provider (not simple bearer tokens)
-- ✅ Deploy Certificate Server on a trusted, isolated network segment
+- ✅ Use strong, randomly-generated API keys (PSK) or JWT authentication
+- ✅ Deploy le-cert-server on a trusted, isolated network segment
 - ✅ Use production Let's Encrypt (not staging) only after testing
 - ✅ Protect the config file with appropriate file permissions (600 or 640)
-- ✅ Use a dedicated service account for the Certificate Server process
+- ✅ Use a dedicated service account for the le-cert-server process
 - ✅ Enable firewall rules to restrict API access to known client IPs if possible
 - ✅ Regularly backup the SQLite database to preserve certificate cache
 - ✅ Monitor logs for unauthorized access attempts
+- ✅ Rotate API keys periodically
+- ✅ Use TLS certificates for the server (can be self-signed for internal use)
 
 ## API Client Examples
 
@@ -450,11 +562,11 @@ type CertResponse struct {
     PrivateKey  string `json:"private_key"`
 }
 
-func requestCertificate(domain, serverURL, token string) (*CertResponse, error) {
+func requestCertificate(domain, serverURL, apiKey string) (*CertResponse, error) {
     reqBody, _ := json.Marshal(CertRequest{Domain: domain})
 
     req, _ := http.NewRequest("POST", serverURL+"/api/certificate", bytes.NewBuffer(reqBody))
-    req.Header.Set("Authorization", "Bearer "+token)
+    req.Header.Set("Authorization", "APIKey "+apiKey)
     req.Header.Set("Content-Type", "application/json")
 
     // For self-signed certs in testing, use InsecureSkipVerify
@@ -481,9 +593,9 @@ func requestCertificate(domain, serverURL, token string) (*CertResponse, error) 
 ```python
 import requests
 
-def request_certificate(domain, server_url, token):
+def request_certificate(domain, server_url, api_key):
     headers = {
-        "Authorization": f"Bearer {token}",
+        "Authorization": f"APIKey {api_key}",
         "Content-Type": "application/json"
     }
     data = {"domain": domain}
@@ -499,7 +611,7 @@ def request_certificate(domain, server_url, token):
     return response.json()
 
 # Example usage
-cert = request_certificate("example.com", "https://localhost:8443", "your-token")
+cert = request_certificate("example.com", "https://localhost:8443", "your-api-key")
 print(cert["certificate"])
 ```
 
@@ -510,18 +622,18 @@ print(cert["certificate"])
 
 DOMAIN="example.com"
 SERVER_URL="https://localhost:8443"
-TOKEN="your-secret-token"
+API_KEY="your-secure-random-key-here"
 
 # Request and extract certificate
 curl -k -X POST "${SERVER_URL}/api/certificate" \
-  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Authorization: APIKey ${API_KEY}" \
   -H "Content-Type: application/json" \
   -d "{\"domain\": \"${DOMAIN}\"}" \
   | jq -r '.certificate' > certificate.pem
 
 # Request and extract private key
 curl -k -X POST "${SERVER_URL}/api/certificate" \
-  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Authorization: APIKey ${API_KEY}" \
   -H "Content-Type: application/json" \
   -d "{\"domain\": \"${DOMAIN}\"}" \
   | jq -r '.private_key' > private_key.pem
@@ -564,30 +676,48 @@ sudo systemctl status cert-server
 
 ### Docker
 
-Create a `Dockerfile`:
-
-```dockerfile
-FROM golang:1.21 AS builder
-WORKDIR /app
-COPY . .
-RUN go build -o cert-server
-
-FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/cert-server /usr/local/bin/
-COPY config.yaml /etc/cert-server/config.yaml
-EXPOSE 8443
-CMD ["cert-server", "-config", "/etc/cert-server/config.yaml"]
-```
-
-Build and run:
+Use the pre-built Docker image from GitHub Container Registry:
 
 ```bash
-docker build -t cert-server .
-docker run -d -p 8443:8443 \
+# Pull the latest image
+docker pull ghcr.io/italypaleale/le-cert-server:v0
+
+# Run the container
+docker run -d \
+  --name cert-server \
+  -p 8443:8443 \
   -v /var/lib/cert-server:/var/lib/cert-server \
-  -v /etc/cert-server:/etc/cert-server \
-  cert-server
+  -v /etc/cert-server/config.yaml:/etc/cert-server/config.yaml:ro \
+  ghcr.io/italypaleale/le-cert-server:v0
+```
+
+**Docker Compose Example:**
+
+```yaml
+version: '3.8'
+
+services:
+  cert-server:
+    image: ghcr.io/italypaleale/le-cert-server:v0
+    container_name: cert-server
+    restart: unless-stopped
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./config.yaml:/etc/cert-server/config.yaml:ro
+      - cert-data:/var/lib/cert-server
+    environment:
+      # Optional: override config with environment variables
+      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
+
+volumes:
+  cert-data:
+```
+
+Start with:
+
+```bash
+docker-compose up -d
 ```
 
 ## License
