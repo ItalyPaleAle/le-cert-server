@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+
+	sloghttp "github.com/samber/slog-http"
 )
 
 // CertificateRequest represents a certificate request
@@ -40,7 +42,7 @@ func (s *Server) handleGetCertificate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	slog.Info("Certificate request", "domain", req.Domain)
+	sloghttp.AddCustomAttributes(r, slog.String("domain", req.Domain))
 
 	// Try to get or obtain certificate
 	cert, err := s.manager.ObtainCertificate(r.Context(), req.Domain)
@@ -85,7 +87,7 @@ func (s *Server) handleRenewCertificate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	slog.Info("Certificate renewal request", "domain", req.Domain)
+	sloghttp.AddCustomAttributes(r, slog.String("domain", req.Domain))
 
 	// Renew certificate
 	cert, err := s.manager.RenewCertificate(r.Context(), req.Domain)

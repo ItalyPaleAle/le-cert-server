@@ -113,13 +113,15 @@ func (s *Server) initAppServer() (err error) {
 		MiddlewareMaxBodySize(1<<10),
 	)
 
-	var filters []sloghttp.Filter
+	filters := []sloghttp.Filter{
+		sloghttp.IgnoreStatus(401, 404),
+	}
 	if cfg.Logs.OmitHealthChecks {
-		filters = []sloghttp.Filter{
+		filters = append(filters,
 			func(w sloghttp.WrapResponseWriter, r *http.Request) bool {
 				return r.URL.Path != "/healthz"
 			},
-		}
+		)
 	}
 
 	middlewares = append(middlewares,
