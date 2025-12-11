@@ -44,7 +44,7 @@ func (s *Server) loadTLSConfig(ctx context.Context) (tlsConfig *tls.Config, watc
 	}
 
 	slog.Info("Using server certificate from Let's Encrypt", slog.String("domain", cfg.Server.LetsEncryptDomain))
-	cert, err := s.manager.ObtainCertificate(ctx, cfg.Server.LetsEncryptDomain)
+	cert, _, err := s.manager.ObtainCertificate(ctx, cfg.Server.LetsEncryptDomain)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to obtain server certificate from Let's Encrypt: %w", err)
 	}

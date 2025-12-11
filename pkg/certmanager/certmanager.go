@@ -19,18 +19,21 @@ import (
 	"github.com/go-acme/lego/v4/registration"
 
 	"github.com/italypaleale/le-cert-server/pkg/config"
+	"github.com/italypaleale/le-cert-server/pkg/metrics"
 	"github.com/italypaleale/le-cert-server/pkg/storage"
 )
 
 // CertManager handles certificate acquisition and renewal
 type CertManager struct {
-	storage *storage.Storage
+	storage    *storage.Storage
+	appMetrics *metrics.AppMetrics
 }
 
 // NewCertManager creates a new certificate manager
-func NewCertManager(store *storage.Storage) *CertManager {
+func NewCertManager(store *storage.Storage, appMetrics *metrics.AppMetrics) *CertManager {
 	return &CertManager{
-		storage: store,
+		storage:    store,
+		appMetrics: appMetrics,
 	}
 }
 
@@ -169,39 +172,41 @@ func (cm *CertManager) createLegoClient(user *User) (*lego.Client, error) {
 }
 
 // ObtainCertificate obtains a new certificate for the specified domain
-func (cm *CertManager) ObtainCertificate(ctx context.Context, domain string) (*storage.Certificate, error) {
+func (cm *CertManager) ObtainCertificate(ctx context.Context, domain string) (cert *storage.Certificate, cached bool, err error) {
 	cfg := config.Get()
 
 	// Check if we already have a valid certificate
-	cert, err := cm.storage.GetCertificate(ctx, domain)
+	cert, err = cm.storage.GetCertificate(ctx, domain)
 	if err != nil {
-		return nil, fmt.Errorf("failed to check existing certificate: %w", err)
+		return nil, false, fmt.Errorf("failed to check existing certificate: %w", err)
 	}
 
 	if cert != nil && time.Until(cert.NotAfter) > time.Duration(cfg.LetsEncrypt.RenewalDays)*24*time.Hour {
 		// Certificate is still valid
-		return cert, nil
+		return cert, true, nil
 	}
 
 	// Get or create user
 	user, err := cm.getOrCreateUser(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
+		return nil, false, fmt.Errorf("failed to get user: %w", err)
 	}
 
 	// Create lego client
 	client, err := cm.createLegoClient(user)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create client: %w", err)
+		return nil, false, fmt.Errorf("failed to create client: %w", err)
 	}
 
 	// Generate P256 ECDSA private key for the certificate
 	certificatePrivateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate certificate private key: %w", err)
+		return nil, false, fmt.Errorf("failed to generate certificate private key: %w", err)
 	}
 
 	// Request certificate
+	start := time.Now()
+
 	request := certificate.ObtainRequest{
 		Domains:    []string{domain},
 		Bundle:     true,
@@ -210,18 +215,20 @@ func (cm *CertManager) ObtainCertificate(ctx context.Context, domain string) (*s
 
 	certificates, err := client.Certificate.Obtain(request)
 	if err != nil {
-		return nil, fmt.Errorf("failed to obtain certificate: %w", err)
+		return nil, false, fmt.Errorf("failed to obtain certificate: %w", err)
 	}
+
+	cm.appMetrics.RecordLetsEncryptRequests(time.Since(start))
 
 	// Parse the certificate to get validity dates
 	block, _ := pem.Decode(certificates.Certificate)
 	if block == nil {
-		return nil, errors.New("failed to decode certificate PEM")
+		return nil, false, errors.New("failed to decode certificate PEM")
 	}
 
 	x509Cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse certificate: %w", err)
+		return nil, false, fmt.Errorf("failed to parse certificate: %w", err)
 	}
 
 	// Save to database
@@ -236,10 +243,10 @@ func (cm *CertManager) ObtainCertificate(ctx context.Context, domain string) (*s
 
 	err = cm.storage.SaveCertificate(ctx, newCert)
 	if err != nil {
-		return nil, fmt.Errorf("failed to save certificate: %w", err)
+		return nil, false, fmt.Errorf("failed to save certificate: %w", err)
 	}
 
-	return newCert, nil
+	return newCert, false, nil
 }
 
 // RenewCertificate renews an existing certificate
@@ -267,6 +274,8 @@ func (cm *CertManager) RenewCertificate(ctx context.Context, domain string) (*st
 	}
 
 	// Renew certificate
+	start := time.Now()
+
 	certResource := certificate.Resource{
 		Domain:            domain,
 		Certificate:       cert.Certificate,
@@ -280,6 +289,8 @@ func (cm *CertManager) RenewCertificate(ctx context.Context, domain string) (*st
 	if err != nil {
 		return nil, fmt.Errorf("failed to renew certificate: %w", err)
 	}
+
+	cm.appMetrics.RecordLetsEncryptRequests(time.Since(start))
 
 	// Parse the certificate to get validity dates
 	block, _ := pem.Decode(certificates.Certificate)

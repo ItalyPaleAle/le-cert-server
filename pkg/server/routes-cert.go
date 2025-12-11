@@ -45,15 +45,12 @@ func (s *Server) handleGetCertificate(w http.ResponseWriter, r *http.Request) {
 	sloghttp.AddCustomAttributes(r, slog.String("domain", req.Domain))
 
 	// Try to get or obtain certificate
-	cert, err := s.manager.ObtainCertificate(r.Context(), req.Domain)
+	cert, cached, err := s.manager.ObtainCertificate(r.Context(), req.Domain)
 	if err != nil {
 		slog.Error("Failed to obtain certificate", "domain", req.Domain, "error", err)
 		errInternal.WriteResponse(w, r)
 		return
 	}
-
-	// Check if it was cached (just obtained) or from storage
-	cached := time.Since(cert.CreatedAt) > 1*time.Minute
 
 	// Prepare response
 	resp := CertificateResponse{
@@ -65,6 +62,8 @@ func (s *Server) handleGetCertificate(w http.ResponseWriter, r *http.Request) {
 		NotAfter:    cert.NotAfter,
 		Cached:      cached,
 	}
+
+	s.appMetrics.RecordCertRequest(resp.Domain, resp.Cached)
 
 	w.Header().Set(headerContentType, jsonContentType)
 	respondWithJSON(w, r, resp)

@@ -15,11 +15,11 @@ import (
 	"github.com/italypaleale/le-cert-server/pkg/config"
 )
 
-const prefix = "dd"
+const prefix = "lcs"
 
 type AppMetrics struct {
-	apiCalls     api.Float64Histogram
-	healthChecks api.Int64Counter
+	letsEncryptRequests api.Float64Histogram
+	certRequests        api.Int64Counter
 }
 
 func NewAppMetrics(ctx context.Context) (m *AppMetrics, shutdownFn func(ctx context.Context) error, err error) {
@@ -48,18 +48,18 @@ func NewAppMetrics(ctx context.Context) (m *AppMetrics, shutdownFn func(ctx cont
 	)
 	meter := mp.Meter(prefix)
 
-	m.healthChecks, err = meter.Int64Counter(
-		prefix+"_checks",
-		api.WithDescription("The number of health checks"),
+	m.certRequests, err = meter.Int64Counter(
+		prefix+"_cert_requests",
+		api.WithDescription("The number of certificate requests"),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create "+prefix+"_checks meter: %w", err)
 	}
 
-	m.apiCalls, err = meter.Float64Histogram(
+	m.letsEncryptRequests, err = meter.Float64Histogram(
 		prefix+"_api_calls",
-		api.WithDescription("API calls to providers and duration in milliseconds"),
-		api.WithExplicitBucketBoundaries(20, 50, 100, 200, 400, 600, 800, 1000, 1500, 2500),
+		api.WithDescription("Requests to Let's Encrypt and duration in seconds"),
+		api.WithExplicitBucketBoundaries(1, 2, 5, 10, 20, 30, 45, 60, 90, 120, 180, 240, 300),
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create "+prefix+"_api_calls meter: %w", err)
@@ -69,40 +69,31 @@ func NewAppMetrics(ctx context.Context) (m *AppMetrics, shutdownFn func(ctx cont
 }
 
 //nolint:contextcheck
-func (m *AppMetrics) RecordHealthCheck(domain string, endpoint string, ok bool) {
+func (m *AppMetrics) RecordCertRequest(domain string, cached bool) {
 	if m == nil {
 		return
 	}
 
-	m.healthChecks.Add(
+	m.certRequests.Add(
 		context.Background(),
 		1,
 		api.WithAttributeSet(
 			attribute.NewSet(
 				attribute.KeyValue{Key: "domain", Value: attribute.StringValue(domain)},
-				attribute.KeyValue{Key: "endpoint", Value: attribute.StringValue(endpoint)},
-				attribute.KeyValue{Key: "ok", Value: attribute.BoolValue(ok)},
+				attribute.KeyValue{Key: "cached", Value: attribute.BoolValue(cached)},
 			),
 		),
 	)
 }
 
 //nolint:contextcheck
-func (m *AppMetrics) RecordAPICall(provider string, method string, path string, ok bool, duration time.Duration) {
+func (m *AppMetrics) RecordLetsEncryptRequests(duration time.Duration) {
 	if m == nil {
 		return
 	}
 
-	m.apiCalls.Record(
+	m.letsEncryptRequests.Record(
 		context.Background(),
-		float64(duration.Microseconds())/1000,
-		api.WithAttributeSet(
-			attribute.NewSet(
-				attribute.KeyValue{Key: "provider", Value: attribute.StringValue(provider)},
-				attribute.KeyValue{Key: "method", Value: attribute.StringValue(method)},
-				attribute.KeyValue{Key: "path", Value: attribute.StringValue(path)},
-				attribute.KeyValue{Key: "ok", Value: attribute.BoolValue(ok)},
-			),
-		),
+		float64(duration.Milliseconds())/1_000,
 	)
 }

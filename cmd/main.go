@@ -93,7 +93,7 @@ func main() {
 	services = append(services, store.Run)
 
 	// Create certificate manager
-	certMgr := certmanager.NewCertManager(store)
+	certMgr := certmanager.NewCertManager(store, appMetrics)
 
 	// Start certificate renewal scheduler
 	const renewalSchedulerInterval = 12 * time.Hour
