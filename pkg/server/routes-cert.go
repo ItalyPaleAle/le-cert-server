@@ -63,7 +63,9 @@ func (s *Server) handleGetCertificate(w http.ResponseWriter, r *http.Request) {
 		Cached:      cached,
 	}
 
-	s.appMetrics.RecordCertRequest(resp.Domain, resp.Cached)
+	if s.appMetrics != nil {
+		s.appMetrics.RecordCertRequest(resp.Domain, resp.Cached)
+	}
 
 	w.Header().Set(headerContentType, jsonContentType)
 	respondWithJSON(w, r, resp)

@@ -24,14 +24,21 @@ import (
 )
 
 // CertManager handles certificate acquisition and renewal
-type CertManager struct {
+type CertManager interface {
+	ObtainCertificate(ctx context.Context, domain string) (cert *storage.Certificate, cached bool, err error)
+	RenewCertificate(ctx context.Context, domain string) (*storage.Certificate, error)
+	RenewExpiringCertificates(ctx context.Context) error
+}
+
+// certManager is the internal implementation of the CertManager interface
+type certManager struct {
 	storage    *storage.Storage
 	appMetrics *metrics.AppMetrics
 }
 
 // NewCertManager creates a new certificate manager
-func NewCertManager(store *storage.Storage, appMetrics *metrics.AppMetrics) *CertManager {
-	return &CertManager{
+func NewCertManager(store *storage.Storage, appMetrics *metrics.AppMetrics) CertManager {
+	return &certManager{
 		storage:    store,
 		appMetrics: appMetrics,
 	}
@@ -57,7 +64,7 @@ func (u *User) GetPrivateKey() crypto.PrivateKey {
 }
 
 // getOrCreateUser gets or creates a Let's Encrypt user
-func (cm *CertManager) getOrCreateUser(ctx context.Context) (*User, error) {
+func (cm *certManager) getOrCreateUser(ctx context.Context) (*User, error) {
 	cfg := config.Get()
 
 	// Try to load existing credentials
@@ -95,7 +102,7 @@ func (cm *CertManager) getOrCreateUser(ctx context.Context) (*User, error) {
 	return user, nil
 }
 
-func (cm *CertManager) generateNewKey(ctx context.Context, email string) (privateKey crypto.PrivateKey, err error) {
+func (cm *certManager) generateNewKey(ctx context.Context, email string) (privateKey crypto.PrivateKey, err error) {
 	// Generate new key
 	privateKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -128,7 +135,7 @@ func (cm *CertManager) generateNewKey(ctx context.Context, email string) (privat
 }
 
 // createLegoClient creates a lego ACME client
-func (cm *CertManager) createLegoClient(user *User) (*lego.Client, error) {
+func (cm *certManager) createLegoClient(user *User) (*lego.Client, error) {
 	cfg := config.Get()
 
 	legoConfig := lego.NewConfig(user)
@@ -172,7 +179,7 @@ func (cm *CertManager) createLegoClient(user *User) (*lego.Client, error) {
 }
 
 // ObtainCertificate obtains a new certificate for the specified domain
-func (cm *CertManager) ObtainCertificate(ctx context.Context, domain string) (cert *storage.Certificate, cached bool, err error) {
+func (cm *certManager) ObtainCertificate(ctx context.Context, domain string) (cert *storage.Certificate, cached bool, err error) {
 	cfg := config.Get()
 
 	// Check if we already have a valid certificate
@@ -250,7 +257,7 @@ func (cm *CertManager) ObtainCertificate(ctx context.Context, domain string) (ce
 }
 
 // RenewCertificate renews an existing certificate
-func (cm *CertManager) RenewCertificate(ctx context.Context, domain string) (*storage.Certificate, error) {
+func (cm *certManager) RenewCertificate(ctx context.Context, domain string) (*storage.Certificate, error) {
 	// Get existing certificate
 	cert, err := cm.storage.GetCertificate(ctx, domain)
 	if err != nil {
@@ -319,7 +326,7 @@ func (cm *CertManager) RenewCertificate(ctx context.Context, domain string) (*st
 }
 
 // RenewExpiringCertificates renews all certificates expiring soon
-func (cm *CertManager) RenewExpiringCertificates(ctx context.Context) error {
+func (cm *certManager) RenewExpiringCertificates(ctx context.Context) error {
 	cfg := config.Get()
 
 	certs, err := cm.storage.GetExpiringCertificates(ctx, cfg.LetsEncrypt.RenewalDays)

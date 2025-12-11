@@ -9,12 +9,12 @@ import (
 
 // Scheduler handles periodic certificate renewal checks
 type Scheduler struct {
-	manager  *CertManager
+	manager  CertManager
 	interval time.Duration
 }
 
 // NewScheduler creates a new renewal scheduler
-func NewScheduler(manager *CertManager, checkInterval time.Duration) *Scheduler {
+func NewScheduler(manager CertManager, checkInterval time.Duration) *Scheduler {
 	return &Scheduler{
 		manager:  manager,
 		interval: checkInterval,

@@ -17,6 +17,7 @@ func init() {
 	legolog.Logger = slogLogger{}
 }
 
+// Implements a logger for lego that uses slog
 type slogLogger struct{}
 
 func (l slogLogger) Fatal(args ...any) {

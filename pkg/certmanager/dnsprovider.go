@@ -11,7 +11,7 @@ import (
 )
 
 // createDNSProvider creates a DNS challenge provider based on the provider name
-func (cm *CertManager) createDNSProvider() (challenge.Provider, error) {
+func (cm *certManager) createDNSProvider() (challenge.Provider, error) {
 	cfg := config.Get()
 
 	// Set environment variables for the DNS provider

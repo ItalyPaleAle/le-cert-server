@@ -36,7 +36,7 @@ type Server struct {
 	wg      sync.WaitGroup
 
 	appMetrics *metrics.AppMetrics
-	manager    *certmanager.CertManager
+	manager    certmanager.CertManager
 	auth       auth.Authenticator
 
 	// Method that forces a reload of TLS certificates from disk
@@ -53,7 +53,7 @@ type Server struct {
 // NewServerOpts contains options for the NewServer method
 type NewServerOpts struct {
 	AppMetrics    *metrics.AppMetrics
-	Manager       *certmanager.CertManager
+	Manager       certmanager.CertManager
 	Authenticator auth.Authenticator
 }
 
