@@ -38,13 +38,13 @@ func (s *Server) loadTLSConfig(ctx context.Context) (tlsConfig *tls.Config, watc
 	}
 
 	// Let's try requesting from Let's Encrypt
-	if cfg.Server.LetsEncryptDomain == "" {
+	if cfg.Server.TLS.LetsEncryptDomain == "" {
 		// There's no domain, so we will just disable TLS
 		return nil, nil, nil
 	}
 
-	slog.Info("Using server certificate from Let's Encrypt", slog.String("domain", cfg.Server.LetsEncryptDomain))
-	cert, _, err := s.manager.ObtainCertificate(ctx, cfg.Server.LetsEncryptDomain)
+	slog.Info("Using server certificate from Let's Encrypt", slog.String("domain", cfg.Server.TLS.LetsEncryptDomain))
+	cert, _, err := s.manager.ObtainCertificate(ctx, cfg.Server.TLS.LetsEncryptDomain)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to obtain server certificate from Let's Encrypt: %w", err)
 	}
@@ -62,13 +62,13 @@ func loadStaticTLSCerts(tlsConfig *tls.Config) (ok bool, watchFn tlsCertWatchFn,
 	cfg := config.Get()
 
 	// First, check if we have actual keys
-	tlsCert := cfg.Server.TLSCertPEM
-	tlsKey := cfg.Server.TLSKeyPEM
+	tlsCert := cfg.Server.TLS.CertPEM
+	tlsKey := cfg.Server.TLS.KeyPEM
 
 	// If we don't have actual keys, then we need to load from file and reload when the files change
 	if tlsCert == "" && tlsKey == "" {
 		// If "tlsPath" is empty, use the folder where the config file is located
-		tlsPath := cfg.Server.TLSPath
+		tlsPath := cfg.Server.TLS.Path
 		if tlsPath == "" {
 			file := cfg.GetLoadedConfigPath()
 			if file != "" {

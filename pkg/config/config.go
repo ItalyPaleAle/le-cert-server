@@ -49,15 +49,31 @@ type ConfigLogs struct {
 
 // ConfigServer represents server configuration
 type ConfigServer struct {
+	// Listener type for the API server.
+	// Supported values: "tcp" (default) and "tsnet".
+	// When set to "tsnet", the server listens on a Tailscale netstack and always serves HTTPS using Tailscale-provided certificates.
+	// +default "tcp"
+	Listener string `yaml:"listener"`
+
 	// Address to bind the API server to
 	// Set to "0.0.0.0" for listening on all interfaces
+	// This is ignored when using "tsnet" as listener
 	// +default "127.0.0.1"
 	Bind string `yaml:"bind"`
 
 	// Port for the API server to listen on
-	// +default 7701
+	// +default 7701 ("tcp" listner) or 443 ("tsnet" listener)
 	Port int `yaml:"port"`
 
+	// TLS configuration, used when listener is set to "tcp".
+	TLS ConfigServerTLS `yaml:"tls"`
+
+	// TSNet configuration, used when listener is set to "tsnet".
+	TSNet ConfigServerTSNet `yaml:"tsnet"`
+}
+
+// ConfigServerTLS holds TLS configuration for TCP listener
+type ConfigServerTLS struct {
 	// If set, fetch the server certificate from Let's Encrypt for the given domain
 	LetsEncryptDomain string `yaml:"letsEncryptDomain"`
 
@@ -65,15 +81,33 @@ type ConfigServer struct {
 	// Within the folder, the files must be named `tls-cert.pem` and `tls-key.pem`. The application watches for changes in this folder and automatically reloads the TLS certificates when they're updated.
 	// If empty, certificates are loaded from the same folder where the loaded `config.yaml` is located.
 	// +default the same folder as the `config.yaml` file
-	TLSPath string `yaml:"tlsPath"`
+	Path string `yaml:"path"`
 
 	// Full, PEM-encoded TLS certificate, when not using Let's Encrypt.
-	// Using `tlsCertPEM` and `tlsKeyPEM` is an alternative method of passing TLS certificates than using `tlsPath`.
-	TLSCertPEM string `yaml:"tlsCertPEM"` //nolint:tagliatelle
+	// Using `certPEM` and `keyPEM` is an alternative method of passing TLS certificates than using `path`.
+	CertPEM string `yaml:"certPEM"` //nolint:tagliatelle
 
 	// Full, PEM-encoded TLS key, when not using Let's Encrypt.
-	// Using `tlsCertPEM` and `tlsKeyPEM` is an alternative method of passing TLS certificates than using `tlsPath`.
-	TLSKeyPEM string `yaml:"tlsKeyPEM"` //nolint:tagliatelle
+	// Using `certPEM` and `keyPEM` is an alternative method of passing TLS certificates than using `path`.
+	KeyPEM string `yaml:"keyPEM"` //nolint:tagliatelle
+}
+
+// ConfigServerTSNet holds tsnet configuration
+type ConfigServerTSNet struct {
+	// Hostname to use for the tsnet node.
+	Hostname string `yaml:"hostname"`
+
+	// AuthKey can be used to authenticate the tsnet node automatically.
+	// If empty, tsnet will rely on existing state in stateDir.
+	AuthKey string `yaml:"authKey"`
+
+	// Directory where tsnet stores its state.
+	// If empty, defaults to a folder next to the loaded config file.
+	StateDir string `yaml:"stateDir"`
+
+	// If true, the tsnet node is ephemeral (not persisted in the tailnet).
+	// +default false
+	Ephemeral bool `yaml:"ephemeral"`
 }
 
 // ConfigLetsEncrypt holds Let's Encrypt configuration
@@ -188,18 +222,36 @@ func (c *Config) GetInstanceID() string {
 
 // Validates the configuration and performs some sanitization
 func (c *Config) Validate(logger *slog.Logger) error {
-	// Check required fields
-	if c.Server.Bind == "" {
-		return errors.New("configuration option 'server.bind' is required")
-	}
-	if c.Server.Port <= 0 {
-		return errors.New("configuration option 'server.port' is required")
+	if c.Server.Port < 0 {
+		return errors.New("configuration option 'server.port' must not be negative")
 	}
 	if c.LetsEncrypt.Email == "" {
 		return errors.New("configuration option 'letsEncrypt.email' is required")
 	}
 	if c.LetsEncrypt.DNSProvider == "" {
 		return errors.New("configuration option 'letsEncrypt.dnsProvider' is required")
+	}
+
+	switch c.Server.Listener {
+	case "tcp":
+		if c.Server.Port == 0 {
+			// In tcp mode, the default port is 7401
+			c.Server.Port = 7401
+		}
+		if c.Server.Bind == "" {
+			return errors.New("configuration option 'server.bind' is required")
+		}
+
+	case "tsnet":
+		if c.Server.Port == 0 {
+			// In tsnet mode, the default port is 443
+			c.Server.Port = 443
+		}
+		// In tsnet mode, the API server uses HTTPS with Tailscale-provided certificates.
+		// We intentionally do not require server.bind nor server-side Let's Encrypt configuration.
+
+	default:
+		return errors.New("configuration option 'server.listener' must be one of 'tcp' or 'tsnet'")
 	}
 
 	// Validate auth configuration based on type

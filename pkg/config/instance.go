@@ -42,8 +42,8 @@ func GetDefaultConfig() *Config {
 			OmitHealthChecks: true,
 		},
 		Server: ConfigServer{
-			Bind: "127.0.0.1",
-			Port: 7401,
+			Listener: "tcp",
+			Bind:     "127.0.0.1",
 		},
 		LetsEncrypt: ConfigLetsEncrypt{
 			RenewalDays: 30,

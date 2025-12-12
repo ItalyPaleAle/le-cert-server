@@ -184,8 +184,10 @@ func (s *Server) startAppServer(ctx context.Context) error {
 	cfg := config.Get()
 
 	// Create the HTTP(S) server
+	// Addr is used only for TCP listener creation; with tsnet we listen via tsnet.Server.
+	addr := net.JoinHostPort(cfg.Server.Bind, strconv.Itoa(cfg.Server.Port))
 	s.appSrv = &http.Server{
-		Addr:              net.JoinHostPort(cfg.Server.Bind, strconv.Itoa(cfg.Server.Port)),
+		Addr:              addr,
 		MaxHeaderBytes:    1 << 20,
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       30 * time.Second,
@@ -194,20 +196,41 @@ func (s *Server) startAppServer(ctx context.Context) error {
 		Handler:           s.handler,
 	}
 
-	if s.tlsConfig == nil {
-		// Not using TLS
-		slog.WarnContext(ctx, "Starting app server without TLS - this is not recommended unless the app is exposed through a proxy that offers TLS termination")
-	} else {
-		// Using TLS
-		s.appSrv.TLSConfig = s.tlsConfig
-	}
-
 	// Create the listener if we don't have one already
+	// If server.listener is tsnet, the listener is created using tsnet and it is already TLS-wrapped.
+	var (
+		serveWithTLS bool
+		tsnetCleanup func() error
+	)
 	if s.appListener == nil {
 		var err error
-		s.appListener, err = net.Listen("tcp", s.appSrv.Addr) //nolint:noctx
-		if err != nil {
-			return fmt.Errorf("failed to create TCP listener: %w", err)
+		switch cfg.Server.Listener {
+		case "tcp":
+			// Configure TLS for the HTTP server (optional)
+			if s.tlsConfig == nil {
+				// Not using TLS
+				slog.WarnContext(ctx, "Starting app server without TLS - this is not recommended unless the app is exposed through a proxy that offers TLS termination")
+				serveWithTLS = false
+			} else {
+				// Using TLS
+				s.appSrv.TLSConfig = s.tlsConfig
+				serveWithTLS = true
+			}
+
+			s.appListener, err = net.Listen("tcp", s.appSrv.Addr) //nolint:noctx
+			if err != nil {
+				return fmt.Errorf("failed to create TCP listener: %w", err)
+			}
+
+		case "tsnet":
+			s.appListener, _, tsnetCleanup, err = s.createTSNetListener()
+			if err != nil {
+				return err
+			}
+			// Listener returned by createTSNetListener is already TLS-wrapped.
+			serveWithTLS = false
+		default:
+			return fmt.Errorf("invalid server.listener value: %s", cfg.Server.Listener)
 		}
 	}
 
@@ -215,14 +238,17 @@ func (s *Server) startAppServer(ctx context.Context) error {
 	slog.InfoContext(ctx, "App server started",
 		slog.String("bind", cfg.Server.Bind),
 		slog.Int("port", cfg.Server.Port),
-		slog.Bool("tls", s.tlsConfig != nil),
+		slog.Bool("tls", cfg.Server.Listener == "tsnet" || s.tlsConfig != nil),
 	)
 	go func() { //nolint:contextcheck
 		defer s.appListener.Close() //nolint:errcheck
+		if tsnetCleanup != nil {
+			defer tsnetCleanup() //nolint:errcheck
+		}
 
 		// Next call blocks until the server is shut down
 		var srvErr error
-		if s.tlsConfig != nil {
+		if serveWithTLS {
 			srvErr = s.appSrv.ServeTLS(s.appListener, "", "")
 		} else {
 			srvErr = s.appSrv.Serve(s.appListener)
