@@ -130,6 +130,7 @@ func main() {
 		AppMetrics:    appMetrics,
 		Manager:       certMgr,
 		Authenticator: authenticator,
+		Storage:       store,
 	})
 	if err != nil {
 		utils.FatalError(log, "Failed to init API server", err)

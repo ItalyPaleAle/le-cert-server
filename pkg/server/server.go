@@ -20,6 +20,7 @@ import (
 	"github.com/italypaleale/le-cert-server/pkg/config"
 	"github.com/italypaleale/le-cert-server/pkg/metrics"
 	"github.com/italypaleale/le-cert-server/pkg/server/auth"
+	"github.com/italypaleale/le-cert-server/pkg/storage"
 	"github.com/italypaleale/le-cert-server/pkg/utils"
 )
 
@@ -38,6 +39,7 @@ type Server struct {
 	appMetrics *metrics.AppMetrics
 	manager    certmanager.CertManager
 	auth       auth.Authenticator
+	storage    *storage.Storage
 
 	// Method that forces a reload of TLS certificates from disk
 	tlsCertWatchFn tlsCertWatchFn
@@ -55,6 +57,7 @@ type NewServerOpts struct {
 	AppMetrics    *metrics.AppMetrics
 	Manager       certmanager.CertManager
 	Authenticator auth.Authenticator
+	Storage       *storage.Storage
 }
 
 // NewServer creates a new Server object and initializes it
@@ -63,6 +66,7 @@ func NewServer(opts NewServerOpts) (*Server, error) {
 		appMetrics: opts.AppMetrics,
 		manager:    opts.Manager,
 		auth:       opts.Authenticator,
+		storage:    opts.Storage,
 	}
 
 	// Init the object

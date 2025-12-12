@@ -40,6 +40,7 @@ func (s *Server) createTSNetListener() (ln net.Listener, tlsConf *tls.Config, cl
 		AuthKey:   tsCfg.AuthKey,
 		Dir:       stateDir,
 		Ephemeral: tsCfg.Ephemeral,
+		Store:     s.storage.TSNetStorage(),
 	}
 
 	ln, err = tsrv.ListenTLS("tcp", fmt.Sprintf(":%d", cfg.Server.Port))
