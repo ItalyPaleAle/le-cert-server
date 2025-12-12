@@ -227,7 +227,7 @@ func (s *Server) startAppServer(ctx context.Context) error {
 			}
 
 		case "tsnet":
-			s.appListener, _, tsnetCleanup, err = s.createTSNetListener()
+			s.appListener, tsnetCleanup, err = s.createTSNetListener()
 			if err != nil {
 				return err
 			}

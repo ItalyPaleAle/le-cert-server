@@ -1,7 +1,6 @@
 package server
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net"
 	"path/filepath"
@@ -17,7 +16,7 @@ type tsnetCleanupFn func() error
 
 // createTSNetListener starts a tsnet server and returns a listener + TLS config.
 // In tsnet mode we always serve HTTPS using Tailscale-provided certificates.
-func (s *Server) createTSNetListener() (ln net.Listener, tlsConf *tls.Config, cleanup tsnetCleanupFn, err error) {
+func (s *Server) createTSNetListener() (ln net.Listener, cleanup tsnetCleanupFn, err error) {
 	cfg := config.Get()
 
 	tsCfg := cfg.Server.TSNet
@@ -46,15 +45,11 @@ func (s *Server) createTSNetListener() (ln net.Listener, tlsConf *tls.Config, cl
 	ln, err = tsrv.ListenTLS("tcp", fmt.Sprintf(":%d", cfg.Server.Port))
 	if err != nil {
 		_ = tsrv.Close()
-		return nil, nil, nil, fmt.Errorf("failed to create tsnet listener: %w", err)
+		return nil, nil, fmt.Errorf("failed to create tsnet listener: %w", err)
 	}
-
-	// Listener is already TLS-wrapped by tsnet.ListenTLS.
-	// Leave tlsConf nil so the HTTP server uses Serve on the TLS listener.
-	tlsConf = nil
 
 	cleanup = func() error {
 		return tsrv.Close()
 	}
-	return ln, tlsConf, cleanup, nil
+	return ln, cleanup, nil
 }
