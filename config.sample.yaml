@@ -1,41 +1,81 @@
 server:
+  ## server.listener (string)
+  ## Description:
+  ##   Listener type for the API server.
+  ##   Supported values: "tcp" (default) and "tsnet".
+  ##   When set to "tsnet", the server listens on a Tailscale netstack and always serves HTTPS using Tailscale-provided certificates.
+  ## Default: "tcp"
+  #listener: "tcp"
+
   ## server.bind (string)
   ## Description:
   ##   Address to bind the API server to
   ##   Set to "0.0.0.0" for listening on all interfaces
+  ##   This is ignored when using "tsnet" as listener
   ## Default: "127.0.0.1"
   #bind: "127.0.0.1"
 
   ## server.port (number)
   ## Description:
   ##   Port for the API server to listen on
-  ## Default: 7701
-  #port: 7701
+  ## Default: 7701 ("tcp" listner) or 443 ("tsnet" listener)
+  #port: 7701 ("tcp" listner) or 443 ("tsnet" listener)
 
-  ## server.letsEncryptDomain (string)
+  ## server.tls
   ## Description:
-  ##   If set, fetch the server certificate from Let's Encrypt for the given domain
-  #letsEncryptDomain: ""
+  ##   TLS configuration, used when listener is set to "tcp".
+  tls:
+    ## server.tls.letsEncryptDomain (string)
+    ## Description:
+    ##   If set, fetch the server certificate from Let's Encrypt for the given domain
+    #letsEncryptDomain: ""
 
-  ## server.tlsPath (string)
-  ## Description:
-  ##   Path where to load TLS certificates from, when not using Let's Encrypt.
-  ##   Within the folder, the files must be named `tls-cert.pem` and `tls-key.pem`. The application watches for changes in this folder and automatically reloads the TLS certificates when they're updated.
-  ##   If empty, certificates are loaded from the same folder where the loaded `config.yaml` is located.
-  ## Default: the same folder as the `config.yaml` file
-  #tlsPath: the same folder as the `config.yaml` file
+    ## server.tls.path (string)
+    ## Description:
+    ##   Path where to load TLS certificates from, when not using Let's Encrypt.
+    ##   Within the folder, the files must be named `tls-cert.pem` and `tls-key.pem`. The application watches for changes in this folder and automatically reloads the TLS certificates when they're updated.
+    ##   If empty, certificates are loaded from the same folder where the loaded `config.yaml` is located.
+    ## Default: the same folder as the `config.yaml` file
+    #path: the same folder as the `config.yaml` file
 
-  ## server.tlsCertPEM (string)
-  ## Description:
-  ##   Full, PEM-encoded TLS certificate, when not using Let's Encrypt.
-  ##   Using `tlsCertPEM` and `tlsKeyPEM` is an alternative method of passing TLS certificates than using `tlsPath`.
-  #tlsCertPEM: ""
+    ## server.tls.certPEM (string)
+    ## Description:
+    ##   Full, PEM-encoded TLS certificate, when not using Let's Encrypt.
+    ##   Using `certPEM` and `keyPEM` is an alternative method of passing TLS certificates than using `path`.
+    #certPEM: ""
 
-  ## server.tlsKeyPEM (string)
+    ## server.tls.keyPEM (string)
+    ## Description:
+    ##   Full, PEM-encoded TLS key, when not using Let's Encrypt.
+    ##   Using `certPEM` and `keyPEM` is an alternative method of passing TLS certificates than using `path`.
+    #keyPEM: ""
+
+  ## server.tsnet
   ## Description:
-  ##   Full, PEM-encoded TLS key, when not using Let's Encrypt.
-  ##   Using `tlsCertPEM` and `tlsKeyPEM` is an alternative method of passing TLS certificates than using `tlsPath`.
-  #tlsKeyPEM: ""
+  ##   TSNet configuration, used when listener is set to "tsnet".
+  tsnet:
+    ## server.tsnet.hostname (string)
+    ## Description:
+    ##   Hostname to use for the tsnet node.
+    #hostname: ""
+
+    ## server.tsnet.authKey (string)
+    ## Description:
+    ##   AuthKey can be used to authenticate the tsnet node automatically.
+    ##   If empty, tsnet will rely on existing state in stateDir.
+    #authKey: ""
+
+    ## server.tsnet.stateDir (string)
+    ## Description:
+    ##   Directory where tsnet stores its state.
+    ##   If empty, defaults to a folder next to the loaded config file.
+    #stateDir: ""
+
+    ## server.tsnet.ephemeral (boolean)
+    ## Description:
+    ##   If true, the tsnet node is ephemeral (not persisted in the tailnet).
+    ## Default: false
+    #ephemeral: false
 
 letsEncrypt:
   ## letsEncrypt.email (string)

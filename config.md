@@ -2,12 +2,17 @@
 
 | Name | Type | Description | |
 | --- | --- | --- | --- |
-| <a id="config-opt-server-bind"></a>`server.bind` | string | Address to bind the API server to<br>Set to "0.0.0.0" for listening on all interfaces| Default: _"127.0.0.1"_ |
-| <a id="config-opt-server-port"></a>`server.port` | number | Port for the API server to listen on| Default: _7701_ |
-| <a id="config-opt-server-letsencryptdomain"></a>`server.letsEncryptDomain` | string | If set, fetch the server certificate from Let's Encrypt for the given domain|  |
-| <a id="config-opt-server-tlspath"></a>`server.tlsPath` | string | Path where to load TLS certificates from, when not using Let's Encrypt.<br>Within the folder, the files must be named `tls-cert.pem` and `tls-key.pem`. The application watches for changes in this folder and automatically reloads the TLS certificates when they're updated.<br>If empty, certificates are loaded from the same folder where the loaded `config.yaml` is located.| Default: _the same folder as the `config.yaml` file_ |
-| <a id="config-opt-server-tlscertpem"></a>`server.tlsCertPEM` | string | Full, PEM-encoded TLS certificate, when not using Let's Encrypt.<br>Using `tlsCertPEM` and `tlsKeyPEM` is an alternative method of passing TLS certificates than using `tlsPath`.|  |
-| <a id="config-opt-server-tlskeypem"></a>`server.tlsKeyPEM` | string | Full, PEM-encoded TLS key, when not using Let's Encrypt.<br>Using `tlsCertPEM` and `tlsKeyPEM` is an alternative method of passing TLS certificates than using `tlsPath`.|  |
+| <a id="config-opt-server-listener"></a>`server.listener` | string | Listener type for the API server.<br>Supported values: "tcp" (default) and "tsnet".<br>When set to "tsnet", the server listens on a Tailscale netstack and always serves HTTPS using Tailscale-provided certificates.| Default: _"tcp"_ |
+| <a id="config-opt-server-bind"></a>`server.bind` | string | Address to bind the API server to<br>Set to "0.0.0.0" for listening on all interfaces<br>This is ignored when using "tsnet" as listener| Default: _"127.0.0.1"_ |
+| <a id="config-opt-server-port"></a>`server.port` | number | Port for the API server to listen on| Default: _7701 ("tcp" listner) or 443 ("tsnet" listener)_ |
+| <a id="config-opt-server-tls-letsencryptdomain"></a>`server.tls.letsEncryptDomain` | string | If set, fetch the server certificate from Let's Encrypt for the given domain|  |
+| <a id="config-opt-server-tls-path"></a>`server.tls.path` | string | Path where to load TLS certificates from, when not using Let's Encrypt.<br>Within the folder, the files must be named `tls-cert.pem` and `tls-key.pem`. The application watches for changes in this folder and automatically reloads the TLS certificates when they're updated.<br>If empty, certificates are loaded from the same folder where the loaded `config.yaml` is located.| Default: _the same folder as the `config.yaml` file_ |
+| <a id="config-opt-server-tls-certpem"></a>`server.tls.certPEM` | string | Full, PEM-encoded TLS certificate, when not using Let's Encrypt.<br>Using `certPEM` and `keyPEM` is an alternative method of passing TLS certificates than using `path`.|  |
+| <a id="config-opt-server-tls-keypem"></a>`server.tls.keyPEM` | string | Full, PEM-encoded TLS key, when not using Let's Encrypt.<br>Using `certPEM` and `keyPEM` is an alternative method of passing TLS certificates than using `path`.|  |
+| <a id="config-opt-server-tsnet-hostname"></a>`server.tsnet.hostname` | string | Hostname to use for the tsnet node.|  |
+| <a id="config-opt-server-tsnet-authkey"></a>`server.tsnet.authKey` | string | AuthKey can be used to authenticate the tsnet node automatically.<br>If empty, tsnet will rely on existing state in stateDir.|  |
+| <a id="config-opt-server-tsnet-statedir"></a>`server.tsnet.stateDir` | string | Directory where tsnet stores its state.<br>If empty, defaults to a folder next to the loaded config file.|  |
+| <a id="config-opt-server-tsnet-ephemeral"></a>`server.tsnet.ephemeral` | boolean | If true, the tsnet node is ephemeral (not persisted in the tailnet).| Default: _false_ |
 | <a id="config-opt-letsencrypt-email"></a>`letsEncrypt.email` | string | Email address for Let's Encrypt registration| **Required** |
 | <a id="config-opt-letsencrypt-staging"></a>`letsEncrypt.staging` | boolean | Use staging Let's Encrypt environment<br>Set to true for testing| Default: _false_ |
 | <a id="config-opt-letsencrypt-dnsprovider"></a>`letsEncrypt.dnsProvider` | string | DNS provider for DNS-01 challenge<br>All DNS providers supported by lego can be used here<br>See full list: https://go-acme.github.io/lego/dns/<br>Examples: "cloudflare", "route53", "digitalocean", "godaddy", "namecheap", etc.| **Required** |
