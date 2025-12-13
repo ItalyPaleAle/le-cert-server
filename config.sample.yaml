@@ -128,7 +128,7 @@ auth:
   ## auth.jwt
   ## Description:
   ##   OAuth2/OIDC (JWT) Authentication (recommended for multi-user environments)
-  ##   One and only one of `jwt` or `psk` must be set
+  ##   One and only one of `jwt`, `psk`, or `tsnet` must be set
   jwt:
     ## auth.jwt.issuerUrl (string)
     ## Description:
@@ -156,7 +156,7 @@ auth:
   ## auth.psk
   ## Description:
   ##   PSK (Pre-Shared Key) authentication configuration
-  ##   One and only one of `jwt` or `psk` must be set
+  ##   One and only one of `jwt`, `psk`, or `tsnet` must be set
   psk:
     ## auth.psk.key (string)
     ## Description:
@@ -164,6 +164,17 @@ auth:
     ##   Must be at least 16 characters
     ##   Generate with: `openssl rand -base64 32`
     #key: ""
+
+  ## auth.tsnet
+  ## Description:
+  ##   Tailscale Identity authentication (only available when using tsnet listener)
+  ##   To enable the use of the TSNet identity with the default options, an empty object (e.g. `tsnet: {}`) is sufficient
+  ##   One and only one of `jwt`, `psk`, or `tsnet` must be set
+  tsnet:
+    ## auth.tsnet.allowedTailnet (string)
+    ## Description:
+    ##   If non-empty, requires the Tailnet of the user to match this value
+    #allowedTailnet: "yourtailnet.ts.net"
 
 logs:
   ## logs.level (string)

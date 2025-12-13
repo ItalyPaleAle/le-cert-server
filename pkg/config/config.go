@@ -152,12 +152,17 @@ type ConfigDatabase struct {
 // ConfigAuth holds auth configuration
 type ConfigAuth struct {
 	// OAuth2/OIDC (JWT) Authentication (recommended for multi-user environments)
-	// One and only one of `jwt` or `psk` must be set
+	// One and only one of `jwt`, `psk`, or `tsnet` must be set
 	JWT *ConfigAuthJWT `yaml:"jwt,omitempty"`
 
 	// PSK (Pre-Shared Key) authentication configuration
-	// One and only one of `jwt` or `psk` must be set
+	// One and only one of `jwt`, `psk`, or `tsnet` must be set
 	PSK *ConfigAuthPSK `yaml:"psk,omitempty"`
+
+	// Tailscale Identity authentication (only available when using tsnet listener)
+	// To enable the use of the TSNet identity with the default options, an empty object (e.g. `tsnet: {}`) is sufficient
+	// One and only one of `jwt`, `psk`, or `tsnet` must be set
+	TSNet *ConfigAuthTSNet `yaml:"tsnet,omitempty"`
 }
 
 // ConfigAuthJWT holds JWT/OAuth2 authentication configuration
@@ -186,6 +191,13 @@ type ConfigAuthPSK struct {
 	// Must be at least 16 characters
 	// Generate with: `openssl rand -base64 32`
 	Key string `yaml:"key"`
+}
+
+// ConfigAuthTSNet holds Tailscale identity authentication configuration
+type ConfigAuthTSNet struct {
+	// If non-empty, requires the Tailnet of the user to match this value
+	// +example "yourtailnet.ts.net"
+	AllowedTailnet string `yaml:"allowedTailnet"`
 }
 
 // ConfigDev includes options using during development only
@@ -256,7 +268,7 @@ func (c *Config) Validate(logger *slog.Logger) error {
 
 	// Validate auth configuration based on type
 	if countSetProperties(c.Auth) != 1 {
-		return errors.New("configuration section 'auth' must contain one and only one of 'jwt' or 'psk'")
+		return errors.New("configuration section 'auth' must contain one and only one of 'jwt', 'psk', or 'tsnet'")
 	}
 
 	switch {
@@ -274,8 +286,13 @@ func (c *Config) Validate(logger *slog.Logger) error {
 		if len(c.Auth.PSK.Key) < 16 {
 			return errors.New("configuration option 'auth.psk.key' must be at least 16 characters long")
 		}
+	case c.Auth.TSNet != nil:
+		// TSNet auth can only be used with tsnet listener
+		if c.Server.Listener != "tsnet" {
+			return errors.New("configuration option 'auth.tsnet' can only be used when 'server.listener' is set to 'tsnet'")
+		}
 	default:
-		return errors.New("configuration section 'auth' must contain one and only one of 'jwt' or 'psk'")
+		return errors.New("configuration section 'auth' must contain one and only one of 'jwt', 'psk', or 'tsnet'")
 	}
 
 	return nil

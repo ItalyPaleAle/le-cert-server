@@ -42,7 +42,7 @@ func main() {
 	services := make([]servicerunner.Service, 0, 3)
 
 	// Shutdown functions
-	shutdownFns := make([]servicerunner.Service, 0, 2)
+	shutdownFns := make([]servicerunner.Service, 0, 3)
 
 	// Get the logger and set it in the context
 	log, loggerShutdownFn, err := logging.GetLogger(context.Background(), cfg)
@@ -102,7 +102,10 @@ func main() {
 	services = append(services, scheduler.Run)
 
 	// Create authenticator based on config type
-	var authenticator auth.Authenticator
+	var (
+		authenticator auth.Authenticator
+		tsrv          *server.TSNetServer
+	)
 	switch {
 	case cfg.Auth.JWT != nil:
 		log.Info("Initializing JWT authenticator", slog.String("issuer", cfg.Auth.JWT.IssuerURL))
@@ -118,6 +121,24 @@ func main() {
 			utils.FatalError(log, "Failed to init PSK authenticator", err)
 			return
 		}
+	case cfg.Auth.TSNet != nil:
+		log.Info("Initializing Tailscale identity authenticator")
+		// For TSNet auth, we need to create the tsnet server first to get its LocalClient
+		tsrv, err = server.NewTSNetServer(cfg, store)
+		if err != nil {
+			utils.FatalError(log, "Failed to create tsnet server", err)
+			return
+		}
+		localClient, err := tsrv.Server.LocalClient()
+		if err != nil {
+			utils.FatalError(log, "Failed to get tsnet local client", err)
+			return
+		}
+		authenticator, err = auth.NewTSNetAuthenticator(localClient, cfg.Auth.TSNet.AllowedTailnet)
+		if err != nil {
+			utils.FatalError(log, "Failed to init Tailscale authenticator", err)
+			return
+		}
 	default:
 		// Should never happen at this stage
 		utils.FatalError(log, "Invalid auth configuration", errors.New("missing auth configuration"))
@@ -131,12 +152,21 @@ func main() {
 		Manager:       certMgr,
 		Authenticator: authenticator,
 		Storage:       store,
+		TSNetServer:   tsrv,
 	})
 	if err != nil {
 		utils.FatalError(log, "Failed to init API server", err)
 		return
 	}
 	services = append(services, apiServer.Run)
+
+	// Add tsnet server shutdown if needed
+	if tsrv != nil {
+		shutdownFns = append(shutdownFns, func(ctx context.Context) error {
+			log.Info("Closing tsnet server")
+			return tsrv.Close()
+		})
+	}
 
 	// Run all services
 	// This call blocks until the context is canceled

@@ -50,6 +50,9 @@ type Server struct {
 	// Listener for the app server
 	// This can be used for testing without having to start an actual TCP listener
 	appListener net.Listener
+
+	// TSNet server instance (when using tsnet listener)
+	tsnetServer *TSNetServer
 }
 
 // NewServerOpts contains options for the NewServer method
@@ -58,15 +61,17 @@ type NewServerOpts struct {
 	Manager       certmanager.CertManager
 	Authenticator auth.Authenticator
 	Storage       *storage.Storage
+	TSNetServer   *TSNetServer
 }
 
 // NewServer creates a new Server object and initializes it
 func NewServer(opts NewServerOpts) (*Server, error) {
 	s := &Server{
-		appMetrics: opts.AppMetrics,
-		manager:    opts.Manager,
-		auth:       opts.Authenticator,
-		storage:    opts.Storage,
+		appMetrics:  opts.AppMetrics,
+		manager:     opts.Manager,
+		auth:        opts.Authenticator,
+		storage:     opts.Storage,
+		tsnetServer: opts.TSNetServer,
 	}
 
 	// Init the object
