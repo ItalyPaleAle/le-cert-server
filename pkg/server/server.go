@@ -21,6 +21,7 @@ import (
 	"github.com/italypaleale/le-cert-server/pkg/metrics"
 	"github.com/italypaleale/le-cert-server/pkg/server/auth"
 	"github.com/italypaleale/le-cert-server/pkg/storage"
+	"github.com/italypaleale/le-cert-server/pkg/tsnetserver"
 	"github.com/italypaleale/le-cert-server/pkg/utils"
 )
 
@@ -52,7 +53,7 @@ type Server struct {
 	appListener net.Listener
 
 	// TSNet server instance (when using tsnet listener)
-	tsnetServer *TSNetServer
+	tsnetServer *tsnetserver.TSNetServer
 }
 
 // NewServerOpts contains options for the NewServer method
@@ -61,7 +62,7 @@ type NewServerOpts struct {
 	Manager       certmanager.CertManager
 	Authenticator auth.Authenticator
 	Storage       *storage.Storage
-	TSNetServer   *TSNetServer
+	TSNetServer   *tsnetserver.TSNetServer
 }
 
 // NewServer creates a new Server object and initializes it
@@ -232,10 +233,11 @@ func (s *Server) startAppServer(ctx context.Context) error {
 			}
 
 		case "tsnet":
-			s.appListener, tsnetCleanup, err = s.createTSNetListener()
+			s.appListener, err = s.tsnetServer.Listen(cfg.Server.Port)
 			if err != nil {
-				return err
+				return fmt.Errorf("failed to listen on tsnet: %w", err)
 			}
+
 			// Listener returned by createTSNetListener is already TLS-wrapped.
 			serveWithTLS = false
 		default:
@@ -247,7 +249,7 @@ func (s *Server) startAppServer(ctx context.Context) error {
 	slog.InfoContext(ctx, "App server started",
 		slog.String("bind", cfg.Server.Bind),
 		slog.Int("port", cfg.Server.Port),
-		slog.Bool("tls", cfg.Server.Listener == "tsnet" || s.tlsConfig != nil),
+		slog.Bool("tls", s.tsnetServer != nil || s.tlsConfig != nil),
 	)
 	go func() { //nolint:contextcheck
 		defer s.appListener.Close() //nolint:errcheck

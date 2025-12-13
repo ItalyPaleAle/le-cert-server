@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"reflect"
+	"strings"
 )
 
 // Config represents the application configuration
@@ -244,6 +245,7 @@ func (c *Config) Validate(logger *slog.Logger) error {
 		return errors.New("configuration option 'letsEncrypt.dnsProvider' is required")
 	}
 
+	c.Server.Listener = strings.ToLower(c.Server.Listener)
 	switch c.Server.Listener {
 	case "tcp":
 		if c.Server.Port == 0 {

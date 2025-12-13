@@ -22,10 +22,6 @@ type TSNetAuthenticator struct {
 // NewTSNetAuthenticator creates a new Tailscale identity authenticator
 // The localClient is used to query the Tailscale LocalAPI for identity information
 func NewTSNetAuthenticator(localClient *local.Client, allowedTailnet string) (*TSNetAuthenticator, error) {
-	if localClient == nil {
-		return nil, errors.New("localClient cannot be nil")
-	}
-
 	slog.Info("Initialized Tailscale identity authenticator")
 
 	return &TSNetAuthenticator{

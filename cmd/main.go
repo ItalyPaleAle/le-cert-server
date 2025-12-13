@@ -13,6 +13,7 @@ import (
 	"github.com/italypaleale/le-cert-server/pkg/server"
 	"github.com/italypaleale/le-cert-server/pkg/server/auth"
 	"github.com/italypaleale/le-cert-server/pkg/storage"
+	"github.com/italypaleale/le-cert-server/pkg/tsnetserver"
 	"github.com/italypaleale/le-cert-server/pkg/utils"
 	"github.com/italypaleale/le-cert-server/pkg/utils/logging"
 	"github.com/italypaleale/le-cert-server/pkg/utils/servicerunner"
@@ -101,11 +102,20 @@ func main() {
 	scheduler := certmanager.NewScheduler(certMgr, renewalSchedulerInterval)
 	services = append(services, scheduler.Run)
 
+	// Start the tsnet server if needed
+	var tsrv *tsnetserver.TSNetServer
+	if cfg.Server.Listener == "tsnet" {
+		tsrv, err = tsnetserver.NewTSNetServer(store)
+		if err != nil {
+			utils.FatalError(log, "Failed to create tsnet server", err)
+			return
+		}
+
+		shutdownFns = append(shutdownFns, tsrv.Close)
+	}
+
 	// Create authenticator based on config type
-	var (
-		authenticator auth.Authenticator
-		tsrv          *server.TSNetServer
-	)
+	var authenticator auth.Authenticator
 	switch {
 	case cfg.Auth.JWT != nil:
 		log.Info("Initializing JWT authenticator", slog.String("issuer", cfg.Auth.JWT.IssuerURL))
@@ -123,13 +133,13 @@ func main() {
 		}
 	case cfg.Auth.TSNet != nil:
 		log.Info("Initializing Tailscale identity authenticator")
-		// For TSNet auth, we need to create the tsnet server first to get its LocalClient
-		tsrv, err = server.NewTSNetServer(cfg, store)
-		if err != nil {
-			utils.FatalError(log, "Failed to create tsnet server", err)
-			return
+		if tsrv == nil {
+			// Indicates a development-time error; should never happen
+			panic("config auth is tsnet but tsnet server not initialized")
 		}
-		localClient, err := tsrv.Server.LocalClient()
+
+		// For TSNet auth, we need to create the tsnet server first to get its LocalClient
+		localClient, err := tsrv.LocalClient()
 		if err != nil {
 			utils.FatalError(log, "Failed to get tsnet local client", err)
 			return
@@ -159,14 +169,6 @@ func main() {
 		return
 	}
 	services = append(services, apiServer.Run)
-
-	// Add tsnet server shutdown if needed
-	if tsrv != nil {
-		shutdownFns = append(shutdownFns, func(ctx context.Context) error {
-			log.Info("Closing tsnet server")
-			return tsrv.Close()
-		})
-	}
 
 	// Run all services
 	// This call blocks until the context is canceled
