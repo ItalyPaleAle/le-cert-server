@@ -28,6 +28,9 @@ import (
 //go:embed migrations
 var migrationScripts embed.FS
 
+// Timeout for database queries
+const queryTimeout = 10 * time.Second
+
 // Storage handles certificate and credential persistence
 type Storage struct {
 	db      *sql.DB

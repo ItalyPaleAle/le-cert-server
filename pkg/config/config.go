@@ -98,7 +98,7 @@ type ConfigServerTSNet struct {
 	Hostname string `yaml:"hostname"`
 
 	// AuthKey can be used to authenticate the tsnet node automatically.
-	// If empty, tsnet will rely on existing state in stateDir.
+	// If empty, tsnet will rely on existing state in the database.
 	AuthKey string `yaml:"authKey"`
 
 	// Directory where tsnet stores its state.

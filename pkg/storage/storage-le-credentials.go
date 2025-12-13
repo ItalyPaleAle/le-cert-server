@@ -31,7 +31,7 @@ func (s *Storage) SaveLECredentials(ctx context.Context, creds *LECredentials) e
 		return fmt.Errorf("failed to marshal LE credentials: %w", err)
 	}
 
-	queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	queryCtx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
 	result, err := s.db.ExecContext(queryCtx, query, jsonData)
@@ -57,7 +57,7 @@ func (s *Storage) GetLECredentials(ctx context.Context, email string) (*LECreden
 	WHERE email = ?
 	`
 
-	queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	queryCtx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
 	var (

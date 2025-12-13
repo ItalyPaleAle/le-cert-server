@@ -31,7 +31,7 @@ func (s *Storage) SaveCertificate(ctx context.Context, cert *Certificate) error 
 		return fmt.Errorf("failed to marshal certificate: %w", err)
 	}
 
-	queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	queryCtx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 	result, err := s.db.ExecContext(queryCtx, query, jsonData)
 	if err != nil {
@@ -56,7 +56,7 @@ func (s *Storage) GetCertificate(ctx context.Context, domain string) (*Certifica
 	WHERE domain = ?
 	`
 
-	queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	queryCtx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
 	var (
@@ -92,7 +92,7 @@ func (s *Storage) GetExpiringCertificates(ctx context.Context, days int) ([]*Cer
 	WHERE not_after <= unixepoch('now', '+' || ? || ' days')
 	`
 
-	queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	queryCtx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
 	rows, err := s.db.QueryContext(queryCtx, query, days)

@@ -23,15 +23,16 @@ func (s *Storage) TSNetStorage() *TSNetStorage {
 
 // ReadState implements the ipn.StateStore interface.
 func (t *TSNetStorage) ReadState(id ipn.StateKey) ([]byte, error) {
+	queryCtx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
 	var data []byte
-	err := t.db.QueryRowContext(context.Background(),
+	err := t.db.QueryRowContext(queryCtx,
 		`SELECT data FROM tsnet_state WHERE id = ?`,
 		string(id),
 	).Scan(&data)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ipn.ErrStateNotExist
-		}
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ipn.ErrStateNotExist
+	} else if err != nil {
 		return nil, fmt.Errorf("failed to get tsnet state: %w", err)
 	}
 	return data, nil
@@ -45,7 +46,9 @@ func (t *TSNetStorage) WriteState(id ipn.StateKey, bs []byte) error {
 		return nil
 	}
 
-	_, err = t.db.ExecContext(context.Background(),
+	queryCtx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	defer cancel()
+	_, err = t.db.ExecContext(queryCtx,
 		`INSERT INTO tsnet_state (id, data) VALUES (?, ?)
 		 ON CONFLICT(id) DO UPDATE SET data = excluded.data`,
 		string(id), bs,

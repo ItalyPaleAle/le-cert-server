@@ -10,7 +10,7 @@
 | <a id="config-opt-server-tls-certpem"></a>`server.tls.certPEM` | string | Full, PEM-encoded TLS certificate, when not using Let's Encrypt.<br>Using `certPEM` and `keyPEM` is an alternative method of passing TLS certificates than using `path`.|  |
 | <a id="config-opt-server-tls-keypem"></a>`server.tls.keyPEM` | string | Full, PEM-encoded TLS key, when not using Let's Encrypt.<br>Using `certPEM` and `keyPEM` is an alternative method of passing TLS certificates than using `path`.|  |
 | <a id="config-opt-server-tsnet-hostname"></a>`server.tsnet.hostname` | string | Hostname to use for the tsnet node.|  |
-| <a id="config-opt-server-tsnet-authkey"></a>`server.tsnet.authKey` | string | AuthKey can be used to authenticate the tsnet node automatically.<br>If empty, tsnet will rely on existing state in stateDir.|  |
+| <a id="config-opt-server-tsnet-authkey"></a>`server.tsnet.authKey` | string | AuthKey can be used to authenticate the tsnet node automatically.<br>If empty, tsnet will rely on existing state in the database.|  |
 | <a id="config-opt-server-tsnet-statedir"></a>`server.tsnet.stateDir` | string | Directory where tsnet stores its state.<br>If empty, defaults to a folder next to the loaded config file.|  |
 | <a id="config-opt-server-tsnet-ephemeral"></a>`server.tsnet.ephemeral` | boolean | If true, the tsnet node is ephemeral (not persisted in the tailnet).| Default: _false_ |
 | <a id="config-opt-letsencrypt-email"></a>`letsEncrypt.email` | string | Email address for Let's Encrypt registration| **Required** |

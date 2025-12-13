@@ -62,7 +62,7 @@ server:
     ## server.tsnet.authKey (string)
     ## Description:
     ##   AuthKey can be used to authenticate the tsnet node automatically.
-    ##   If empty, tsnet will rely on existing state in stateDir.
+    ##   If empty, tsnet will rely on existing state in the database.
     #authKey: ""
 
     ## server.tsnet.stateDir (string)
