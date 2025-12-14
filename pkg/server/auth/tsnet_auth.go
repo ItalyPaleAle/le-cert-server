@@ -10,13 +10,40 @@ import (
 
 	"tailscale.com/client/local"
 	"tailscale.com/client/tailscale/apitype"
+	"tailscale.com/tailcfg"
 )
+
+// Name of the capability
+const tsCapName = "github.com/italypaleale/le-cert-server"
 
 // TSNetAuthenticator handles authentication using Tailscale identity
 // This authenticator can only be used when the server is running with tsnet listener
 type TSNetAuthenticator struct {
 	localClient    *local.Client
 	allowedTailnet string
+}
+
+type tsCapRule struct {
+	Domains []string `json:"domains"`
+}
+
+type tsCapRuleList []tsCapRule
+
+func (l tsCapRuleList) AllDomains() []string {
+	var size, i int
+	for _, e := range l {
+		size += len(e.Domains)
+	}
+
+	res := make([]string, size)
+	for _, e := range l {
+		for _, d := range e.Domains {
+			res[i] = d
+			i++
+		}
+	}
+
+	return res
 }
 
 // NewTSNetAuthenticator creates a new Tailscale identity authenticator
@@ -53,6 +80,7 @@ func (a *TSNetAuthenticator) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// Check if we have a tailnet allowlist
 		if a.allowedTailnet != "" {
 			// Tailnet of connected node
 			// When accessing shared nodes, this will be empty because the Tailnet of the sharee is not exposed
@@ -84,6 +112,29 @@ func (a *TSNetAuthenticator) Middleware(next http.Handler) http.Handler {
 			}
 		}
 
+		// Get the capabilities assigned to the user
+		rules, err := tailcfg.UnmarshalCapJSON[tsCapRule](whois.CapMap, tsCapName)
+		if err != nil {
+			slog.Warn("Failed to get Tailscale capabilities",
+				slog.String("path", r.URL.Path),
+				slog.String("remoteAddr", remoteAddr),
+				slog.Any("error", err),
+			)
+			http.Error(w, "Unable to get Tailscale capabilities", http.StatusUnauthorized)
+			return
+		}
+
+		domains := tsCapRuleList(rules).AllDomains()
+		if len(domains) == 0 {
+			slog.Warn("Tailscale capabilities do not include any domains",
+				slog.String("path", r.URL.Path),
+				slog.String("remoteAddr", remoteAddr),
+				slog.Any("error", err),
+			)
+			http.Error(w, "The Tailscale capabilities do not include any domains", http.StatusUnauthorized)
+			return
+		}
+
 		// Extract user information
 		user, err := extractUserFromWhoIs(whois)
 		if err != nil {
@@ -102,8 +153,9 @@ func (a *TSNetAuthenticator) Middleware(next http.Handler) http.Handler {
 			slog.String("remoteAddr", remoteAddr),
 		)
 
-		// Add user to context
+		// Add user and domains to context
 		ctx := context.WithValue(r.Context(), userContextKey{}, user)
+		ctx = context.WithValue(r.Context(), domainsContextKey{}, domains)
 
 		// Proceed to the next handler with the updated context
 		next.ServeHTTP(w, r.WithContext(ctx))

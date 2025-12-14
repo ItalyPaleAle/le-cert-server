@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
-	"reflect"
 	"strings"
 )
 
@@ -152,18 +151,34 @@ type ConfigDatabase struct {
 
 // ConfigAuth holds auth configuration
 type ConfigAuth struct {
+	// Auth method to use
+	// Allowed values: "jwt", "psk", "tsnet"
+	// +required
+	Method string `yaml:"method"`
+
 	// OAuth2/OIDC (JWT) Authentication (recommended for multi-user environments)
-	// One and only one of `jwt`, `psk`, or `tsnet` must be set
-	JWT *ConfigAuthJWT `yaml:"jwt,omitempty"`
+	JWT ConfigAuthJWT `yaml:"jwt,omitempty"`
 
 	// PSK (Pre-Shared Key) authentication configuration
-	// One and only one of `jwt`, `psk`, or `tsnet` must be set
-	PSK *ConfigAuthPSK `yaml:"psk,omitempty"`
+	PSK ConfigAuthPSK `yaml:"psk,omitempty"`
 
 	// Tailscale Identity authentication (only available when using tsnet listener)
-	// To enable the use of the TSNet identity with the default options, an empty object (e.g. `tsnet: {}`) is sufficient
-	// One and only one of `jwt`, `psk`, or `tsnet` must be set
-	TSNet *ConfigAuthTSNet `yaml:"tsnet,omitempty"`
+	// In the Tailscale ACL editor, you must grant nodes the app capability `"github.com/italypaleale/le-cert-server"` with the list of allowed domains. For example:
+	//    {
+	//        "grants": [
+	//            {
+	//                "src": ["*"],
+	//                "dst": ["le-cert-server"],
+	//                "app": {
+	//                    "github.com/italypaleale/le-cert-server": [
+	//                        { "domains": ["example.com"] },
+	//                        { "domains": ["*.example2.com"] }
+	//                    ]
+	//                }
+	//            }
+	//        ]
+	//    }
+	TSNet ConfigAuthTSNet `yaml:"tsnet,omitempty"`
 }
 
 // ConfigAuthJWT holds JWT/OAuth2 authentication configuration
@@ -184,6 +199,11 @@ type ConfigAuthJWT struct {
 
 	// Required scopes that tokens must have (optional)
 	RequiredScopes []string `yaml:"requiredScopes,omitempty"`
+
+	// Optional name of a claim containing the list of allowed domains
+	// If this is not set, authenticated users can request certificates for all domains
+	// The claim's value can be an array (e.g. `"domains":["example.com","*.example2.com"]`) or a string with comma-separated values (e.g. "domains":"example.com,*.example2.com")
+	DomainsClaim string `yaml:"domainsClaim"`
 }
 
 // ConfigAuthPSK holds pre-shared key authentication configuration
@@ -269,57 +289,30 @@ func (c *Config) Validate(logger *slog.Logger) error {
 	}
 
 	// Validate auth configuration based on type
-	if countSetProperties(c.Auth) != 1 {
-		return errors.New("configuration section 'auth' must contain one and only one of 'jwt', 'psk', or 'tsnet'")
-	}
-
-	switch {
-	case c.Auth.JWT != nil:
+	c.Auth.Method = strings.ToLower(c.Auth.Method)
+	switch c.Auth.Method {
+	case "jwt":
 		if c.Auth.JWT.IssuerURL == "" {
 			return errors.New("configuration option 'auth.jwt.issuerURL' is required when using JWT authentication")
 		}
 		if c.Auth.JWT.Audience == "" {
 			return errors.New("configuration option 'auth.jwt.audience' is required when using JWT authentication")
 		}
-	case c.Auth.PSK != nil:
+	case "psk":
 		if c.Auth.PSK.Key == "" {
 			return errors.New("configuration option 'auth.psk.key' is required when using PSK authentication")
 		}
 		if len(c.Auth.PSK.Key) < 16 {
 			return errors.New("configuration option 'auth.psk.key' must be at least 16 characters long")
 		}
-	case c.Auth.TSNet != nil:
+	case "tsnet":
 		// TSNet auth can only be used with tsnet listener
 		if c.Server.Listener != "tsnet" {
 			return errors.New("configuration option 'auth.tsnet' can only be used when 'server.listener' is set to 'tsnet'")
 		}
 	default:
-		return errors.New("configuration section 'auth' must contain one and only one of 'jwt', 'psk', or 'tsnet'")
+		return errors.New("configuration 'auth.method' is empty or not valid; supported values: 'jwt', 'psk', 'tsnet'")
 	}
 
 	return nil
-}
-
-func countSetProperties(s any) int {
-	typ := reflect.TypeOf(s)
-	val := reflect.ValueOf(s)
-
-	if typ.Kind() == reflect.Pointer {
-		typ = typ.Elem()
-		val = val.Elem()
-	}
-	if typ.Kind() != reflect.Struct {
-		// Indicates a development-time error
-		panic("param must be a struct")
-	}
-
-	var count int
-	for i := range val.NumField() {
-		field := val.Field(i)
-		if field.IsValid() && !field.IsZero() {
-			count++
-		}
-	}
-
-	return count
 }

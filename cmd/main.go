@@ -116,22 +116,28 @@ func main() {
 
 	// Create authenticator based on config type
 	var authenticator auth.Authenticator
-	switch {
-	case cfg.Auth.JWT != nil:
+	switch cfg.Auth.Method {
+	case "jwt":
 		log.Info("Initializing JWT authenticator", slog.String("issuer", cfg.Auth.JWT.IssuerURL))
-		authenticator, err = auth.NewJWTAuthenticator(ctx, cfg.Auth.JWT.IssuerURL, cfg.Auth.JWT.Audience, cfg.Auth.JWT.RequiredScopes)
+		authenticator, err = auth.NewJWTAuthenticator(
+			ctx,
+			cfg.Auth.JWT.IssuerURL,
+			cfg.Auth.JWT.Audience,
+			cfg.Auth.JWT.RequiredScopes,
+			cfg.Auth.JWT.DomainsClaim,
+		)
 		if err != nil {
 			utils.FatalError(log, "Failed to init JWT authenticator", err)
 			return
 		}
-	case cfg.Auth.PSK != nil:
+	case "psk":
 		log.Info("Initializing PSK authenticator")
 		authenticator, err = auth.NewPSKAuthenticator(cfg.Auth.PSK.Key)
 		if err != nil {
 			utils.FatalError(log, "Failed to init PSK authenticator", err)
 			return
 		}
-	case cfg.Auth.TSNet != nil:
+	case "tsnet":
 		log.Info("Initializing Tailscale identity authenticator")
 		if tsrv == nil {
 			// Indicates a development-time error; should never happen

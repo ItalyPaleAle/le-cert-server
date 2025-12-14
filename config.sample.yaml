@@ -125,10 +125,16 @@ database:
   #path: "le-cert-server.db" in the current directory
 
 auth:
+  ## auth.method (string)
+  ## Description:
+  ##   Auth method to use
+  ##   Allowed values: "jwt", "psk", "tsnet"
+  ## Required
+  method: ""
+
   ## auth.jwt
   ## Description:
   ##   OAuth2/OIDC (JWT) Authentication (recommended for multi-user environments)
-  ##   One and only one of `jwt`, `psk`, or `tsnet` must be set
   jwt:
     ## auth.jwt.issuerUrl (string)
     ## Description:
@@ -153,10 +159,16 @@ auth:
     ##   Required scopes that tokens must have (optional)
     #requiredScopes: []
 
+    ## auth.jwt.domainsClaim (string)
+    ## Description:
+    ##   Optional name of a claim containing the list of allowed domains
+    ##   If this is not set, authenticated users can request certificates for all domains
+    ##   The claim's value can be an array (e.g. `"domains":["example.com","*.example2.com"]`) or a string with comma-separated values (e.g. "domains":"example.com,*.example2.com")
+    #domainsClaim: ""
+
   ## auth.psk
   ## Description:
   ##   PSK (Pre-Shared Key) authentication configuration
-  ##   One and only one of `jwt`, `psk`, or `tsnet` must be set
   psk:
     ## auth.psk.key (string)
     ## Description:
@@ -168,8 +180,21 @@ auth:
   ## auth.tsnet
   ## Description:
   ##   Tailscale Identity authentication (only available when using tsnet listener)
-  ##   To enable the use of the TSNet identity with the default options, an empty object (e.g. `tsnet: {}`) is sufficient
-  ##   One and only one of `jwt`, `psk`, or `tsnet` must be set
+  ##   In the Tailscale ACL editor, you must grant nodes the app capability `"github.com/italypaleale/le-cert-server"` with the list of allowed domains. For example:
+  ##      {
+  ##          "grants": [
+  ##              {
+  ##                  "src": ["*"],
+  ##                  "dst": ["le-cert-server"],
+  ##                  "app": {
+  ##                      "github.com/italypaleale/le-cert-server": [
+  ##                          { "domains": ["example.com"] },
+  ##                          { "domains": ["*.example2.com"] }
+  ##                      ]
+  ##                  }
+  ##              }
+  ##          ]
+  ##      }
   tsnet:
     ## auth.tsnet.allowedTailnet (string)
     ## Description:

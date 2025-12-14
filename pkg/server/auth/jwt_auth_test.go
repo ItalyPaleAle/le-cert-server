@@ -553,3 +553,264 @@ func TestExpiredToken(t *testing.T) {
 	require.Error(t, err)
 	require.ErrorContains(t, err, "exp")
 }
+
+func TestDomainsClaim(t *testing.T) {
+	const (
+		issuerURL    = "https://auth.example.com"
+		audience     = "test-audience"
+		kid          = "test-key-1"
+		domainsClaim = "allowed_domains"
+	)
+
+	// Generate test keys
+	privateKey, publicKey := generateTestKeyPair(t)
+	jwks := createTestJWKS(t, kid, publicKey)
+
+	// Marshal JWKS to JSON
+	jwksJSON, err := json.Marshal(jwks)
+	require.NoError(t, err)
+
+	// Create mock responses
+	discoveryResponse := OIDCDiscovery{
+		Issuer:  issuerURL,
+		JWKSURI: issuerURL + "/.well-known/jwks.json",
+	}
+	discoveryJSON, err := json.Marshal(discoveryResponse)
+	require.NoError(t, err)
+
+	// Setup mock HTTP client
+	mockRT := &mockRoundTripper{
+		handler: func(req *http.Request) (*http.Response, error) {
+			switch req.URL.String() {
+			case issuerURL + "/.well-known/openid-configuration":
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewReader(discoveryJSON)),
+				}, nil
+			case issuerURL + "/.well-known/jwks.json":
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewReader(jwksJSON)),
+				}, nil
+			default:
+				return &http.Response{
+					StatusCode: http.StatusNotFound,
+					Body:       io.NopCloser(strings.NewReader("Not Found")),
+				}, nil
+			}
+		},
+	}
+
+	tests := []struct {
+		name            string
+		domainsClaim    string // Empty means not configured
+		tokenClaims     map[string]any
+		expectedStatus  int
+		expectedDomains []string // nil means context should have nil value
+		checkContext    bool     // Whether to check the context value
+	}{
+		{
+			name:         "Domains claim not configured - should have nil value in context",
+			domainsClaim: "",
+			tokenClaims: map[string]any{
+				"iss":   issuerURL,
+				"sub":   "user123",
+				"aud":   audience,
+				"scope": "read",
+			},
+			expectedStatus: http.StatusOK,
+			checkContext:   false,
+		},
+		{
+			name:         "Domains claim configured but not found in token - error",
+			domainsClaim: domainsClaim,
+			tokenClaims: map[string]any{
+				"iss":   issuerURL,
+				"sub":   "user123",
+				"aud":   audience,
+				"scope": "read",
+			},
+			expectedStatus: http.StatusUnauthorized,
+			checkContext:   false,
+		},
+		{
+			name:         "Domains claim found with array of strings",
+			domainsClaim: domainsClaim,
+			tokenClaims: map[string]any{
+				"iss":        issuerURL,
+				"sub":        "user123",
+				"aud":        audience,
+				"scope":      "read",
+				domainsClaim: []string{"example.com", "test.com", "demo.org"},
+			},
+			expectedStatus:  http.StatusOK,
+			expectedDomains: []string{"example.com", "test.com", "demo.org"},
+			checkContext:    true,
+		},
+		{
+			name:         "Domains claim found with array of any",
+			domainsClaim: domainsClaim,
+			tokenClaims: map[string]any{
+				"iss":        issuerURL,
+				"sub":        "user123",
+				"aud":        audience,
+				"scope":      "read",
+				domainsClaim: []any{"example.com", "test.com"},
+			},
+			expectedStatus:  http.StatusOK,
+			expectedDomains: []string{"example.com", "test.com"},
+			checkContext:    true,
+		},
+		{
+			name:         "Domains claim found with comma-separated string",
+			domainsClaim: domainsClaim,
+			tokenClaims: map[string]any{
+				"iss":        issuerURL,
+				"sub":        "user123",
+				"aud":        audience,
+				"scope":      "read",
+				domainsClaim: "example.com, test.com, demo.org",
+			},
+			expectedStatus:  http.StatusOK,
+			expectedDomains: []string{"example.com", "test.com", "demo.org"},
+			checkContext:    true,
+		},
+		{
+			name:         "Domains claim found with comma-separated string without spaces",
+			domainsClaim: domainsClaim,
+			tokenClaims: map[string]any{
+				"iss":        issuerURL,
+				"sub":        "user123",
+				"aud":        audience,
+				"scope":      "read",
+				domainsClaim: "example.com,test.com,demo.org",
+			},
+			expectedStatus:  http.StatusOK,
+			expectedDomains: []string{"example.com", "test.com", "demo.org"},
+			checkContext:    true,
+		},
+		{
+			name:         "Domains claim found with empty string",
+			domainsClaim: domainsClaim,
+			tokenClaims: map[string]any{
+				"iss":        issuerURL,
+				"sub":        "user123",
+				"aud":        audience,
+				"scope":      "read",
+				domainsClaim: "",
+			},
+			expectedStatus:  http.StatusOK,
+			expectedDomains: []string{""},
+			checkContext:    true,
+		},
+		{
+			name:         "Domains claim found with empty array",
+			domainsClaim: domainsClaim,
+			tokenClaims: map[string]any{
+				"iss":        issuerURL,
+				"sub":        "user123",
+				"aud":        audience,
+				"scope":      "read",
+				domainsClaim: []string{},
+			},
+			expectedStatus:  http.StatusOK,
+			expectedDomains: []string{},
+			checkContext:    true,
+		},
+		{
+			name:         "Domains claim found with invalid value (number) - error",
+			domainsClaim: domainsClaim,
+			tokenClaims: map[string]any{
+				"iss":        issuerURL,
+				"sub":        "user123",
+				"aud":        audience,
+				"scope":      "read",
+				domainsClaim: 12345,
+			},
+			expectedStatus: http.StatusUnauthorized,
+			checkContext:   false,
+		},
+		{
+			name:         "Domains claim found with invalid value (boolean) - error",
+			domainsClaim: domainsClaim,
+			tokenClaims: map[string]any{
+				"iss":        issuerURL,
+				"sub":        "user123",
+				"aud":        audience,
+				"scope":      "read",
+				domainsClaim: true,
+			},
+			expectedStatus: http.StatusUnauthorized,
+			checkContext:   false,
+		},
+		{
+			name:         "Domains claim found with invalid value (object) - error",
+			domainsClaim: domainsClaim,
+			tokenClaims: map[string]any{
+				"iss":        issuerURL,
+				"sub":        "user123",
+				"aud":        audience,
+				"scope":      "read",
+				domainsClaim: map[string]any{"domain": "example.com"},
+			},
+			expectedStatus: http.StatusUnauthorized,
+			checkContext:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create authenticator with mock client and domains claim setting
+			auth := &JWTAuthenticator{
+				issuerURL:    issuerURL,
+				audience:     audience,
+				domainsClaim: tt.domainsClaim,
+				httpClient:   &http.Client{Transport: mockRT},
+			}
+
+			// Create a simple key set without using the cache
+			keySet, err2 := jwk.Parse(jwksJSON)
+			require.NoError(t, err2)
+			auth.keySet = keySet
+
+			// Create test handler that checks the context
+			var (
+				capturedDomains []string
+				capturedOk      bool
+			)
+			testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if tt.checkContext {
+					capturedDomains, capturedOk = GetDomains(r.Context())
+				}
+				w.WriteHeader(http.StatusOK)
+			})
+
+			// Wrap with middleware
+			handler := auth.Middleware(testHandler)
+
+			// Create token
+			token := createTestToken(t, privateKey, kid, tt.tokenClaims)
+
+			// Create request
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+
+			// Execute request
+			rr := httptest.NewRecorder()
+			handler.ServeHTTP(rr, req)
+
+			// Verify status code
+			require.Equal(t, tt.expectedStatus, rr.Code)
+
+			// Verify context values if expected
+			if tt.checkContext && tt.expectedStatus == http.StatusOK {
+				assert.True(t, capturedOk, "GetDomains should return ok=true")
+				if tt.expectedDomains == nil {
+					require.Nil(t, capturedDomains, "Expected nil domains in context")
+				} else {
+					require.Equal(t, tt.expectedDomains, capturedDomains, "Expected domains to match")
+				}
+			}
+		})
+	}
+}

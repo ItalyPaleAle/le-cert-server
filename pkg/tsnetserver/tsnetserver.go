@@ -40,7 +40,7 @@ func NewTSNetServer(store *storage.Storage) (*TSNetServer, error) {
 		Ephemeral: cfg.Server.TSNet.Ephemeral,
 		Store:     store.TSNetStorage(),
 		Logf: func(format string, args ...any) {
-			tsLogger.Info(fmt.Sprintf(format, args...))
+			tsLogger.Debug(fmt.Sprintf(format, args...))
 		},
 	}
 

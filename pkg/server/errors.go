@@ -9,6 +9,7 @@ var (
 	errInternal         = newApiError("internal", http.StatusInternalServerError, "Internal error")
 	errInvalidBody      = newApiError("invalid_body", http.StatusBadRequest, "Invalid request body")
 	errMissingBodyParam = newApiError("missing_body_param", http.StatusBadRequest, "Missing required parameter in request body")
+	errDomainNotAllowed = newApiError("domain_not_allowed", http.StatusForbidden, "User is not authorized to perform operations on the requested domain")
 )
 
 type apiError struct {

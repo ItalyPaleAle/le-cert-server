@@ -25,6 +25,7 @@ type JWTAuthenticator struct {
 	issuerURL      string
 	audience       string
 	requiredScopes []string
+	domainsClaim   string
 	cache          *jwk.Cache
 	keySet         jwk.Set
 	httpClient     *http.Client
@@ -39,7 +40,7 @@ type OIDCDiscovery struct {
 }
 
 // NewJWTAuthenticator creates a new OAuth2/OIDC authenticator
-func NewJWTAuthenticator(ctx context.Context, issuerURL, audience string, requiredScopes []string) (*JWTAuthenticator, error) {
+func NewJWTAuthenticator(ctx context.Context, issuerURL string, audience string, requiredScopes []string, domainsClaim string) (*JWTAuthenticator, error) {
 	httpClient := &http.Client{
 		Timeout: 15 * time.Second,
 		Transport: &http.Transport{
@@ -53,6 +54,7 @@ func NewJWTAuthenticator(ctx context.Context, issuerURL, audience string, requir
 		issuerURL:      issuerURL,
 		audience:       audience,
 		requiredScopes: requiredScopes,
+		domainsClaim:   domainsClaim,
 		httpClient:     httpClient,
 	}
 
@@ -181,10 +183,52 @@ func (a *JWTAuthenticator) Middleware(next http.Handler) http.Handler {
 		// Extract subject
 		subject, _ := token.Subject()
 
+		// Extract domains claim, if set
+		var domains []string
+		if a.domainsClaim != "" {
+			var domainsAny any
+			err = token.Get(a.domainsClaim, &domainsAny)
+			if err != nil {
+				slog.Warn(
+					"Allowed domains claim not found in token",
+					slog.Any("error", err),
+					slog.String("path", r.URL.Path),
+					slog.String("claim", a.domainsClaim),
+				)
+				http.Error(w, fmt.Sprintf("Allowed domains claim '%s' not found in token", a.domainsClaim), http.StatusUnauthorized)
+				return
+			}
+
+			switch x := domainsAny.(type) {
+			case []string:
+				domains = x
+			case []any:
+				domains = make([]string, len(x))
+				for i, v := range x {
+					domains[i] = cast.ToString(v)
+				}
+			case string:
+				domains = strings.Split(x, ",")
+				for i := range domains {
+					domains[i] = strings.TrimSpace(domains[i])
+				}
+			default:
+				slog.Warn(
+					"Allowed domains claim is not valid",
+					slog.Any("error", err),
+					slog.String("path", r.URL.Path),
+					slog.String("claim", a.domainsClaim),
+				)
+				http.Error(w, fmt.Sprintf("Allowed domains claim '%s' in token is not valid", a.domainsClaim), http.StatusUnauthorized)
+				return
+			}
+		}
+
 		// Add claims to context
 		ctx := r.Context()
 		ctx = context.WithValue(ctx, userContextKey{}, subject)
 		ctx = context.WithValue(ctx, claimsContextKey{}, token)
+		ctx = context.WithValue(ctx, domainsContextKey{}, domains)
 
 		slog.Debug("Authenticated request", slog.String("subject", subject), slog.String("path", r.URL.Path))
 

@@ -112,8 +112,8 @@ func (s *Server) initAppServer() (err error) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	mux.Handle("POST /api/certificate", s.auth.Middleware(http.HandlerFunc(s.handleGetCertificate)))
-	mux.Handle("POST /api/certificate/renew", s.auth.Middleware(http.HandlerFunc(s.handleRenewCertificate)))
+	mux.Handle("POST /api/certificate", Use(http.HandlerFunc(s.handleGetCertificate), s.auth.Middleware))
+	mux.Handle("POST /api/certificate/renew", Use(http.HandlerFunc(s.handleRenewCertificate), s.auth.Middleware))
 
 	middlewares := make([]Middleware, 0, 4)
 	middlewares = append(middlewares,

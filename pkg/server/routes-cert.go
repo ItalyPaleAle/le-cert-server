@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/italypaleale/le-cert-server/pkg/server/auth"
 	sloghttp "github.com/samber/slog-http"
 )
 
@@ -44,10 +45,17 @@ func (s *Server) handleGetCertificate(w http.ResponseWriter, r *http.Request) {
 
 	sloghttp.AddCustomAttributes(r, slog.String("domain", req.Domain))
 
+	// Check if the user can request certificates for the domain
+	if !auth.DomainAllowed(r.Context(), req.Domain) {
+		slog.WarnContext(r.Context(), "User is not authorized to perform operations on the requested domain")
+		errDomainNotAllowed.WriteResponse(w, r)
+		return
+	}
+
 	// Try to get or obtain certificate
 	cert, cached, err := s.manager.ObtainCertificate(r.Context(), req.Domain)
 	if err != nil {
-		slog.Error("Failed to obtain certificate", "domain", req.Domain, "error", err)
+		slog.ErrorContext(r.Context(), "Failed to obtain certificate", "error", err)
 		errInternal.WriteResponse(w, r)
 		return
 	}
@@ -90,10 +98,17 @@ func (s *Server) handleRenewCertificate(w http.ResponseWriter, r *http.Request) 
 
 	sloghttp.AddCustomAttributes(r, slog.String("domain", req.Domain))
 
+	// Check if the user can request certificates for the domain
+	if !auth.DomainAllowed(r.Context(), req.Domain) {
+		slog.WarnContext(r.Context(), "User is not authorized to perform operations on the requested domain")
+		errDomainNotAllowed.WriteResponse(w, r)
+		return
+	}
+
 	// Renew certificate
 	cert, err := s.manager.RenewCertificate(r.Context(), req.Domain)
 	if err != nil {
-		slog.Error("Failed to renew certificate", "domain", req.Domain, "error", err)
+		slog.ErrorContext(r.Context(), "Failed to renew certificate", "error", err)
 		errInternal.WriteResponse(w, r)
 		return
 	}
