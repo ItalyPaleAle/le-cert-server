@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	slogkit "github.com/italypaleale/go-kit/slog"
 	"github.com/lmittmann/tint"
 	"github.com/mattn/go-isatty"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
@@ -89,7 +90,7 @@ func GetLogger(ctx context.Context, cfg *config.Config) (log *slog.Logger, shutd
 	logGlobal.SetLoggerProvider(provider)
 
 	// Wrap the handler in a "fanout" one
-	handler = LogFanoutHandler{
+	handler = slogkit.LogFanoutHandler{
 		handler,
 		otelslog.NewHandler(buildinfo.AppName, otelslog.WithLoggerProvider(provider)),
 	}

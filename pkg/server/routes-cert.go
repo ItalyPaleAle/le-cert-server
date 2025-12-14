@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/italypaleale/le-cert-server/pkg/server/auth"
+	"github.com/italypaleale/go-kit/httpserver"
 	sloghttp "github.com/samber/slog-http"
+
+	"github.com/italypaleale/le-cert-server/pkg/server/auth"
 )
 
 // CertificateRequest represents a certificate request
@@ -38,7 +40,7 @@ func (s *Server) handleGetCertificate(w http.ResponseWriter, r *http.Request) {
 
 	if req.Domain == "" {
 		errMissingBodyParam.
-			Clone(withMetadata(map[string]string{"name": "domain"})).
+			Clone(httpserver.WithMetadata(map[string]string{"name": "domain"})).
 			WriteResponse(w, r)
 		return
 	}
@@ -75,8 +77,8 @@ func (s *Server) handleGetCertificate(w http.ResponseWriter, r *http.Request) {
 		s.appMetrics.RecordCertRequest(resp.Domain, resp.Cached)
 	}
 
-	w.Header().Set(headerContentType, jsonContentType)
-	respondWithJSON(w, r, resp)
+	w.Header().Set(httpserver.HeaderContentType, httpserver.ContentTypeJson)
+	httpserver.RespondWithJSON(w, r, resp)
 }
 
 // handleRenewCertificate handles certificate renewal requests
@@ -91,7 +93,7 @@ func (s *Server) handleRenewCertificate(w http.ResponseWriter, r *http.Request) 
 
 	if req.Domain == "" {
 		errMissingBodyParam.
-			Clone(withMetadata(map[string]string{"name": "domain"})).
+			Clone(httpserver.WithMetadata(map[string]string{"name": "domain"})).
 			WriteResponse(w, r)
 		return
 	}
@@ -124,6 +126,6 @@ func (s *Server) handleRenewCertificate(w http.ResponseWriter, r *http.Request) 
 		Cached:      false,
 	}
 
-	w.Header().Set(headerContentType, jsonContentType)
-	respondWithJSON(w, r, resp)
+	w.Header().Set(httpserver.HeaderContentType, httpserver.ContentTypeJson)
+	httpserver.RespondWithJSON(w, r, resp)
 }

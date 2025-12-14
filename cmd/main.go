@@ -6,6 +6,10 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/italypaleale/go-kit/servicerunner"
+	"github.com/italypaleale/go-kit/signals"
+	slogkit "github.com/italypaleale/go-kit/slog"
+
 	"github.com/italypaleale/le-cert-server/pkg/buildinfo"
 	"github.com/italypaleale/le-cert-server/pkg/certmanager"
 	"github.com/italypaleale/le-cert-server/pkg/config"
@@ -14,10 +18,7 @@ import (
 	"github.com/italypaleale/le-cert-server/pkg/server/auth"
 	"github.com/italypaleale/le-cert-server/pkg/storage"
 	"github.com/italypaleale/le-cert-server/pkg/tsnetserver"
-	"github.com/italypaleale/le-cert-server/pkg/utils"
 	"github.com/italypaleale/le-cert-server/pkg/utils/logging"
-	"github.com/italypaleale/le-cert-server/pkg/utils/servicerunner"
-	"github.com/italypaleale/le-cert-server/pkg/utils/signals"
 )
 
 func main() {
@@ -33,7 +34,7 @@ func main() {
 		if errors.As(err, &ce) {
 			ce.LogFatal(initLogger)
 		} else {
-			utils.FatalError(initLogger, "Failed to load configuration", err)
+			slogkit.FatalError(initLogger, "Failed to load configuration", err)
 			return
 		}
 	}
@@ -48,7 +49,7 @@ func main() {
 	// Get the logger and set it in the context
 	log, loggerShutdownFn, err := logging.GetLogger(context.Background(), cfg)
 	if err != nil {
-		utils.FatalError(initLogger, "Failed to create logger", err)
+		slogkit.FatalError(initLogger, "Failed to create logger", err)
 		return
 	}
 	slog.SetDefault(log)
@@ -59,7 +60,7 @@ func main() {
 	// Validate the configuration
 	err = cfg.Validate(log)
 	if err != nil {
-		utils.FatalError(log, "Invalid configuration", err)
+		slogkit.FatalError(log, "Invalid configuration", err)
 		return
 	}
 
@@ -72,7 +73,7 @@ func main() {
 	// Init appMetrics
 	appMetrics, metricsShutdownFn, err := appmetrics.NewAppMetrics(ctx)
 	if err != nil {
-		utils.FatalError(log, "Failed to init metrics", err)
+		slogkit.FatalError(log, "Failed to init metrics", err)
 		return
 	}
 	if metricsShutdownFn != nil {
@@ -83,12 +84,12 @@ func main() {
 	log.Info("Initializing database", slog.String("path", cfg.Database.Path))
 	store, err := storage.NewStorage(cfg.Database.Path)
 	if err != nil {
-		utils.FatalError(log, "Failed to create storage", err)
+		slogkit.FatalError(log, "Failed to create storage", err)
 		return
 	}
 	err = store.Init(ctx)
 	if err != nil {
-		utils.FatalError(log, "Failed to init storage", err)
+		slogkit.FatalError(log, "Failed to init storage", err)
 		return
 	}
 	services = append(services, store.Run)
@@ -107,7 +108,7 @@ func main() {
 	if cfg.Server.Listener == "tsnet" {
 		tsrv, err = tsnetserver.NewTSNetServer(store)
 		if err != nil {
-			utils.FatalError(log, "Failed to create tsnet server", err)
+			slogkit.FatalError(log, "Failed to create tsnet server", err)
 			return
 		}
 
@@ -127,14 +128,14 @@ func main() {
 			cfg.Auth.JWT.DomainsClaim,
 		)
 		if err != nil {
-			utils.FatalError(log, "Failed to init JWT authenticator", err)
+			slogkit.FatalError(log, "Failed to init JWT authenticator", err)
 			return
 		}
 	case "psk":
 		log.Info("Initializing PSK authenticator")
 		authenticator, err = auth.NewPSKAuthenticator(cfg.Auth.PSK.Key)
 		if err != nil {
-			utils.FatalError(log, "Failed to init PSK authenticator", err)
+			slogkit.FatalError(log, "Failed to init PSK authenticator", err)
 			return
 		}
 	case "tsnet":
@@ -147,17 +148,17 @@ func main() {
 		// For TSNet auth, we need to create the tsnet server first to get its LocalClient
 		localClient, err := tsrv.LocalClient()
 		if err != nil {
-			utils.FatalError(log, "Failed to get tsnet local client", err)
+			slogkit.FatalError(log, "Failed to get tsnet local client", err)
 			return
 		}
 		authenticator, err = auth.NewTSNetAuthenticator(localClient, cfg.Auth.TSNet.AllowedTailnet)
 		if err != nil {
-			utils.FatalError(log, "Failed to init Tailscale authenticator", err)
+			slogkit.FatalError(log, "Failed to init Tailscale authenticator", err)
 			return
 		}
 	default:
 		// Should never happen at this stage
-		utils.FatalError(log, "Invalid auth configuration", errors.New("missing auth configuration"))
+		slogkit.FatalError(log, "Invalid auth configuration", errors.New("missing auth configuration"))
 		return
 	}
 
@@ -171,7 +172,7 @@ func main() {
 		TSNetServer:   tsrv,
 	})
 	if err != nil {
-		utils.FatalError(log, "Failed to init API server", err)
+		slogkit.FatalError(log, "Failed to init API server", err)
 		return
 	}
 	services = append(services, apiServer.Run)
@@ -182,7 +183,7 @@ func main() {
 		NewServiceRunner(services...).
 		Run(ctx)
 	if err != nil {
-		utils.FatalError(log, "Failed to run service", err)
+		slogkit.FatalError(log, "Failed to run service", err)
 		return
 	}
 

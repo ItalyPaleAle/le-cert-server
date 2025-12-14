@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"crypto/tls"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -14,6 +13,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	httpserver "github.com/italypaleale/go-kit/httpserver"
+	slogkit "github.com/italypaleale/go-kit/slog"
 	sloghttp "github.com/samber/slog-http"
 
 	"github.com/italypaleale/le-cert-server/pkg/certmanager"
@@ -22,12 +23,6 @@ import (
 	"github.com/italypaleale/le-cert-server/pkg/server/auth"
 	"github.com/italypaleale/le-cert-server/pkg/storage"
 	"github.com/italypaleale/le-cert-server/pkg/tsnetserver"
-	"github.com/italypaleale/le-cert-server/pkg/utils"
-)
-
-const (
-	headerContentType = "Content-Type"
-	jsonContentType   = "application/json; charset=utf-8"
 )
 
 // Server is the server based on Gin
@@ -112,15 +107,15 @@ func (s *Server) initAppServer() (err error) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	mux.Handle("POST /api/certificate", Use(http.HandlerFunc(s.handleGetCertificate), s.auth.Middleware))
-	mux.Handle("POST /api/certificate/renew", Use(http.HandlerFunc(s.handleRenewCertificate), s.auth.Middleware))
+	mux.Handle("POST /api/certificate", httpserver.Use(http.HandlerFunc(s.handleGetCertificate), s.auth.Middleware))
+	mux.Handle("POST /api/certificate/renew", httpserver.Use(http.HandlerFunc(s.handleRenewCertificate), s.auth.Middleware))
 
-	middlewares := make([]Middleware, 0, 4)
+	middlewares := make([]httpserver.Middleware, 0, 4)
 	middlewares = append(middlewares,
 		// Recover from panics
 		sloghttp.Recovery,
 		// Limit request body to 1KB
-		MiddlewareMaxBodySize(1<<10),
+		httpserver.MiddlewareMaxBodySize(1<<10),
 	)
 
 	filters := []sloghttp.Filter{
@@ -140,7 +135,7 @@ func (s *Server) initAppServer() (err error) {
 	)
 
 	// Add middlewares
-	s.handler = Use(mux, middlewares...)
+	s.handler = httpserver.Use(mux, middlewares...)
 
 	return nil
 }
@@ -265,18 +260,9 @@ func (s *Server) startAppServer(ctx context.Context) error {
 			srvErr = s.appSrv.Serve(s.appListener)
 		}
 		if !errors.Is(srvErr, http.ErrServerClosed) {
-			utils.FatalError(slog.Default(), "Error starting app server", srvErr)
+			slogkit.FatalError(slog.Default(), "Error starting app server", srvErr)
 		}
 	}()
 
 	return nil
-}
-
-func respondWithJSON(w http.ResponseWriter, r *http.Request, data any) {
-	enc := json.NewEncoder(w)
-	enc.SetEscapeHTML(false)
-	err := enc.Encode(data)
-	if err != nil {
-		slog.WarnContext(r.Context(), "Error writing JSON response", slog.Any("error", err))
-	}
 }

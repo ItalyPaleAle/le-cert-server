@@ -8,9 +8,10 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/italypaleale/go-kit/fsnotify"
+
 	"github.com/italypaleale/le-cert-server/pkg/config"
 	"github.com/italypaleale/le-cert-server/pkg/utils"
-	"github.com/italypaleale/le-cert-server/pkg/utils/fsnotify"
 )
 
 const (

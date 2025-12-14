@@ -3,8 +3,8 @@ module github.com/italypaleale/le-cert-server
 go 1.25.5
 
 require (
-	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-acme/lego/v4 v4.29.0
+	github.com/italypaleale/go-kit v0.0.0-20251214064356-57c1a0f9caa3
 	github.com/italypaleale/go-sql-utils v0.1.0
 	github.com/jinzhu/copier v0.4.0
 	github.com/lestrrat-go/httprc/v3 v3.0.2
@@ -97,6 +97,7 @@ require (
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/gaissmai/bart v0.18.0 // indirect
