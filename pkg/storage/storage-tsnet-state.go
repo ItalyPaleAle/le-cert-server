@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"iter"
+	"log/slog"
 
 	"tailscale.com/ipn"
 )
@@ -53,7 +54,12 @@ func (t *TSNetStorage) WriteState(id ipn.StateKey, bs []byte) error {
 		 ON CONFLICT(id) DO UPDATE SET data = excluded.data`,
 		string(id), bs,
 	)
-	return fmt.Errorf("failed to save tsnet state: %w", err)
+
+	if err != nil {
+		return fmt.Errorf("failed to save tsnet state: %w", err)
+	}
+
+	return nil
 }
 
 // All implements the ipn.ExportableStore interface and returns an iterator over all store keys.
@@ -64,6 +70,7 @@ func (t *TSNetStorage) All() iter.Seq2[ipn.StateKey, []byte] {
 			`SELECT id, data FROM tsnet_state`,
 		)
 		if err != nil {
+			slog.Warn("Error while loading tsnet state", slog.Any("error", err))
 			return
 		}
 		defer rows.Close() //nolint:errcheck
@@ -75,6 +82,7 @@ func (t *TSNetStorage) All() iter.Seq2[ipn.StateKey, []byte] {
 			)
 			err = rows.Scan(&id, &data)
 			if err != nil {
+				slog.Warn("Error while scanning tsnet state row", slog.Any("error", err))
 				return
 			}
 			if !yield(ipn.StateKey(id), data) {
