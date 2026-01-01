@@ -154,7 +154,7 @@ func (a *TSNetAuthenticator) Middleware(next http.Handler) http.Handler {
 
 		// Add user and domains to context
 		ctx := context.WithValue(r.Context(), userContextKey{}, user)
-		ctx = context.WithValue(r.Context(), domainsContextKey{}, domains)
+		ctx = context.WithValue(ctx, domainsContextKey{}, domains)
 
 		// Proceed to the next handler with the updated context
 		next.ServeHTTP(w, r.WithContext(ctx))

@@ -31,9 +31,11 @@ linters:
     - gochecknoglobals
     - gochecknoinits
     - gocognit
+    - goconst
     - godot
     - ireturn
     - lll
+    - maintidx
     - mnd
     - nestif
     - nlreturn

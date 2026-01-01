@@ -35,7 +35,7 @@ func TestGetDomains_WithEmptyList(t *testing.T) {
 
 	assert.True(t, ok)
 	assert.Equal(t, expectedDomains, domains)
-	assert.Len(t, domains, 0)
+	assert.Empty(t, domains)
 }
 
 func TestGetDomains_WithNullObject(t *testing.T) {
