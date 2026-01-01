@@ -196,11 +196,6 @@ auth:
   ##          ]
   ##      }
   tsnet:
-    ## auth.tsnet.allowedTailnet (string)
-    ## Description:
-    ##   If non-empty, requires the Tailnet of the user to match this value
-    #allowedTailnet: "yourtailnet.ts.net"
-
 logs:
   ## logs.level (string)
   ## Description:
