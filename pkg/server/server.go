@@ -15,6 +15,7 @@ import (
 
 	httpserver "github.com/italypaleale/go-kit/httpserver"
 	slogkit "github.com/italypaleale/go-kit/slog"
+	"github.com/italypaleale/go-kit/tsnetserver"
 	sloghttp "github.com/samber/slog-http"
 
 	"github.com/italypaleale/le-cert-server/pkg/certmanager"
@@ -22,7 +23,6 @@ import (
 	"github.com/italypaleale/le-cert-server/pkg/metrics"
 	"github.com/italypaleale/le-cert-server/pkg/server/auth"
 	"github.com/italypaleale/le-cert-server/pkg/storage"
-	"github.com/italypaleale/le-cert-server/pkg/tsnetserver"
 )
 
 // Server is the server based on Gin
@@ -227,6 +227,12 @@ func (s *Server) startAppServer(ctx context.Context) error {
 				return fmt.Errorf("failed to create TCP listener: %w", err)
 			}
 
+			slog.InfoContext(ctx, "Starting app server",
+				slog.String("bind", cfg.Server.Bind),
+				slog.Int("port", cfg.Server.Port),
+				slog.Bool("tls", s.tlsConfig != nil),
+			)
+
 		case "tsnet":
 			s.appListener, err = s.tsnetServer.Listen(cfg.Server.Port)
 			if err != nil {
@@ -235,17 +241,21 @@ func (s *Server) startAppServer(ctx context.Context) error {
 
 			// Listener returned by createTSNetListener is already TLS-wrapped.
 			serveWithTLS = false
+
+			ip4, ip6 := s.tsnetServer.TailscaleIPs()
+			slog.InfoContext(ctx, "Starting app server on tsnet",
+				slog.Int("port", cfg.Server.Port),
+				slog.String("hostname", s.tsnetServer.Hostname()),
+				slog.String("ip4", ip4),
+				slog.String("ip6", ip6),
+				slog.Bool("tls", s.tsnetServer != nil || s.tlsConfig != nil),
+			)
 		default:
 			return fmt.Errorf("invalid server.listener value: %s", cfg.Server.Listener)
 		}
 	}
 
 	// Start the HTTP(S) server in a background goroutine
-	slog.InfoContext(ctx, "App server started",
-		slog.String("bind", cfg.Server.Bind),
-		slog.Int("port", cfg.Server.Port),
-		slog.Bool("tls", s.tsnetServer != nil || s.tlsConfig != nil),
-	)
 	go func() { //nolint:contextcheck
 		defer s.appListener.Close() //nolint:errcheck
 		if tsnetCleanup != nil {

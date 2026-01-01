@@ -4,7 +4,7 @@ go 1.25.5
 
 require (
 	github.com/go-acme/lego/v4 v4.30.1
-	github.com/italypaleale/go-kit v0.0.0-20251231134057-37f9ef0f1791
+	github.com/italypaleale/go-kit v0.0.0-20260101114202-8e38f260dcc3
 	github.com/italypaleale/go-sql-utils v0.1.0
 	github.com/jinzhu/copier v0.4.0
 	github.com/lestrrat-go/httprc/v3 v3.0.3

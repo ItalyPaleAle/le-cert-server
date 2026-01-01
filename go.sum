@@ -604,8 +604,8 @@ github.com/infobloxopen/infoblox-go-client/v2 v2.10.0 h1:AKsihjFT/t6Y0keEv3p59DA
 github.com/infobloxopen/infoblox-go-client/v2 v2.10.0/go.mod h1:NeNJpz09efw/edzqkVivGv1bWqBXTomqYBRFbP+XBqg=
 github.com/insomniacslk/dhcp v0.0.0-20231206064809-8c70d406f6d2 h1:9K06NfxkBh25x56yVhWWlKFE8YpicaSfHwoV8SFbueA=
 github.com/insomniacslk/dhcp v0.0.0-20231206064809-8c70d406f6d2/go.mod h1:3A9PQ1cunSDF/1rbTq99Ts4pVnycWg+vlPkfeD2NLFI=
-github.com/italypaleale/go-kit v0.0.0-20251231134057-37f9ef0f1791 h1:703bAJHrdhy5j7loqJspvH0HLLJ50Nl4+/PsAFDD+A4=
-github.com/italypaleale/go-kit v0.0.0-20251231134057-37f9ef0f1791/go.mod h1:fouGMuC/h+S9q3yJvvgatAL5wNBpTyRVk7oJ9+TAaTo=
+github.com/italypaleale/go-kit v0.0.0-20260101114202-8e38f260dcc3 h1:U1mrZUd8ZDOwglUQpmTsYIbnDRXdRNI+j33ZF4vJV+g=
+github.com/italypaleale/go-kit v0.0.0-20260101114202-8e38f260dcc3/go.mod h1:tOsBG9KkPW5JDVZNmawXXJ3B4hAKOlbBbXyNgG+r93A=
 github.com/italypaleale/go-sql-utils v0.1.0 h1:QsHMbbfWZ8BgJyuHWvc72T0p1yyIKAmZSWNe5tkG41A=
 github.com/italypaleale/go-sql-utils v0.1.0/go.mod h1:XdmQASGeb8XhhLjOjm2XATjIf3pltzk/U/DQEdE2gHY=
 github.com/jarcoal/httpmock v1.0.8/go.mod h1:ATjnClrvW/3tijVmpL/va5Z3aAyGvqU3gCT8nX0Txik=

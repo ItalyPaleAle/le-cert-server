@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"path/filepath"
 	"strings"
 )
 
@@ -215,11 +216,7 @@ type ConfigAuthPSK struct {
 }
 
 // ConfigAuthTSNet holds Tailscale identity authentication configuration
-type ConfigAuthTSNet struct {
-	// If non-empty, requires the Tailnet of the user to match this value
-	// +example "yourtailnet.ts.net"
-	AllowedTailnet string `yaml:"allowedTailnet"`
-}
+type ConfigAuthTSNet struct{}
 
 // ConfigDev includes options using during development only
 type ConfigDev struct {
@@ -315,4 +312,16 @@ func (c *Config) Validate(logger *slog.Logger) error {
 	}
 
 	return nil
+}
+
+func (c *Config) GetTSNetStateDir() string {
+	stateDir := c.Server.TSNet.StateDir
+	if stateDir == "" {
+		loaded := c.GetLoadedConfigPath()
+		if loaded != "" {
+			stateDir = filepath.Join(filepath.Dir(loaded), "tsnet")
+		}
+	}
+
+	return stateDir
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/italypaleale/go-kit/servicerunner"
 	"github.com/italypaleale/go-kit/signals"
 	slogkit "github.com/italypaleale/go-kit/slog"
+	"github.com/italypaleale/go-kit/tsnetserver"
 
 	"github.com/italypaleale/le-cert-server/pkg/buildinfo"
 	"github.com/italypaleale/le-cert-server/pkg/certmanager"
@@ -17,7 +18,6 @@ import (
 	"github.com/italypaleale/le-cert-server/pkg/server"
 	"github.com/italypaleale/le-cert-server/pkg/server/auth"
 	"github.com/italypaleale/le-cert-server/pkg/storage"
-	"github.com/italypaleale/le-cert-server/pkg/tsnetserver"
 	"github.com/italypaleale/le-cert-server/pkg/utils/logging"
 )
 
@@ -106,7 +106,12 @@ func main() {
 	// Start the tsnet server if needed
 	var tsrv *tsnetserver.TSNetServer
 	if cfg.Server.Listener == "tsnet" {
-		tsrv, err = tsnetserver.NewTSNetServer(store)
+		tsrv, err = tsnetserver.NewTSNetServer(ctx, tsnetserver.NewTSNetServerOpts{
+			Hostname:  cfg.Server.TSNet.Hostname,
+			AuthKey:   cfg.Server.TSNet.AuthKey,
+			StateDir:  cfg.GetTSNetStateDir(),
+			Ephemeral: cfg.Server.TSNet.Ephemeral,
+		})
 		if err != nil {
 			slogkit.FatalError(log, "Failed to create tsnet server", err)
 			return
@@ -145,13 +150,8 @@ func main() {
 			panic("config auth is tsnet but tsnet server not initialized")
 		}
 
-		// For TSNet auth, we need to create the tsnet server first to get its LocalClient
-		localClient, err := tsrv.LocalClient()
-		if err != nil {
-			slogkit.FatalError(log, "Failed to get tsnet local client", err)
-			return
-		}
-		authenticator, err = auth.NewTSNetAuthenticator(localClient, cfg.Auth.TSNet.AllowedTailnet)
+		// For TSNet auth, we need to create the tsnet server
+		authenticator, err = auth.NewTSNetAuthenticator(tsrv)
 		if err != nil {
 			slogkit.FatalError(log, "Failed to init Tailscale authenticator", err)
 			return
