@@ -11,10 +11,9 @@ import (
 	"tailscale.com/client/local"
 	"tailscale.com/client/tailscale/apitype"
 	"tailscale.com/tailcfg"
-)
 
-// Name of the capability
-const tsCapName = "github.com/italypaleale/le-cert-server"
+	"github.com/italypaleale/le-cert-server/pkg/buildinfo"
+)
 
 // TSNetAuthenticator handles authentication using Tailscale identity
 // This authenticator can only be used when the server is running with tsnet listener
@@ -113,7 +112,7 @@ func (a *TSNetAuthenticator) Middleware(next http.Handler) http.Handler {
 		}
 
 		// Get the capabilities assigned to the user
-		rules, err := tailcfg.UnmarshalCapJSON[tsCapRule](whois.CapMap, tsCapName)
+		rules, err := tailcfg.UnmarshalCapJSON[tsCapRule](whois.CapMap, buildinfo.AppNamespace)
 		if err != nil {
 			slog.Warn("Failed to get Tailscale capabilities",
 				slog.String("path", r.URL.Path),

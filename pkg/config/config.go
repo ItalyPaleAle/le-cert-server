@@ -163,14 +163,14 @@ type ConfigAuth struct {
 	PSK ConfigAuthPSK `yaml:"psk,omitempty"`
 
 	// Tailscale Identity authentication (only available when using tsnet listener)
-	// In the Tailscale ACL editor, you must grant nodes the app capability `"github.com/italypaleale/le-cert-server"` with the list of allowed domains. For example:
+	// In the Tailscale ACL editor, you must grant nodes the app capability `"italypaleale.me/le-cert-server"` with the list of allowed domains. For example:
 	//    {
 	//        "grants": [
 	//            {
 	//                "src": ["*"],
 	//                "dst": ["le-cert-server"],
 	//                "app": {
-	//                    "github.com/italypaleale/le-cert-server": [
+	//                    "italypaleale.me/le-cert-server": [
 	//                        { "domains": ["example.com"] },
 	//                        { "domains": ["*.example2.com"] }
 	//                    ]

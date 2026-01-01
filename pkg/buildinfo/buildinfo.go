@@ -6,6 +6,8 @@ import (
 	"github.com/italypaleale/le-cert-server/pkg/utils"
 )
 
+const AppNamespace = "italypaleale.me/le-cert-server"
+
 // These variables will be set at build time
 var (
 	AppName    string = "le-cert-server"
