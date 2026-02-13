@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	slogkit "github.com/italypaleale/go-kit/slog"
 	"github.com/lmittmann/tint"
 	"github.com/mattn/go-isatty"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
@@ -90,10 +89,10 @@ func GetLogger(ctx context.Context, cfg *config.Config) (log *slog.Logger, shutd
 	logGlobal.SetLoggerProvider(provider)
 
 	// Wrap the handler in a "fanout" one
-	handler = slogkit.LogFanoutHandler{
+	handler = slog.NewMultiHandler(
 		handler,
 		otelslog.NewHandler(buildinfo.AppName, otelslog.WithLoggerProvider(provider)),
-	}
+	)
 
 	// Return a function to invoke during shutdown
 	shutdownFn = provider.Shutdown
