@@ -2,6 +2,8 @@ module github.com/italypaleale/le-cert-server
 
 go 1.26
 
+tool github.com/italypaleale/go-kit/tools/gen-config
+
 require (
 	github.com/go-acme/lego/v4 v4.31.0
 	github.com/italypaleale/go-kit v0.0.0-20260214022702-45376c916ed1

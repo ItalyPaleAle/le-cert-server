@@ -10,7 +10,7 @@ test-race:
 	CGO_ENABLED=1 go test -race -tags unit ./...
 
 gen-config:
-	go run ./tools/gen-config
+	go tool gen-config
 
 # Ensure gen-config ran
 check-config-diff: gen-config
