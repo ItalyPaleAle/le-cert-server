@@ -14,9 +14,10 @@ import (
 	"time"
 
 	httpserver "github.com/italypaleale/go-kit/httpserver"
-	slogkit "github.com/italypaleale/go-kit/slog"
 	"github.com/italypaleale/go-kit/tsnetserver"
 	sloghttp "github.com/samber/slog-http"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel/sdk/trace"
 
 	"github.com/italypaleale/le-cert-server/pkg/certmanager"
 	"github.com/italypaleale/le-cert-server/pkg/config"
@@ -24,6 +25,10 @@ import (
 	"github.com/italypaleale/le-cert-server/pkg/server/auth"
 	"github.com/italypaleale/le-cert-server/pkg/storage"
 )
+
+// Max size for request bodies
+// 1KB
+const maxBodySize = 1 << 10
 
 // Server is the server based on Gin
 type Server struct {
@@ -36,6 +41,7 @@ type Server struct {
 	manager    certmanager.CertManager
 	auth       auth.Authenticator
 	storage    *storage.Storage
+	traceProv  *trace.TracerProvider
 
 	// Method that forces a reload of TLS certificates from disk
 	tlsCertWatchFn tlsCertWatchFn
@@ -54,6 +60,7 @@ type Server struct {
 // NewServerOpts contains options for the NewServer method
 type NewServerOpts struct {
 	AppMetrics    *metrics.AppMetrics
+	TraceProvider *trace.TracerProvider
 	Manager       certmanager.CertManager
 	Authenticator auth.Authenticator
 	Storage       *storage.Storage
@@ -64,6 +71,7 @@ type NewServerOpts struct {
 func NewServer(opts NewServerOpts) (*Server, error) {
 	s := &Server{
 		appMetrics:  opts.AppMetrics,
+		traceProv:   opts.TraceProvider,
 		manager:     opts.Manager,
 		auth:        opts.Authenticator,
 		storage:     opts.Storage,
@@ -115,7 +123,7 @@ func (s *Server) initAppServer() (err error) {
 		// Recover from panics
 		sloghttp.Recovery,
 		// Limit request body to 1KB
-		httpserver.MiddlewareMaxBodySize(1<<10),
+		httpserver.MiddlewareMaxBodySize(maxBodySize),
 	)
 
 	filters := []sloghttp.Filter{
@@ -133,6 +141,9 @@ func (s *Server) initAppServer() (err error) {
 		// Log requests
 		sloghttp.NewWithFilters(slog.Default(), filters...),
 	)
+	if s.traceProv != nil {
+		middlewares = append(middlewares, otelhttp.NewMiddleware("/"))
+	}
 
 	// Add middlewares
 	s.handler = httpserver.Use(mux, middlewares...)
@@ -151,7 +162,8 @@ func (s *Server) Run(ctx context.Context) error {
 
 	// App server
 	s.wg.Add(1)
-	err := s.startAppServer(ctx)
+	appSrvErrCh := make(chan error, 1)
+	err := s.startAppServer(ctx, appSrvErrCh)
 	if err != nil {
 		return fmt.Errorf("failed to start app server: %w", err)
 	}
@@ -178,14 +190,18 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	// Block until the context is canceled
-	<-ctx.Done()
+	// Block until the context is canceled or the app server exits unexpectedly.
+	select {
+	case <-ctx.Done():
+	case err = <-appSrvErrCh:
+		return fmt.Errorf("app server failed: %w", err)
+	}
 
 	// Servers are stopped with deferred calls
 	return nil
 }
 
-func (s *Server) startAppServer(ctx context.Context) error {
+func (s *Server) startAppServer(ctx context.Context, appSrvErrCh chan<- error) error {
 	cfg := config.Get()
 
 	// Create the HTTP(S) server
@@ -205,7 +221,6 @@ func (s *Server) startAppServer(ctx context.Context) error {
 	// If server.listener is tsnet, the listener is created using tsnet and it is already TLS-wrapped.
 	var (
 		serveWithTLS bool
-		tsnetCleanup func() error
 	)
 	if s.appListener == nil {
 		var err error
@@ -258,9 +273,6 @@ func (s *Server) startAppServer(ctx context.Context) error {
 	// Start the HTTP(S) server in a background goroutine
 	go func() { //nolint:contextcheck
 		defer s.appListener.Close() //nolint:errcheck
-		if tsnetCleanup != nil {
-			defer tsnetCleanup() //nolint:errcheck
-		}
 
 		// Next call blocks until the server is shut down
 		var srvErr error
@@ -270,7 +282,10 @@ func (s *Server) startAppServer(ctx context.Context) error {
 			srvErr = s.appSrv.Serve(s.appListener)
 		}
 		if !errors.Is(srvErr, http.ErrServerClosed) {
-			slogkit.FatalError(slog.Default(), "Error starting app server", srvErr)
+			select {
+			case appSrvErrCh <- srvErr:
+			default:
+			}
 		}
 	}()
 

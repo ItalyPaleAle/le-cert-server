@@ -9,9 +9,9 @@ import (
 	"sync"
 
 	"github.com/italypaleale/go-kit/fsnotify"
+	kitutils "github.com/italypaleale/go-kit/utils"
 
 	"github.com/italypaleale/le-cert-server/pkg/config"
-	"github.com/italypaleale/le-cert-server/pkg/utils"
 )
 
 const (
@@ -134,12 +134,12 @@ func newTLSCertProvider(path string) (*tlsCertProvider, error) {
 
 	// Check if the certificate and key exist
 	cert := filepath.Join(path, tlsCertFile)
-	if exists, _ = utils.FileExists(cert); !exists {
+	if exists, _ = kitutils.FileExists(cert); !exists {
 		//nolint:nilnil
 		return nil, nil
 	}
 	key := filepath.Join(path, tlsKeyFile)
-	if exists, _ = utils.FileExists(key); !exists {
+	if exists, _ = kitutils.FileExists(key); !exists {
 		//nolint:nilnil
 		return nil, nil
 	}

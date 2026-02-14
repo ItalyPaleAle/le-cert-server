@@ -1,20 +1,17 @@
-.PHONY: test
-test:
-	go test -tags unit ./...
+.PHONY: lint test test-race gen-config check-config-diff
 
-.PHONY: test-race
-test-race:
-	CGO_ENABLED=1 go test -race -tags unit ./...
-
-.PHONY: lint
 lint:
 	golangci-lint run -c .golangci.yaml
 
-.PHONY: gen-config
+test:
+	go test -tags unit ./...
+
+test-race:
+	CGO_ENABLED=1 go test -race -tags unit ./...
+
 gen-config:
 	go run ./tools/gen-config
 
 # Ensure gen-config ran
-.PHONY: check-config-diff
 check-config-diff: gen-config
 	git diff --exit-code config.sample.yaml docs/Configuration.md

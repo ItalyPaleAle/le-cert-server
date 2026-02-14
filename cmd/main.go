@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"time"
 
+	configkit "github.com/italypaleale/go-kit/config"
+	"github.com/italypaleale/go-kit/observability"
 	"github.com/italypaleale/go-kit/servicerunner"
 	"github.com/italypaleale/go-kit/signals"
 	slogkit "github.com/italypaleale/go-kit/slog"
@@ -18,7 +20,6 @@ import (
 	"github.com/italypaleale/le-cert-server/pkg/server"
 	"github.com/italypaleale/le-cert-server/pkg/server/auth"
 	"github.com/italypaleale/le-cert-server/pkg/storage"
-	"github.com/italypaleale/le-cert-server/pkg/utils/logging"
 )
 
 func main() {
@@ -28,9 +29,13 @@ func main() {
 		With(slog.String("version", buildinfo.AppVersion))
 
 	// Load config
-	err := config.LoadConfig()
+	cfg := config.Get()
+	err := configkit.LoadConfig(cfg, configkit.LoadConfigOpts{
+		EnvVar:  "LECERTSERVER_CONFIG",
+		DirName: "le-cert-server",
+	})
 	if err != nil {
-		var ce *config.ConfigError
+		var ce *configkit.ConfigError
 		if errors.As(err, &ce) {
 			ce.LogFatal(initLogger)
 		} else {
@@ -38,28 +43,32 @@ func main() {
 			return
 		}
 	}
-	cfg := config.Get()
 
 	// List of services to run
 	services := make([]servicerunner.Service, 0, 3)
-
-	// Shutdown functions
-	shutdownFns := make([]servicerunner.Service, 0, 3)
+	shutdowns := &shutdownManager{
+		fns: make([]servicerunner.Service, 0, 4),
+	}
 
 	// Get the logger and set it in the context
-	log, loggerShutdownFn, err := logging.GetLogger(context.Background(), cfg)
+	log, loggerShutdownFn, err := observability.InitLogs(context.Background(), observability.InitLogsOpts{
+		Config:     cfg,
+		Level:      cfg.Logs.Level,
+		JSON:       cfg.Logs.JSON,
+		AppName:    buildinfo.AppName,
+		AppVersion: buildinfo.AppVersion,
+	})
 	if err != nil {
 		slogkit.FatalError(initLogger, "Failed to create logger", err)
 		return
 	}
 	slog.SetDefault(log)
-	if loggerShutdownFn != nil {
-		shutdownFns = append(shutdownFns, loggerShutdownFn)
-	}
+	shutdowns.Add(loggerShutdownFn)
 
 	// Validate the configuration
 	err = cfg.Validate(log)
 	if err != nil {
+		shutdowns.Run(log)
 		slogkit.FatalError(log, "Invalid configuration", err)
 		return
 	}
@@ -73,22 +82,34 @@ func main() {
 	// Init appMetrics
 	appMetrics, metricsShutdownFn, err := appmetrics.NewAppMetrics(ctx)
 	if err != nil {
+		shutdowns.Run(log)
 		slogkit.FatalError(log, "Failed to init metrics", err)
 		return
 	}
-	if metricsShutdownFn != nil {
-		shutdownFns = append(shutdownFns, metricsShutdownFn)
+	shutdowns.Add(metricsShutdownFn)
+
+	traceProvider, tracerShutdownFn, err := observability.InitTraces(ctx, observability.InitTracesOpts{
+		Config:  cfg,
+		AppName: buildinfo.AppName,
+	})
+	if err != nil {
+		shutdowns.Run(log)
+		slogkit.FatalError(log, "Failed to init tracing", err)
+		return
 	}
+	shutdowns.Add(tracerShutdownFn)
 
 	// Initialize storage
 	log.Info("Initializing database", slog.String("path", cfg.Database.Path))
 	store, err := storage.NewStorage(cfg.Database.Path)
 	if err != nil {
+		shutdowns.Run(log)
 		slogkit.FatalError(log, "Failed to create storage", err)
 		return
 	}
 	err = store.Init(ctx)
 	if err != nil {
+		shutdowns.Run(log)
 		slogkit.FatalError(log, "Failed to init storage", err)
 		return
 	}
@@ -113,11 +134,12 @@ func main() {
 			Ephemeral: cfg.Server.TSNet.Ephemeral,
 		})
 		if err != nil {
+			shutdowns.Run(log)
 			slogkit.FatalError(log, "Failed to create tsnet server", err)
 			return
 		}
 
-		shutdownFns = append(shutdownFns, tsrv.Close)
+		shutdowns.Add(tsrv.Close)
 	}
 
 	// Create authenticator based on config type
@@ -133,6 +155,7 @@ func main() {
 			cfg.Auth.JWT.DomainsClaim,
 		)
 		if err != nil {
+			shutdowns.Run(log)
 			slogkit.FatalError(log, "Failed to init JWT authenticator", err)
 			return
 		}
@@ -140,6 +163,7 @@ func main() {
 		log.Info("Initializing PSK authenticator")
 		authenticator, err = auth.NewPSKAuthenticator(cfg.Auth.PSK.Key)
 		if err != nil {
+			shutdowns.Run(log)
 			slogkit.FatalError(log, "Failed to init PSK authenticator", err)
 			return
 		}
@@ -153,6 +177,7 @@ func main() {
 		// For TSNet auth, we need to create the tsnet server
 		authenticator, err = auth.NewTSNetAuthenticator(tsrv)
 		if err != nil {
+			shutdowns.Run(log)
 			slogkit.FatalError(log, "Failed to init Tailscale authenticator", err)
 			return
 		}
@@ -166,12 +191,14 @@ func main() {
 	log.Info("Initializing API server")
 	apiServer, err := server.NewServer(server.NewServerOpts{
 		AppMetrics:    appMetrics,
+		TraceProvider: traceProvider,
 		Manager:       certMgr,
 		Authenticator: authenticator,
 		Storage:       store,
 		TSNetServer:   tsrv,
 	})
 	if err != nil {
+		shutdowns.Run(log)
 		slogkit.FatalError(log, "Failed to init API server", err)
 		return
 	}
@@ -183,16 +210,30 @@ func main() {
 		NewServiceRunner(services...).
 		Run(ctx)
 	if err != nil {
+		shutdowns.Run(log)
 		slogkit.FatalError(log, "Failed to run service", err)
 		return
 	}
 
-	// Invoke all shutdown functions
-	// We give these a timeout of 5s
+	shutdowns.Run(log)
+}
+
+type shutdownManager struct {
+	fns []servicerunner.Service
+}
+
+func (s *shutdownManager) Add(fn servicerunner.Service) {
+	if fn == nil {
+		return
+	}
+	s.fns = append(s.fns, fn)
+}
+
+func (s *shutdownManager) Run(log *slog.Logger) {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
-	err = servicerunner.
-		NewServiceRunner(shutdownFns...).
+	err := servicerunner.
+		NewServiceRunner(s.fns...).
 		Run(shutdownCtx)
 	if err != nil {
 		log.Error("Error shutting down services", slog.Any("error", err))

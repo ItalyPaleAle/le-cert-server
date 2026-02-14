@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	configkit "github.com/italypaleale/go-kit/config"
 	"github.com/lmittmann/tint"
 	"github.com/mattn/go-isatty"
 	"go.opentelemetry.io/contrib/bridges/otelslog"
@@ -30,7 +31,7 @@ func getLogLevel(cfg *config.Config) (slog.Level, error) {
 	case "error":
 		return slog.LevelError, nil
 	default:
-		return 0, config.NewConfigError("Invalid value for 'logLevel'", "Invalid configuration")
+		return 0, configkit.NewConfigError("Invalid value for 'logLevel'", "Invalid configuration")
 	}
 }
 

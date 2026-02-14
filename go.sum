@@ -617,8 +617,8 @@ github.com/infobloxopen/infoblox-go-client/v2 v2.10.0 h1:AKsihjFT/t6Y0keEv3p59DA
 github.com/infobloxopen/infoblox-go-client/v2 v2.10.0/go.mod h1:NeNJpz09efw/edzqkVivGv1bWqBXTomqYBRFbP+XBqg=
 github.com/insomniacslk/dhcp v0.0.0-20231206064809-8c70d406f6d2 h1:9K06NfxkBh25x56yVhWWlKFE8YpicaSfHwoV8SFbueA=
 github.com/insomniacslk/dhcp v0.0.0-20231206064809-8c70d406f6d2/go.mod h1:3A9PQ1cunSDF/1rbTq99Ts4pVnycWg+vlPkfeD2NLFI=
-github.com/italypaleale/go-kit v0.0.0-20260213034006-637e1ba34d79 h1:0pVN338KGGWWlcSkrIZtX3lcvnT5T7VHTbKdCdV6JmI=
-github.com/italypaleale/go-kit v0.0.0-20260213034006-637e1ba34d79/go.mod h1:alJs78kTekLKKS0xP1+q802NxM3wg0OAF+nzKqzxnUI=
+github.com/italypaleale/go-kit v0.0.0-20260214022702-45376c916ed1 h1:wgphqfIRYzd+18hh/zgqd3+zAQu8pbdVDAwgLkj2N5c=
+github.com/italypaleale/go-kit v0.0.0-20260214022702-45376c916ed1/go.mod h1:kEJNodWf0AVG+mNz1FHbkzywVE1F73Gct8WqVF9Tres=
 github.com/italypaleale/go-sql-utils v0.1.0 h1:QsHMbbfWZ8BgJyuHWvc72T0p1yyIKAmZSWNe5tkG41A=
 github.com/italypaleale/go-sql-utils v0.1.0/go.mod h1:XdmQASGeb8XhhLjOjm2XATjIf3pltzk/U/DQEdE2gHY=
 github.com/jarcoal/httpmock v1.0.8/go.mod h1:ATjnClrvW/3tijVmpL/va5Z3aAyGvqU3gCT8nX0Txik=
