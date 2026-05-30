@@ -24,6 +24,10 @@ import (
 	"github.com/italypaleale/le-cert-server/pkg/storage"
 )
 
+// ErrRenewTooSoon is returned when a renewal is requested for a certificate that is not yet due for renewal
+// It guards the manual renewal endpoint against wasting Let's Encrypt rate limits on redundant requests
+var ErrRenewTooSoon = errors.New("certificate not yet due for renewal")
+
 // CertManager handles certificate acquisition and renewal
 type CertManager interface {
 	ObtainCertificate(ctx context.Context, domain string) (cert *storage.Certificate, cached bool, err error)
@@ -311,6 +315,13 @@ func (cm *certManager) renewCertificate(ctx context.Context, domain string) (*st
 
 	if cert == nil {
 		return nil, fmt.Errorf("certificate not found for domain '%s'", domain)
+	}
+
+	// Refuse to renew a certificate that is not yet due for renewal
+	// This prevents a misbehaving client from looping on the renew endpoint and exhausting Let's Encrypt rate limits
+	cfg := config.Get()
+	if time.Until(cert.NotAfter) > time.Duration(cfg.LetsEncrypt.RenewalDays)*24*time.Hour {
+		return nil, fmt.Errorf("%w: certificate for domain '%s' is valid until %s and is only renewed within %d days of expiry", ErrRenewTooSoon, domain, cert.NotAfter.Format(time.RFC3339), cfg.LetsEncrypt.RenewalDays)
 	}
 
 	// Get or create user

@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/italypaleale/go-kit/httpserver"
 	sloghttp "github.com/samber/slog-http"
 
+	"github.com/italypaleale/le-cert-server/pkg/certmanager"
 	"github.com/italypaleale/le-cert-server/pkg/server/auth"
 )
 
@@ -109,7 +111,11 @@ func (s *Server) handleRenewCertificate(w http.ResponseWriter, r *http.Request) 
 
 	// Renew certificate
 	cert, err := s.manager.RenewCertificate(r.Context(), req.Domain)
-	if err != nil {
+	if errors.Is(err, certmanager.ErrRenewTooSoon) {
+		slog.WarnContext(r.Context(), "Refusing to renew certificate that is not yet due for renewal", "error", err)
+		errRenewTooSoon.WriteResponse(w, r)
+		return
+	} else if err != nil {
 		slog.ErrorContext(r.Context(), "Failed to renew certificate", "error", err)
 		errInternal.WriteResponse(w, r)
 		return

@@ -102,7 +102,7 @@ func NewJWTAuthenticator(ctx context.Context, issuerURL string, audience string,
 		return nil, fmt.Errorf("failed to get cached JWKS: %w", err)
 	}
 
-	slog.Info(
+	slog.InfoContext(ctx,
 		"Initialized authenticator with cached JWKS",
 		"issuer", issuerURL,
 		"audience", audience,
