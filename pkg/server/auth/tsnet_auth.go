@@ -83,10 +83,7 @@ func (a *TSNetAuthenticator) Middleware(next http.Handler) http.Handler {
 		}
 
 		// Extract user information
-		slog.Debug("Authenticated request via Tailscale",
-			slog.String("path", r.URL.Path),
-			slog.String("node", whois.Name),
-		)
+		slog.DebugContext(r.Context(), "Authenticated request via Tailscale", slog.String("node", whois.Name))
 
 		// Add user and domains to context
 		ctx := context.WithValue(r.Context(), userContextKey{}, whois.Name)

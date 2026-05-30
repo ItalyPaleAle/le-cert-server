@@ -116,7 +116,7 @@ func TestPSKAuthenticatorMiddleware(t *testing.T) {
 			handler := auth.Middleware(testHandler)
 
 			// Create request
-			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test", nil)
 
 			// Set authorization header
 			if tt.authHeader != "" {

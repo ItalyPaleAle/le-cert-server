@@ -36,7 +36,7 @@ func (a *PSKAuthenticator) Middleware(next http.Handler) http.Handler {
 		// Extract the Authorization header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			slog.Warn("Missing authorization header", slog.String("path", r.URL.Path))
+			slog.WarnContext(r.Context(), "Missing authorization header")
 			http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
 			return
 		}
@@ -44,7 +44,7 @@ func (a *PSKAuthenticator) Middleware(next http.Handler) http.Handler {
 		// Check if it's an APIKey token
 		const apiKeyPrefix = "apikey "
 		if len(authHeader) <= len(apiKeyPrefix) || strings.ToLower(authHeader[:len(apiKeyPrefix)]) != apiKeyPrefix {
-			slog.Warn("Invalid authorization header format", slog.String("path", r.URL.Path))
+			slog.WarnContext(r.Context(), "Invalid authorization header format")
 			http.Error(w, "Invalid Authorization header format (expected 'APIKey' prefix)", http.StatusUnauthorized)
 			return
 		}
@@ -53,12 +53,12 @@ func (a *PSKAuthenticator) Middleware(next http.Handler) http.Handler {
 
 		// Validate the pre-shared key using constant-time comparison to prevent timing attacks
 		if !a.validateKey(providedKey) {
-			slog.Warn("Invalid pre-shared key", slog.String("path", r.URL.Path))
+			slog.WarnContext(r.Context(), "Invalid pre-shared key")
 			http.Error(w, "Invalid authentication key", http.StatusUnauthorized)
 			return
 		}
 
-		slog.Debug("Authenticated request via PSK", slog.String("path", r.URL.Path))
+		slog.DebugContext(r.Context(), "Authenticated request via PSK")
 
 		// Key is valid, proceed to the next handler
 		next.ServeHTTP(w, r)

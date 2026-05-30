@@ -26,6 +26,7 @@ func (s *Storage) SaveCertificate(ctx context.Context, cert *Certificate) error 
 	cert.UpdatedAt = now
 
 	// Marshal certificate to JSON
+	// #nosec G117 -- Key is saved on purpose
 	jsonData, err := json.Marshal(cert)
 	if err != nil {
 		return fmt.Errorf("failed to marshal certificate: %w", err)

@@ -293,7 +293,7 @@ func TestAuthenticatorMiddleware(t *testing.T) {
 			handler := auth.Middleware(testHandler)
 
 			// Create request
-			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test", nil)
 
 			// Set authorization header
 			if tt.authHeader != "" {
@@ -792,7 +792,7 @@ func TestDomainsClaim(t *testing.T) {
 			token := createTestToken(t, privateKey, kid, tt.tokenClaims)
 
 			// Create request
-			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/test", nil)
 			req.Header.Set("Authorization", "Bearer "+token)
 
 			// Execute request

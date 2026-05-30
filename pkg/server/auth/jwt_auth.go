@@ -157,7 +157,7 @@ func (a *JWTAuthenticator) Middleware(next http.Handler) http.Handler {
 		// Extract the Authorization header
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			slog.Warn("Missing authorization header", slog.String("path", r.URL.Path))
+			slog.WarnContext(r.Context(), "Missing authorization header")
 			http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
 			return
 		}
@@ -165,7 +165,7 @@ func (a *JWTAuthenticator) Middleware(next http.Handler) http.Handler {
 		// Check if it's a Bearer token
 		const bearerPrefix = "bearer "
 		if len(authHeader) <= len(bearerPrefix) || strings.ToLower(authHeader[:len(bearerPrefix)]) != bearerPrefix {
-			slog.Warn("Invalid authorization header format", slog.String("path", r.URL.Path))
+			slog.WarnContext(r.Context(), "Invalid authorization header format")
 			http.Error(w, "Invalid Authorization header format", http.StatusUnauthorized)
 			return
 		}
@@ -175,7 +175,7 @@ func (a *JWTAuthenticator) Middleware(next http.Handler) http.Handler {
 		// Validate the token
 		token, err := a.validateToken(r.Context(), tokenString)
 		if err != nil {
-			slog.Warn("Token validation failed", slog.Any("error", err), slog.String("path", r.URL.Path))
+			slog.WarnContext(r.Context(), "Token validation failed", slog.Any("error", err))
 			http.Error(w, fmt.Sprintf("Invalid token: %v", err), http.StatusUnauthorized)
 			return
 		}
@@ -189,10 +189,10 @@ func (a *JWTAuthenticator) Middleware(next http.Handler) http.Handler {
 			var domainsAny any
 			err = token.Get(a.domainsClaim, &domainsAny)
 			if err != nil {
-				slog.Warn(
+				slog.WarnContext(
+					r.Context(),
 					"Allowed domains claim not found in token",
 					slog.Any("error", err),
-					slog.String("path", r.URL.Path),
 					slog.String("claim", a.domainsClaim),
 				)
 				http.Error(w, fmt.Sprintf("Allowed domains claim '%s' not found in token", a.domainsClaim), http.StatusUnauthorized)
@@ -213,10 +213,10 @@ func (a *JWTAuthenticator) Middleware(next http.Handler) http.Handler {
 					domains[i] = strings.TrimSpace(domains[i])
 				}
 			default:
-				slog.Warn(
+				slog.WarnContext(
+					r.Context(),
 					"Allowed domains claim is not valid",
 					slog.Any("error", err),
-					slog.String("path", r.URL.Path),
 					slog.String("claim", a.domainsClaim),
 				)
 				http.Error(w, fmt.Sprintf("Allowed domains claim '%s' in token is not valid", a.domainsClaim), http.StatusUnauthorized)
@@ -230,7 +230,7 @@ func (a *JWTAuthenticator) Middleware(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, claimsContextKey{}, token)
 		ctx = context.WithValue(ctx, domainsContextKey{}, domains)
 
-		slog.Debug("Authenticated request", slog.String("subject", subject), slog.String("path", r.URL.Path))
+		slog.DebugContext(r.Context(), "Authenticated request", slog.String("subject", subject))
 
 		// Token is valid, proceed to the next handler
 		next.ServeHTTP(w, r.WithContext(ctx))
