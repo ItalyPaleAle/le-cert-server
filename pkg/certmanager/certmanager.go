@@ -52,11 +52,18 @@ type obtainResult struct {
 }
 
 // NewCertManager creates a new certificate manager
-func NewCertManager(store *storage.Storage, appMetrics *metrics.AppMetrics) CertManager {
+func NewCertManager(store *storage.Storage, appMetrics *metrics.AppMetrics) (CertManager, error) {
+	// Write the configured DNS provider credentials to the process environment once at startup
+	// lego's name-based resolver reads provider configuration only from the environment, so doing this here avoids mutating global state on every obtain/renew
+	err := setDNSCredentialsEnv()
+	if err != nil {
+		return nil, err
+	}
+
 	return &certManager{
 		storage:    store,
 		appMetrics: appMetrics,
-	}
+	}, nil
 }
 
 // User implements the lego registration.User interface

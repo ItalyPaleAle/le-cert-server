@@ -116,7 +116,12 @@ func main() {
 	services = append(services, store.Run)
 
 	// Create certificate manager
-	certMgr := certmanager.NewCertManager(store, appMetrics)
+	certMgr, err := certmanager.NewCertManager(store, appMetrics)
+	if err != nil {
+		shutdowns.Run(log)
+		slogkit.FatalError(log, "Failed to create certificate manager", err)
+		return
+	}
 
 	// Start certificate renewal scheduler
 	const renewalSchedulerInterval = 12 * time.Hour
