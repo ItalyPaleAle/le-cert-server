@@ -43,3 +43,8 @@ letsEncrypt:
 
 Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
+
+In addition to the keys above, Azure DNS supports the Azure SDK's other
+authentication methods (managed identity, Azure CLI, workload identity, and
+client certificates). Those are selected via `authMethod` and resolved by the
+Azure SDK from its own environment variables and files.

@@ -33,3 +33,7 @@ letsEncrypt:
 
 Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
+
+In addition to the application-key credentials above, OVH supports OAuth2
+client credentials (`OVH_CLIENT_ID`/`OVH_CLIENT_SECRET`). Those are read by lego
+from the environment and cannot currently be set through `dnsCredentials`.

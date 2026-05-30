@@ -31,3 +31,9 @@ letsEncrypt:
 
 Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
+
+Google Cloud DNS authenticates using Google's Application Default Credentials.
+Provide a service account by setting `GOOGLE_APPLICATION_CREDENTIALS` (or
+`GCE_SERVICE_ACCOUNT_FILE`) to the path of a JSON key file, or rely on the
+metadata server when running on GCP. These are read directly by the Google SDK
+and cannot be set through `dnsCredentials`.

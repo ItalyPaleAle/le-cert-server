@@ -23,3 +23,9 @@ letsEncrypt:
 
 Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
+
+Lightsail uses the AWS SDK, which discovers credentials from its own sources:
+the `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` environment variables, a shared
+credentials file (`AWS_SHARED_CREDENTIALS_FILE`), an assumed role, or an instance
+role. These are read directly by the AWS SDK and cannot be set through
+`dnsCredentials`.

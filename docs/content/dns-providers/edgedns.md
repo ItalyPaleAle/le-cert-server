@@ -23,3 +23,9 @@ letsEncrypt:
 
 Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
+
+Akamai EdgeDNS authenticates with EdgeGrid credentials. Provide them through an
+`.edgerc` file (`AKAMAI_EDGERC`/`AKAMAI_EDGERC_SECTION`) or the individual
+`AKAMAI_HOST`, `AKAMAI_CLIENT_TOKEN`, `AKAMAI_CLIENT_SECRET`, and
+`AKAMAI_ACCESS_TOKEN` environment variables, which are read directly by the
+EdgeGrid client.

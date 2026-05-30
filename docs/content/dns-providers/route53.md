@@ -41,3 +41,10 @@ letsEncrypt:
 
 Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
+
+AWS credentials can be provided as the `accessKeyID`/`secretAccessKey` keys above.
+Alternatively, the AWS SDK's own credential sources are honored, including the
+`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` environment variables, a shared
+credentials file (`AWS_SHARED_CREDENTIALS_FILE`), an assumed role, or an EC2/ECS
+instance role. These are read directly by the AWS SDK and are not managed by
+le-cert-server.

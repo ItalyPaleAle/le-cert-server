@@ -25,3 +25,9 @@ letsEncrypt:
 
 Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
+
+Apart from `compartmentOCID`, Oracle Cloud credentials are loaded by the OCI Go
+SDK rather than from `dnsCredentials`. Configure them through the standard OCI
+mechanisms: the `OCI_*` environment variables, an OCI config file
+(`OCI_CONFIG_FILE`), or instance principal authentication. These are read
+directly by the OCI SDK.

@@ -39,3 +39,8 @@ letsEncrypt:
 
 Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
+
+This is the legacy Azure provider; prefer [`azuredns`](/dns-providers/azuredns) for new setups.
+Credentials are loaded by the Azure SDK and may also come from the standard
+`AZURE_*` environment variables or a managed identity, which are read directly
+by the SDK.
