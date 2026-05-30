@@ -300,7 +300,10 @@ func mapFields(fields []providerField, a legoAnalysis) []mappedField {
 
 		conv := convFor(a.configFields[target])
 		if conv == "" {
-			fmt.Fprintf(os.Stderr, "  warn: %s maps to unsupported type %q; dropping\n", f.EnvVar, a.configFields[target])
+			// Log the unsupported types, but skip *http.Client
+			if a.configFields[target] != "*http.Client" {
+				fmt.Fprintf(os.Stderr, "  warn: %s maps to unsupported type %q; dropping\n", f.EnvVar, a.configFields[target])
+			}
 			continue
 		}
 

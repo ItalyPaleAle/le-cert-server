@@ -129,14 +129,15 @@ type ConfigLetsEncrypt struct {
 	// DNS provider for DNS-01 challenge
 	// All DNS providers supported by lego can be used here
 	// See full list: https://go-acme.github.io/lego/dns/
-	// Examples: "cloudflare", "route53", "digitalocean", "godaddy", "namecheap", etc.
+	// Examples: "cloudflare", "route53", "digitalocean", "azure", "ns1", etc.
 	// +required
 	DNSProvider string `yaml:"dnsProvider"`
 
 	// DNS provider credentials, validated against the selected `dnsProvider`
-	// Keys can be the normalized names (e.g. `dnsAPIToken`) or the raw lego environment-variable names (e.g. `CF_DNS_API_TOKEN`) and documented aliases; unknown keys are rejected
+	// Keys can be the normalized names (e.g. `dnsAPIToken`) or the raw lego environment-variable names (e.g. `CF_DNS_API_TOKEN`) and documented aliases
+	// Unknown keys are rejected
 	// You can also set these as system environment variables instead of in the config, in which case this can be omitted
-	// See the per-provider pages for the accepted keys: https://github.com/italypaleale/le-cert-server/tree/main/docs/content/dns-providers
+	// See the per-provider pages for the accepted keys: https://le-cert-server.italypaleale.me/dns-providers
 	// +default see the per-provider docs at https://go-acme.github.io/lego/dns/
 	DNSCredentials yaml.Node `yaml:"dnsCredentials"`
 
@@ -259,6 +260,7 @@ func (c *Config) NewDNSProvider() (challenge.Provider, error) {
 	if c.internal.dnsProviderConfig == nil {
 		return nil, errors.New("DNS provider has not been resolved; Validate must be called first")
 	}
+
 	//nolint:wrapcheck
 	return c.internal.dnsProviderConfig.newProvider()
 }
@@ -294,6 +296,8 @@ func (c *Config) Validate(logger *slog.Logger) error {
 	if c.LetsEncrypt.DNSProvider == "" {
 		return errors.New("configuration option 'letsEncrypt.dnsProvider' is required")
 	}
+
+	// Resolve the DNS provider
 	err := c.resolveDNSProvider()
 	if err != nil {
 		return err

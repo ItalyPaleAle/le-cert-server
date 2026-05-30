@@ -19,6 +19,5 @@ check-config-diff: gen-config
 gen-dns-providers:
 	go tool gen-dns-providers
 
-# Ensure gen-dns-providers ran against the pinned lego version
 check-dns-providers-diff: gen-dns-providers
 	git diff --exit-code pkg/config/provider_*.go pkg/config/dnsproviders_gen.go docs/content/dns-providers
