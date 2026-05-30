@@ -110,9 +110,6 @@ services:
     volumes:
       - ./config.yaml:/etc/cert-server/config.yaml:ro
       - cert-data:/var/lib/cert-server
-    environment:
-      # Optional: override config with environment variables
-      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
 
 volumes:
   cert-data:

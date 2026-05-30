@@ -47,7 +47,7 @@ letsEncrypt:
   email: "admin@example.com"
   dnsProvider: "cloudflare"
   dnsCredentials:
-    CF_DNS_API_TOKEN: "your-cloudflare-token"
+    dnsAPIToken: "your-cloudflare-token"
   renewalDays: 30
 
 database:
