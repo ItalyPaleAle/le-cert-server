@@ -136,7 +136,7 @@ type ConfigLetsEncrypt struct {
 	// DNS provider credentials, validated against the selected `dnsProvider`
 	// Keys can be the normalized names (e.g. `dnsAPIToken`) or the raw lego environment-variable names (e.g. `CF_DNS_API_TOKEN`) and documented aliases
 	// Unknown keys are rejected
-	// You can also set these as system environment variables instead of in the config, in which case this can be omitted
+	// Credentials are passed to the provider using strong types and are not read from the process environment, except for a few providers whose cloud SDK loads its own credentials (see the per-provider pages)
 	// See the per-provider pages for the accepted keys: https://le-cert-server.italypaleale.me/dns-providers
 	// +default see the per-provider docs at https://go-acme.github.io/lego/dns/
 	DNSCredentials yaml.Node `yaml:"dnsCredentials"`
