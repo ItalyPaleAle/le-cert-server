@@ -30,7 +30,8 @@ letsEncrypt:
   staging: false
   dnsProvider: "cloudflare"
   dnsCredentials:
-    CF_DNS_API_TOKEN: "your-cloudflare-token"
+    # See https://le-cert-server.italypaleale.me/dns-providers for the keys each provider accepts
+    dnsAPIToken: "your-cloudflare-token"
   renewalDays: 30
 
 auth:

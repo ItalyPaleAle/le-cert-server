@@ -49,3 +49,9 @@ jobs:
       - name: Test
         run: |
           make test-race
+
+      # Must run after the app has been compiled so dependencies are present
+      - name: Check DNS provider codegen is in sync
+        run: |
+          echo "If this fails, please run 'make gen-dns-providers' to fix"
+          make check-dns-providers-diff

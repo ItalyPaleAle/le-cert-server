@@ -1,0 +1,76 @@
+# Extra Markdown notes appended to generated DNS provider documentation pages.
+#
+# This file is an input to the gen-dns-providers tool (not generated). After
+# editing it, run `make gen-dns-providers` to regenerate the affected pages.
+#
+# Keys are lego provider codes (see https://go-acme.github.io/lego/dns/).
+# Values are Markdown appended to the end of that provider's page.
+#
+# Use this primarily for providers whose credentials are loaded by a third-party
+# cloud SDK from environment variables, shared config files, or instance
+# metadata, since those cannot be passed through `dnsCredentials` as strong types.
+
+route53: |
+  AWS credentials can be provided as the `accessKeyID`/`secretAccessKey` keys above.
+  Alternatively, the AWS SDK's own credential sources are honored, including the
+  `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` environment variables, a shared
+  credentials file (`AWS_SHARED_CREDENTIALS_FILE`), an assumed role, or an EC2/ECS
+  instance role. These are read directly by the AWS SDK and are not managed by
+  le-cert-server.
+
+lightsail: |
+  Lightsail uses the AWS SDK, which discovers credentials from its own sources:
+  the `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` environment variables, a shared
+  credentials file (`AWS_SHARED_CREDENTIALS_FILE`), an assumed role, or an instance
+  role. These are read directly by the AWS SDK and cannot be set through
+  `dnsCredentials`.
+
+gcloud: |
+  Google Cloud DNS authenticates using Google's Application Default Credentials.
+  Provide a service account by setting `GOOGLE_APPLICATION_CREDENTIALS` (or
+  `GCE_SERVICE_ACCOUNT_FILE`) to the path of a JSON key file, or rely on the
+  metadata server when running on GCP. These are read directly by the Google SDK
+  and cannot be set through `dnsCredentials`.
+
+azure: |
+  This is the legacy Azure provider; prefer [`azuredns`](/dns-providers/azuredns) for new setups.
+  Credentials are loaded by the Azure SDK and may also come from the standard
+  `AZURE_*` environment variables or a managed identity, which are read directly
+  by the SDK.
+
+azuredns: |
+  In addition to the keys above, Azure DNS supports the Azure SDK's other
+  authentication methods (managed identity, Azure CLI, workload identity, and
+  client certificates). Those are selected via `authMethod` and resolved by the
+  Azure SDK from its own environment variables and files.
+
+oraclecloud: |
+  Apart from `compartmentOCID`, Oracle Cloud credentials are loaded by the OCI Go
+  SDK rather than from `dnsCredentials`. Configure them through the standard OCI
+  mechanisms: the `OCI_*` environment variables, an OCI config file
+  (`OCI_CONFIG_FILE`), or instance principal authentication. These are read
+  directly by the OCI SDK.
+
+designate: |
+  OpenStack Designate authenticates through gophercloud, which reads the standard
+  `OS_*` environment variables (or a `clouds.yaml` selected with `OS_CLOUD`).
+  These credentials are resolved by gophercloud and cannot be set through
+  `dnsCredentials`.
+
+edgedns: |
+  Akamai EdgeDNS authenticates with EdgeGrid credentials. Provide them through an
+  `.edgerc` file (`AKAMAI_EDGERC`/`AKAMAI_EDGERC_SECTION`) or the individual
+  `AKAMAI_HOST`, `AKAMAI_CLIENT_TOKEN`, `AKAMAI_CLIENT_SECRET`, and
+  `AKAMAI_ACCESS_TOKEN` environment variables, which are read directly by the
+  EdgeGrid client.
+
+ovh: |
+  In addition to the application-key credentials above, OVH supports OAuth2
+  client credentials (`OVH_CLIENT_ID`/`OVH_CLIENT_SECRET`). Those are read by lego
+  from the environment and cannot currently be set through `dnsCredentials`.
+
+hurricane: |
+  Hurricane Electric uses one token per domain rather than a single credential.
+  Set the `HURRICANE_TOKENS` environment variable to a comma-separated list of
+  `domain:token` pairs; this is parsed by lego and cannot be expressed through the
+  typed `dnsCredentials` keys.

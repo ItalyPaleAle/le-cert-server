@@ -3,9 +3,13 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"path/filepath"
 	"strings"
+
+	"github.com/go-acme/lego/v4/challenge"
+	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
 // Config represents the application configuration
@@ -125,18 +129,17 @@ type ConfigLetsEncrypt struct {
 	// DNS provider for DNS-01 challenge
 	// All DNS providers supported by lego can be used here
 	// See full list: https://go-acme.github.io/lego/dns/
-	// Examples: "cloudflare", "route53", "digitalocean", "godaddy", "namecheap", etc.
+	// Examples: "cloudflare", "route53", "digitalocean", "azure", "ns1", etc.
 	// +required
 	DNSProvider string `yaml:"dnsProvider"`
 
-	// DNS provider credentials (provider-specific environment variables)
-	// These will be set as environment variables for the DNS provider
-	// You can also set these as system environment variables instead of in the config
-	// Refer to the Lego provider docs for the supported values: https://go-acme.github.io/lego/dns/
-	// Examples:
-	//   - Cloudflare: set CF_DNS_API_TOKEN
-	//   - AWS Route53, set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
-	DNSCredentials map[string]string `yaml:"dnsCredentials"`
+	// DNS provider credentials, validated against the selected `dnsProvider`
+	// Keys can be the normalized names (e.g. `dnsAPIToken`) or the raw lego environment-variable names (e.g. `CF_DNS_API_TOKEN`) and documented aliases
+	// Unknown keys are rejected
+	// Credentials are passed to the provider using strong types and are not read from the process environment, except for a few providers whose cloud SDK loads its own credentials (see the per-provider pages)
+	// See the per-provider pages for the accepted keys: https://le-cert-server.italypaleale.me/dns-providers
+	// +default see the per-provider docs at https://go-acme.github.io/lego/dns/
+	DNSCredentials yaml.Node `yaml:"dnsCredentials"`
 
 	// Certificate renewal threshold in days
 	// +default 30
@@ -224,8 +227,9 @@ type ConfigDev struct {
 
 // Internal properties
 type internal struct {
-	instanceID       string
-	configFileLoaded string // Path to the config file that was loaded
+	instanceID        string
+	configFileLoaded  string            // Path to the config file that was loaded
+	dnsProviderConfig dnsProviderConfig // Resolved, strongly-typed DNS provider credentials
 }
 
 // String implements fmt.Stringer and prints out the config for debugging
@@ -250,6 +254,37 @@ func (c *Config) GetInstanceID() string {
 	return c.internal.instanceID
 }
 
+// NewDNSProvider builds the lego DNS challenge provider from the resolved, strongly-typed credentials
+// Credentials are passed to lego using strong types and are never written to the process environment
+func (c *Config) NewDNSProvider() (challenge.Provider, error) {
+	if c.internal.dnsProviderConfig == nil {
+		return nil, errors.New("DNS provider has not been resolved; Validate must be called first")
+	}
+
+	//nolint:wrapcheck
+	return c.internal.dnsProviderConfig.newProvider()
+}
+
+// resolveDNSProvider validates the configured DNS provider and decodes its credentials
+// The credentials node is decoded after load because the provider must be known first
+func (c *Config) resolveDNSProvider() error {
+	pc, ok := newDNSProviderConfig(c.LetsEncrypt.DNSProvider)
+	if !ok {
+		return fmt.Errorf("configuration option 'letsEncrypt.dnsProvider' has an unknown value '%s'; see https://go-acme.github.io/lego/dns/ for the list of supported providers", c.LetsEncrypt.DNSProvider)
+	}
+
+	node := c.LetsEncrypt.DNSCredentials
+	if node.Kind == yaml.MappingNode && len(node.Content) > 0 {
+		err := node.Decode(pc)
+		if err != nil {
+			return fmt.Errorf("failed to decode configuration option 'letsEncrypt.dnsCredentials': %w", err)
+		}
+	}
+
+	c.internal.dnsProviderConfig = pc
+	return nil
+}
+
 // Validate the configuration and performs some sanitization
 func (c *Config) Validate(logger *slog.Logger) error {
 	if c.Server.Port < 0 {
@@ -260,6 +295,12 @@ func (c *Config) Validate(logger *slog.Logger) error {
 	}
 	if c.LetsEncrypt.DNSProvider == "" {
 		return errors.New("configuration option 'letsEncrypt.dnsProvider' is required")
+	}
+
+	// Resolve the DNS provider
+	err := c.resolveDNSProvider()
+	if err != nil {
+		return err
 	}
 
 	c.Server.Listener = strings.ToLower(c.Server.Listener)
