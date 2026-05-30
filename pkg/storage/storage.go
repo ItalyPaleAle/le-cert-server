@@ -73,15 +73,6 @@ type LECredentials struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// DNSCredentials represents stored DNS provider credentials
-type DNSCredentials struct {
-	ID          int64
-	Provider    string
-	Credentials map[string]string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-}
-
 // NewStorage creates a new storage instance
 func NewStorage(dbPath string) (*Storage, error) {
 	// Parse and configure the SQLite connection string with WAL mode and busy timeout
