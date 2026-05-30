@@ -35,7 +35,7 @@ disableKinds = ["rss", "taxonomy", "term"]
   PlausibleAnalytics = true
 
   [params.theme]
-    scheme = "slate"
+    scheme = "indigo"
 
 # Taxonomy pages aren't needed for a docs site
 [taxonomies]
