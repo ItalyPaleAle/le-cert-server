@@ -1,7 +1,7 @@
 ---
 title: "Security & Best Practices"
 nav_title: "Security & Best Practices"
-weight: 40
+weight: 50
 ---
 
 le-cert-server is designed with security as a priority:

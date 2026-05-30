@@ -1,7 +1,7 @@
 ---
 title: "API Client Examples"
 nav_title: "API Client Examples"
-weight: 50
+weight: 60
 ---
 
 ## API Endpoints
