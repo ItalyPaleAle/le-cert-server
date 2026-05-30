@@ -7,7 +7,6 @@ CREATE TABLE certificates (
 	data       JSON NOT NULL
 );
 
-CREATE INDEX idx_certificates_domain ON certificates(domain);
 CREATE INDEX idx_certificates_not_after ON certificates(not_after);
 
 CREATE TABLE le_credentials (
