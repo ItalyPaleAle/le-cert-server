@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/mittwald"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -12,35 +16,48 @@ import (
 // See https://www.mittwald.de/
 type MittwaldConfig struct {
 	Token              string // MITTWALD_TOKEN: API token
-	HTTPTimeout        string // MITTWALD_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // MITTWALD_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
 	PropagationTimeout string // MITTWALD_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
 	SequenceInterval   string // MITTWALD_SEQUENCE_INTERVAL: Time between sequential requests in seconds (Default: 120)
 	TTL                string // MITTWALD_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 300)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *MittwaldConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *MittwaldConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Token != "" {
-		m["MITTWALD_TOKEN"] = c.Token
-	}
-	if c.HTTPTimeout != "" {
-		m["MITTWALD_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Token = c.Token
 	}
 	if c.PollingInterval != "" {
-		m["MITTWALD_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["MITTWALD_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.SequenceInterval != "" {
-		m["MITTWALD_SEQUENCE_INTERVAL"] = c.SequenceInterval
+		v, err := strconv.Atoi(c.SequenceInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"sequenceInterval\": %w", err)
+		}
+		cfg.SequenceInterval = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["MITTWALD_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -63,8 +80,6 @@ func (c *MittwaldConfig) UnmarshalYAML(value *yaml.Node) error {
 		switch key {
 		case "token", "MITTWALD_TOKEN":
 			c.Token = val
-		case "httpTimeout", "MITTWALD_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "MITTWALD_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "MITTWALD_PROPAGATION_TIMEOUT":

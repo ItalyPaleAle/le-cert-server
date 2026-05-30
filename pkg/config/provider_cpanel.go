@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/cpanel"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -14,41 +18,50 @@ type CpanelConfig struct {
 	BaseURL            string // CPANEL_BASE_URL: API server URL
 	Token              string // CPANEL_TOKEN: API token
 	Username           string // CPANEL_USERNAME: username
-	HTTPTimeout        string // CPANEL_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	Mode               string // CPANEL_MODE: use cpanel API or WHM API (Default: cpanel)
 	PollingInterval    string // CPANEL_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // CPANEL_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
 	TTL                string // CPANEL_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 300)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *CpanelConfig) envVars() map[string]string {
-	m := make(map[string]string, 8)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *CpanelConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.BaseURL != "" {
-		m["CPANEL_BASE_URL"] = c.BaseURL
+		cfg.BaseURL = c.BaseURL
 	}
 	if c.Token != "" {
-		m["CPANEL_TOKEN"] = c.Token
+		cfg.Token = c.Token
 	}
 	if c.Username != "" {
-		m["CPANEL_USERNAME"] = c.Username
-	}
-	if c.HTTPTimeout != "" {
-		m["CPANEL_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Username = c.Username
 	}
 	if c.Mode != "" {
-		m["CPANEL_MODE"] = c.Mode
+		cfg.Mode = c.Mode
 	}
 	if c.PollingInterval != "" {
-		m["CPANEL_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["CPANEL_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["CPANEL_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -75,8 +88,6 @@ func (c *CpanelConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.Token = val
 		case "username", "CPANEL_USERNAME":
 			c.Username = val
-		case "httpTimeout", "CPANEL_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "mode", "CPANEL_MODE":
 			c.Mode = val
 		case "pollingInterval", "CPANEL_POLLING_INTERVAL":

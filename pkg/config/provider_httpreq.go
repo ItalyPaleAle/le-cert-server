@@ -4,7 +4,12 @@ package config
 
 import (
 	"fmt"
+	"net/url"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/httpreq"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,38 +18,47 @@ import (
 type HttpreqConfig struct {
 	Endpoint           string // HTTPREQ_ENDPOINT: The URL of the server
 	Mode               string // HTTPREQ_MODE: `RAW`, none
-	HTTPTimeout        string // HTTPREQ_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	Password           string // HTTPREQ_PASSWORD: Basic authentication password
 	PollingInterval    string // HTTPREQ_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // HTTPREQ_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	Username           string // HTTPREQ_USERNAME: Basic authentication username
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *HttpreqConfig) envVars() map[string]string {
-	m := make(map[string]string, 7)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *HttpreqConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Endpoint != "" {
-		m["HTTPREQ_ENDPOINT"] = c.Endpoint
+		v, err := url.Parse(c.Endpoint)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"endpoint\": %w", err)
+		}
+		cfg.Endpoint = v
 	}
 	if c.Mode != "" {
-		m["HTTPREQ_MODE"] = c.Mode
-	}
-	if c.HTTPTimeout != "" {
-		m["HTTPREQ_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Mode = c.Mode
 	}
 	if c.Password != "" {
-		m["HTTPREQ_PASSWORD"] = c.Password
+		cfg.Password = c.Password
 	}
 	if c.PollingInterval != "" {
-		m["HTTPREQ_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["HTTPREQ_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.Username != "" {
-		m["HTTPREQ_USERNAME"] = c.Username
+		cfg.Username = c.Username
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -69,8 +83,6 @@ func (c *HttpreqConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.Endpoint = val
 		case "mode", "HTTPREQ_MODE":
 			c.Mode = val
-		case "httpTimeout", "HTTPREQ_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "password", "HTTPREQ_PASSWORD":
 			c.Password = val
 		case "pollingInterval", "HTTPREQ_POLLING_INTERVAL":

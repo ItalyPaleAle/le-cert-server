@@ -4,43 +4,44 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/lightsail"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
 // LightsailConfig holds configuration for the "lightsail" DNS provider (Amazon Lightsail)
 // See https://aws.amazon.com/lightsail/
 type LightsailConfig struct {
-	AccessKeyID           string // AWS_ACCESS_KEY_ID: Managed by the AWS client. Access key ID (`AWS_ACCESS_KEY_ID_FILE` is not supported, use `AWS_SHARED_CREDENTIALS_FILE` instead)
-	SecretAccessKey       string // AWS_SECRET_ACCESS_KEY: Managed by the AWS client. Secret access key (`AWS_SECRET_ACCESS_KEY_FILE` is not supported, use `AWS_SHARED_CREDENTIALS_FILE` instead)
-	Zone                  string // DNS_ZONE: Domain name of the DNS zone
-	SharedCredentialsFile string // AWS_SHARED_CREDENTIALS_FILE: Managed by the AWS client. Shared credentials file.
-	PollingInterval       string // LIGHTSAIL_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
-	PropagationTimeout    string // LIGHTSAIL_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
+	Zone               string // DNS_ZONE: Domain name of the DNS zone
+	PollingInterval    string // LIGHTSAIL_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
+	PropagationTimeout string // LIGHTSAIL_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *LightsailConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
-	if c.AccessKeyID != "" {
-		m["AWS_ACCESS_KEY_ID"] = c.AccessKeyID
-	}
-	if c.SecretAccessKey != "" {
-		m["AWS_SECRET_ACCESS_KEY"] = c.SecretAccessKey
-	}
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *LightsailConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Zone != "" {
-		m["DNS_ZONE"] = c.Zone
-	}
-	if c.SharedCredentialsFile != "" {
-		m["AWS_SHARED_CREDENTIALS_FILE"] = c.SharedCredentialsFile
+		cfg.DNSZone = c.Zone
 	}
 	if c.PollingInterval != "" {
-		m["LIGHTSAIL_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["LIGHTSAIL_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -61,14 +62,8 @@ func (c *LightsailConfig) UnmarshalYAML(value *yaml.Node) error {
 			return err
 		}
 		switch key {
-		case "accessKeyID", "AWS_ACCESS_KEY_ID":
-			c.AccessKeyID = val
-		case "secretAccessKey", "AWS_SECRET_ACCESS_KEY":
-			c.SecretAccessKey = val
 		case "zone", "DNS_ZONE":
 			c.Zone = val
-		case "sharedCredentialsFile", "AWS_SHARED_CREDENTIALS_FILE":
-			c.SharedCredentialsFile = val
 		case "pollingInterval", "LIGHTSAIL_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "LIGHTSAIL_PROPAGATION_TIMEOUT":

@@ -13,24 +13,6 @@ See the [lego documentation](https://go-acme.github.io/lego/dns/designate/) for 
 letsEncrypt:
   dnsProvider: "designate"
   dnsCredentials:
-    # OS_APPLICATION_CREDENTIAL_ID: Application credential ID
-    applicationCredentialID: ""
-    # OS_APPLICATION_CREDENTIAL_NAME: Application credential name
-    applicationCredentialName: ""
-    # OS_APPLICATION_CREDENTIAL_SECRET: Application credential secret
-    applicationCredentialSecret: ""
-    # OS_AUTH_URL: Identity endpoint URL
-    authURL: ""
-    # OS_PASSWORD: Password
-    password: ""
-    # OS_PROJECT_NAME: Project name
-    projectName: ""
-    # OS_REGION_NAME: Region name
-    regionName: ""
-    # OS_USERNAME: Username
-    username: ""
-    # OS_USER_ID: User ID
-    userID: ""
     # DESIGNATE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
     pollingInterval: ""
     # DESIGNATE_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 600)
@@ -39,11 +21,7 @@ letsEncrypt:
     ttl: ""
     # DESIGNATE_ZONE_NAME: The zone name to use in the OpenStack Project to manage TXT records.
     zoneName: ""
-    # OS_PROJECT_ID: Project ID
-    projectID: ""
-    # OS_TENANT_NAME: Tenant name (deprecated see OS_PROJECT_NAME and OS_PROJECT_ID)
-    tenantName: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

@@ -17,13 +17,11 @@ letsEncrypt:
     inklLogin: ""
     # ALL_INKL_PASSWORD: KAS password
     inklPassword: ""
-    # ALL_INKL_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
-    inklHTTPTimeout: ""
     # ALL_INKL_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     inklPollingInterval: ""
     # ALL_INKL_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
     inklPropagationTimeout: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

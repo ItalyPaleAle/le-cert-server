@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/namesurfer"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -14,45 +18,50 @@ type NamesurferConfig struct {
 	APIKey             string // NAMESURFER_API_KEY: API key name
 	APISecret          string // NAMESURFER_API_SECRET: API secret
 	BaseURL            string // NAMESURFER_BASE_URL: The base URL of NameSurfer API (jsonrpc10) endpoint URL (e.g., https://foo.example.com:8443/API/NSService_10)
-	HTTPTimeout        string // NAMESURFER_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
-	InsecureSkipVerify string // NAMESURFER_INSECURE_SKIP_VERIFY: Whether to verify the API certificate
 	PollingInterval    string // NAMESURFER_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // NAMESURFER_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
 	TTL                string // NAMESURFER_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 300)
 	View               string // NAMESURFER_VIEW: DNS view name (optional, default: empty string)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *NamesurferConfig) envVars() map[string]string {
-	m := make(map[string]string, 9)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *NamesurferConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIKey != "" {
-		m["NAMESURFER_API_KEY"] = c.APIKey
+		cfg.APIKey = c.APIKey
 	}
 	if c.APISecret != "" {
-		m["NAMESURFER_API_SECRET"] = c.APISecret
+		cfg.APISecret = c.APISecret
 	}
 	if c.BaseURL != "" {
-		m["NAMESURFER_BASE_URL"] = c.BaseURL
-	}
-	if c.HTTPTimeout != "" {
-		m["NAMESURFER_HTTP_TIMEOUT"] = c.HTTPTimeout
-	}
-	if c.InsecureSkipVerify != "" {
-		m["NAMESURFER_INSECURE_SKIP_VERIFY"] = c.InsecureSkipVerify
+		cfg.BaseURL = c.BaseURL
 	}
 	if c.PollingInterval != "" {
-		m["NAMESURFER_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["NAMESURFER_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["NAMESURFER_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
 	if c.View != "" {
-		m["NAMESURFER_VIEW"] = c.View
+		cfg.View = c.View
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -79,10 +88,6 @@ func (c *NamesurferConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.APISecret = val
 		case "baseURL", "NAMESURFER_BASE_URL":
 			c.BaseURL = val
-		case "httpTimeout", "NAMESURFER_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
-		case "insecureSkipVerify", "NAMESURFER_INSECURE_SKIP_VERIFY":
-			c.InsecureSkipVerify = val
 		case "pollingInterval", "NAMESURFER_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "NAMESURFER_PROPAGATION_TIMEOUT":

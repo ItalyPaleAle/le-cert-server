@@ -13,8 +13,6 @@ See the [lego documentation](https://go-acme.github.io/lego/dns/azuredns/) for f
 letsEncrypt:
   dnsProvider: "azuredns"
   dnsCredentials:
-    # AZURE_CLIENT_CERTIFICATE_PATH: Client certificate path
-    clientCertificatePath: ""
     # AZURE_CLIENT_ID: Client ID
     clientID: ""
     # AZURE_CLIENT_SECRET: Client secret
@@ -25,8 +23,6 @@ letsEncrypt:
     authMethod: ""
     # AZURE_AUTH_MSI_TIMEOUT: Managed Identity timeout duration
     authMSITimeout: ""
-    # AZURE_ENVIRONMENT: Azure environment, one of: public, usgovernment, and china
-    environment: ""
     # AZURE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     pollingInterval: ""
     # AZURE_PRIVATE_ZONE: Set to true to use Azure Private DNS Zones and not public
@@ -45,5 +41,5 @@ letsEncrypt:
     zoneName: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

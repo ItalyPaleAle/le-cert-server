@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/cloudns"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,38 +17,47 @@ import (
 type CloudnsConfig struct {
 	AuthID             string // CLOUDNS_AUTH_ID: The API user ID
 	AuthPassword       string // CLOUDNS_AUTH_PASSWORD: The password for API user ID
-	HTTPTimeout        string // CLOUDNS_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // CLOUDNS_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
 	PropagationTimeout string // CLOUDNS_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 180)
 	SubAuthID          string // CLOUDNS_SUB_AUTH_ID: The API sub user ID
 	TTL                string // CLOUDNS_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 60)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *CloudnsConfig) envVars() map[string]string {
-	m := make(map[string]string, 7)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *CloudnsConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.AuthID != "" {
-		m["CLOUDNS_AUTH_ID"] = c.AuthID
+		cfg.AuthID = c.AuthID
 	}
 	if c.AuthPassword != "" {
-		m["CLOUDNS_AUTH_PASSWORD"] = c.AuthPassword
-	}
-	if c.HTTPTimeout != "" {
-		m["CLOUDNS_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.AuthPassword = c.AuthPassword
 	}
 	if c.PollingInterval != "" {
-		m["CLOUDNS_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["CLOUDNS_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.SubAuthID != "" {
-		m["CLOUDNS_SUB_AUTH_ID"] = c.SubAuthID
+		cfg.SubAuthID = c.SubAuthID
 	}
 	if c.TTL != "" {
-		m["CLOUDNS_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -69,8 +82,6 @@ func (c *CloudnsConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.AuthID = val
 		case "authPassword", "CLOUDNS_AUTH_PASSWORD":
 			c.AuthPassword = val
-		case "httpTimeout", "CLOUDNS_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "CLOUDNS_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "CLOUDNS_PROPAGATION_TIMEOUT":

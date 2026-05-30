@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/infoblox"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -25,46 +29,67 @@ type InfobloxConfig struct {
 	WAPIVersion        string // INFOBLOX_WAPI_VERSION: The version of WAPI being used (Default: 2.11)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *InfobloxConfig) envVars() map[string]string {
-	m := make(map[string]string, 12)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *InfobloxConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Host != "" {
-		m["INFOBLOX_HOST"] = c.Host
+		cfg.Host = c.Host
 	}
 	if c.Password != "" {
-		m["INFOBLOX_PASSWORD"] = c.Password
+		cfg.Password = c.Password
 	}
 	if c.Username != "" {
-		m["INFOBLOX_USERNAME"] = c.Username
+		cfg.Username = c.Username
 	}
 	if c.CACertificate != "" {
-		m["INFOBLOX_CA_CERTIFICATE"] = c.CACertificate
+		cfg.CACertificate = c.CACertificate
 	}
 	if c.DNSView != "" {
-		m["INFOBLOX_DNS_VIEW"] = c.DNSView
+		cfg.DNSView = c.DNSView
 	}
 	if c.HTTPTimeout != "" {
-		m["INFOBLOX_HTTP_TIMEOUT"] = c.HTTPTimeout
+		v, err := strconv.Atoi(c.HTTPTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"httpTimeout\": %w", err)
+		}
+		cfg.HTTPTimeout = v
 	}
 	if c.PollingInterval != "" {
-		m["INFOBLOX_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.Port != "" {
-		m["INFOBLOX_PORT"] = c.Port
+		cfg.Port = c.Port
 	}
 	if c.PropagationTimeout != "" {
-		m["INFOBLOX_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.SSLVerify != "" {
-		m["INFOBLOX_SSL_VERIFY"] = c.SSLVerify
+		v, err := strconv.ParseBool(c.SSLVerify)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"sslVerify\": %w", err)
+		}
+		cfg.SSLVerify = v
 	}
 	if c.TTL != "" {
-		m["INFOBLOX_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
 	if c.WAPIVersion != "" {
-		m["INFOBLOX_WAPI_VERSION"] = c.WAPIVersion
+		cfg.WapiVersion = c.WAPIVersion
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials

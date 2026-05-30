@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/iij"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -19,28 +23,41 @@ type IijConfig struct {
 	TTL                string // IIJ_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 300)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *IijConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *IijConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIAccessKey != "" {
-		m["IIJ_API_ACCESS_KEY"] = c.APIAccessKey
+		cfg.AccessKey = c.APIAccessKey
 	}
 	if c.APISecretKey != "" {
-		m["IIJ_API_SECRET_KEY"] = c.APISecretKey
+		cfg.SecretKey = c.APISecretKey
 	}
 	if c.DoServiceCode != "" {
-		m["IIJ_DO_SERVICE_CODE"] = c.DoServiceCode
+		cfg.DoServiceCode = c.DoServiceCode
 	}
 	if c.PollingInterval != "" {
-		m["IIJ_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["IIJ_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["IIJ_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials

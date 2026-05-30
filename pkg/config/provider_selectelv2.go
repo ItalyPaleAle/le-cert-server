@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/selectelv2"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -18,53 +22,62 @@ type Selectelv2Config struct {
 	AuthRegion         string // SELECTELV2_AUTH_REGION: Location for auth endpoint like ResellAPI or Keystone (default: 'ru-1')
 	AuthURL            string // SELECTELV2_AUTH_URL: Identity endpoint (defaul: 'https://cloud.api.selcloud.ru/identity/v3/')
 	BaseURL            string // SELECTELV2_BASE_URL: API endpoint URL
-	HTTPTimeout        string // SELECTELV2_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // SELECTELV2_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 5)
 	PropagationTimeout string // SELECTELV2_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
 	TTL                string // SELECTELV2_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 60)
 	UserDomainName     string // SELECTELV2_USER_DOMAIN_NAME: To specify the domain name (account ID) where the user is located. (default: SELECTELV2_ACCOUNT_ID)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *Selectelv2Config) envVars() map[string]string {
-	m := make(map[string]string, 12)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *Selectelv2Config) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.AccountID != "" {
-		m["SELECTELV2_ACCOUNT_ID"] = c.AccountID
+		cfg.DomainName = c.AccountID
 	}
 	if c.Password != "" {
-		m["SELECTELV2_PASSWORD"] = c.Password
+		cfg.Password = c.Password
 	}
 	if c.ProjectID != "" {
-		m["SELECTELV2_PROJECT_ID"] = c.ProjectID
+		cfg.ProjectID = c.ProjectID
 	}
 	if c.Username != "" {
-		m["SELECTELV2_USERNAME"] = c.Username
+		cfg.Username = c.Username
 	}
 	if c.AuthRegion != "" {
-		m["SELECTELV2_AUTH_REGION"] = c.AuthRegion
+		cfg.AuthRegion = c.AuthRegion
 	}
 	if c.AuthURL != "" {
-		m["SELECTELV2_AUTH_URL"] = c.AuthURL
+		cfg.AuthURL = c.AuthURL
 	}
 	if c.BaseURL != "" {
-		m["SELECTELV2_BASE_URL"] = c.BaseURL
-	}
-	if c.HTTPTimeout != "" {
-		m["SELECTELV2_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.BaseURL = c.BaseURL
 	}
 	if c.PollingInterval != "" {
-		m["SELECTELV2_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["SELECTELV2_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["SELECTELV2_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
 	if c.UserDomainName != "" {
-		m["SELECTELV2_USER_DOMAIN_NAME"] = c.UserDomainName
+		cfg.UserDomainName = c.UserDomainName
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -99,8 +112,6 @@ func (c *Selectelv2Config) UnmarshalYAML(value *yaml.Node) error {
 			c.AuthURL = val
 		case "baseURL", "SELECTELV2_BASE_URL":
 			c.BaseURL = val
-		case "httpTimeout", "SELECTELV2_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "SELECTELV2_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "SELECTELV2_PROPAGATION_TIMEOUT":

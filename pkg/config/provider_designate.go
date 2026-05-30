@@ -4,79 +4,52 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/designate"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
 // DesignateConfig holds configuration for the "designate" DNS provider (Designate DNSaaS for Openstack)
 // See https://docs.openstack.org/designate/latest/
 type DesignateConfig struct {
-	ApplicationCredentialID     string // OS_APPLICATION_CREDENTIAL_ID: Application credential ID
-	ApplicationCredentialName   string // OS_APPLICATION_CREDENTIAL_NAME: Application credential name
-	ApplicationCredentialSecret string // OS_APPLICATION_CREDENTIAL_SECRET: Application credential secret
-	AuthURL                     string // OS_AUTH_URL: Identity endpoint URL
-	Password                    string // OS_PASSWORD: Password
-	ProjectName                 string // OS_PROJECT_NAME: Project name
-	RegionName                  string // OS_REGION_NAME: Region name
-	Username                    string // OS_USERNAME: Username
-	UserID                      string // OS_USER_ID: User ID
-	PollingInterval             string // DESIGNATE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
-	PropagationTimeout          string // DESIGNATE_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 600)
-	TTL                         string // DESIGNATE_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 10)
-	ZoneName                    string // DESIGNATE_ZONE_NAME: The zone name to use in the OpenStack Project to manage TXT records.
-	ProjectID                   string // OS_PROJECT_ID: Project ID
-	TenantName                  string // OS_TENANT_NAME: Tenant name (deprecated see OS_PROJECT_NAME and OS_PROJECT_ID)
+	PollingInterval    string // DESIGNATE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
+	PropagationTimeout string // DESIGNATE_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 600)
+	TTL                string // DESIGNATE_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 10)
+	ZoneName           string // DESIGNATE_ZONE_NAME: The zone name to use in the OpenStack Project to manage TXT records.
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *DesignateConfig) envVars() map[string]string {
-	m := make(map[string]string, 15)
-	if c.ApplicationCredentialID != "" {
-		m["OS_APPLICATION_CREDENTIAL_ID"] = c.ApplicationCredentialID
-	}
-	if c.ApplicationCredentialName != "" {
-		m["OS_APPLICATION_CREDENTIAL_NAME"] = c.ApplicationCredentialName
-	}
-	if c.ApplicationCredentialSecret != "" {
-		m["OS_APPLICATION_CREDENTIAL_SECRET"] = c.ApplicationCredentialSecret
-	}
-	if c.AuthURL != "" {
-		m["OS_AUTH_URL"] = c.AuthURL
-	}
-	if c.Password != "" {
-		m["OS_PASSWORD"] = c.Password
-	}
-	if c.ProjectName != "" {
-		m["OS_PROJECT_NAME"] = c.ProjectName
-	}
-	if c.RegionName != "" {
-		m["OS_REGION_NAME"] = c.RegionName
-	}
-	if c.Username != "" {
-		m["OS_USERNAME"] = c.Username
-	}
-	if c.UserID != "" {
-		m["OS_USER_ID"] = c.UserID
-	}
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *DesignateConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.PollingInterval != "" {
-		m["DESIGNATE_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["DESIGNATE_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["DESIGNATE_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
 	if c.ZoneName != "" {
-		m["DESIGNATE_ZONE_NAME"] = c.ZoneName
+		cfg.ZoneName = c.ZoneName
 	}
-	if c.ProjectID != "" {
-		m["OS_PROJECT_ID"] = c.ProjectID
-	}
-	if c.TenantName != "" {
-		m["OS_TENANT_NAME"] = c.TenantName
-	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -97,24 +70,6 @@ func (c *DesignateConfig) UnmarshalYAML(value *yaml.Node) error {
 			return err
 		}
 		switch key {
-		case "applicationCredentialID", "OS_APPLICATION_CREDENTIAL_ID":
-			c.ApplicationCredentialID = val
-		case "applicationCredentialName", "OS_APPLICATION_CREDENTIAL_NAME":
-			c.ApplicationCredentialName = val
-		case "applicationCredentialSecret", "OS_APPLICATION_CREDENTIAL_SECRET":
-			c.ApplicationCredentialSecret = val
-		case "authURL", "OS_AUTH_URL":
-			c.AuthURL = val
-		case "password", "OS_PASSWORD":
-			c.Password = val
-		case "projectName", "OS_PROJECT_NAME":
-			c.ProjectName = val
-		case "regionName", "OS_REGION_NAME":
-			c.RegionName = val
-		case "username", "OS_USERNAME":
-			c.Username = val
-		case "userID", "OS_USER_ID":
-			c.UserID = val
 		case "pollingInterval", "DESIGNATE_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "DESIGNATE_PROPAGATION_TIMEOUT":
@@ -123,10 +78,6 @@ func (c *DesignateConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.TTL = val
 		case "zoneName", "DESIGNATE_ZONE_NAME":
 			c.ZoneName = val
-		case "projectID", "OS_PROJECT_ID":
-			c.ProjectID = val
-		case "tenantName", "OS_TENANT_NAME":
-			c.TenantName = val
 		default:
 			return fmt.Errorf("unknown credential key %q for DNS provider \"designate\"", key)
 		}

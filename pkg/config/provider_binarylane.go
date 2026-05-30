@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/binarylane"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -12,31 +16,40 @@ import (
 // See https://www.binarylane.com.au/
 type BinarylaneConfig struct {
 	APIToken           string // BINARYLANE_API_TOKEN: API token
-	HTTPTimeout        string // BINARYLANE_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // BINARYLANE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // BINARYLANE_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // BINARYLANE_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *BinarylaneConfig) envVars() map[string]string {
-	m := make(map[string]string, 5)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *BinarylaneConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIToken != "" {
-		m["BINARYLANE_API_TOKEN"] = c.APIToken
-	}
-	if c.HTTPTimeout != "" {
-		m["BINARYLANE_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.APIToken = c.APIToken
 	}
 	if c.PollingInterval != "" {
-		m["BINARYLANE_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["BINARYLANE_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["BINARYLANE_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -59,8 +72,6 @@ func (c *BinarylaneConfig) UnmarshalYAML(value *yaml.Node) error {
 		switch key {
 		case "apiToken", "BINARYLANE_API_TOKEN":
 			c.APIToken = val
-		case "httpTimeout", "BINARYLANE_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "BINARYLANE_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "BINARYLANE_PROPAGATION_TIMEOUT":

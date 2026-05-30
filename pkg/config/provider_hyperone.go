@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/hyperone"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -12,7 +16,6 @@ import (
 // See https://www.hyperone.com
 type HyperoneConfig struct {
 	APIURL             string // HYPERONE_API_URL: Allows to pass custom API Endpoint to be used in the challenge (default https://api.hyperone.com/v2)
-	HTTPTimeout        string // HYPERONE_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	LocationID         string // HYPERONE_LOCATION_ID: Specifies location (region) to be used in API calls. (default pl-waw-1)
 	PassportLocation   string // HYPERONE_PASSPORT_LOCATION: Allows to pass custom passport file location (default ~/.h1/passport.json)
 	PollingInterval    string // HYPERONE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 60)
@@ -20,31 +23,41 @@ type HyperoneConfig struct {
 	TTL                string // HYPERONE_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *HyperoneConfig) envVars() map[string]string {
-	m := make(map[string]string, 7)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *HyperoneConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIURL != "" {
-		m["HYPERONE_API_URL"] = c.APIURL
-	}
-	if c.HTTPTimeout != "" {
-		m["HYPERONE_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.APIEndpoint = c.APIURL
 	}
 	if c.LocationID != "" {
-		m["HYPERONE_LOCATION_ID"] = c.LocationID
+		cfg.LocationID = c.LocationID
 	}
 	if c.PassportLocation != "" {
-		m["HYPERONE_PASSPORT_LOCATION"] = c.PassportLocation
+		cfg.PassportLocation = c.PassportLocation
 	}
 	if c.PollingInterval != "" {
-		m["HYPERONE_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["HYPERONE_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["HYPERONE_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -67,8 +80,6 @@ func (c *HyperoneConfig) UnmarshalYAML(value *yaml.Node) error {
 		switch key {
 		case "apiURL", "HYPERONE_API_URL":
 			c.APIURL = val
-		case "httpTimeout", "HYPERONE_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "locationID", "HYPERONE_LOCATION_ID":
 			c.LocationID = val
 		case "passportLocation", "HYPERONE_PASSPORT_LOCATION":

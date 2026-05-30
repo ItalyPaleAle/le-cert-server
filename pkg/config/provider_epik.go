@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/epik"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -12,31 +16,40 @@ import (
 // See https://www.epik.com/
 type EpikConfig struct {
 	Signature          string // EPIK_SIGNATURE: Epik API signature (https://registrar.epik.com/account/api-settings/)
-	HTTPTimeout        string // EPIK_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // EPIK_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // EPIK_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // EPIK_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 3600)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *EpikConfig) envVars() map[string]string {
-	m := make(map[string]string, 5)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *EpikConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Signature != "" {
-		m["EPIK_SIGNATURE"] = c.Signature
-	}
-	if c.HTTPTimeout != "" {
-		m["EPIK_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Signature = c.Signature
 	}
 	if c.PollingInterval != "" {
-		m["EPIK_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["EPIK_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["EPIK_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -59,8 +72,6 @@ func (c *EpikConfig) UnmarshalYAML(value *yaml.Node) error {
 		switch key {
 		case "signature", "EPIK_SIGNATURE":
 			c.Signature = val
-		case "httpTimeout", "EPIK_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "EPIK_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "EPIK_PROPAGATION_TIMEOUT":

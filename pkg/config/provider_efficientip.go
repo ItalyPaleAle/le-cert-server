@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/efficientip"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -15,44 +19,53 @@ type EfficientipConfig struct {
 	Hostname           string // EFFICIENTIP_HOSTNAME: Hostname (ex: foo.example.com)
 	Password           string // EFFICIENTIP_PASSWORD: Password
 	Username           string // EFFICIENTIP_USERNAME: Username
-	HTTPTimeout        string // EFFICIENTIP_HTTP_TIMEOUT: API request timeout in seconds (Default: 10)
 	InsecureSkipVerify string // EFFICIENTIP_INSECURE_SKIP_VERIFY: Whether or not to verify EfficientIP API certificate
 	PollingInterval    string // EFFICIENTIP_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // EFFICIENTIP_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	ViewName           string // EFFICIENTIP_VIEW_NAME: View name (ex: external)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *EfficientipConfig) envVars() map[string]string {
-	m := make(map[string]string, 9)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *EfficientipConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.DNSName != "" {
-		m["EFFICIENTIP_DNS_NAME"] = c.DNSName
+		cfg.DNSName = c.DNSName
 	}
 	if c.Hostname != "" {
-		m["EFFICIENTIP_HOSTNAME"] = c.Hostname
+		cfg.Hostname = c.Hostname
 	}
 	if c.Password != "" {
-		m["EFFICIENTIP_PASSWORD"] = c.Password
+		cfg.Password = c.Password
 	}
 	if c.Username != "" {
-		m["EFFICIENTIP_USERNAME"] = c.Username
-	}
-	if c.HTTPTimeout != "" {
-		m["EFFICIENTIP_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Username = c.Username
 	}
 	if c.InsecureSkipVerify != "" {
-		m["EFFICIENTIP_INSECURE_SKIP_VERIFY"] = c.InsecureSkipVerify
+		v, err := strconv.ParseBool(c.InsecureSkipVerify)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"insecureSkipVerify\": %w", err)
+		}
+		cfg.InsecureSkipVerify = v
 	}
 	if c.PollingInterval != "" {
-		m["EFFICIENTIP_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["EFFICIENTIP_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.ViewName != "" {
-		m["EFFICIENTIP_VIEW_NAME"] = c.ViewName
+		cfg.ViewName = c.ViewName
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -81,8 +94,6 @@ func (c *EfficientipConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.Password = val
 		case "username", "EFFICIENTIP_USERNAME":
 			c.Username = val
-		case "httpTimeout", "EFFICIENTIP_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "insecureSkipVerify", "EFFICIENTIP_INSECURE_SKIP_VERIFY":
 			c.InsecureSkipVerify = val
 		case "pollingInterval", "EFFICIENTIP_POLLING_INTERVAL":

@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/regru"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,7 +17,6 @@ import (
 type RegruConfig struct {
 	Password           string // REGRU_PASSWORD: API password
 	Username           string // REGRU_USERNAME: API username
-	HTTPTimeout        string // REGRU_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // REGRU_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // REGRU_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TLSCert            string // REGRU_TLS_CERT: authentication certificate
@@ -21,34 +24,44 @@ type RegruConfig struct {
 	TTL                string // REGRU_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 300)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *RegruConfig) envVars() map[string]string {
-	m := make(map[string]string, 8)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *RegruConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Password != "" {
-		m["REGRU_PASSWORD"] = c.Password
+		cfg.Password = c.Password
 	}
 	if c.Username != "" {
-		m["REGRU_USERNAME"] = c.Username
-	}
-	if c.HTTPTimeout != "" {
-		m["REGRU_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Username = c.Username
 	}
 	if c.PollingInterval != "" {
-		m["REGRU_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["REGRU_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TLSCert != "" {
-		m["REGRU_TLS_CERT"] = c.TLSCert
+		cfg.TLSCert = c.TLSCert
 	}
 	if c.TLSKey != "" {
-		m["REGRU_TLS_KEY"] = c.TLSKey
+		cfg.TLSKey = c.TLSKey
 	}
 	if c.TTL != "" {
-		m["REGRU_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -73,8 +86,6 @@ func (c *RegruConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.Password = val
 		case "username", "REGRU_USERNAME":
 			c.Username = val
-		case "httpTimeout", "REGRU_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "REGRU_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "REGRU_PROPAGATION_TIMEOUT":

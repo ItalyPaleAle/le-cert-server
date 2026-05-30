@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/simply"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,34 +17,43 @@ import (
 type SimplyConfig struct {
 	AccountName        string // SIMPLY_ACCOUNT_NAME: Account name
 	APIKey             string // SIMPLY_API_KEY: API key
-	HTTPTimeout        string // SIMPLY_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // SIMPLY_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
 	PropagationTimeout string // SIMPLY_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 300)
 	TTL                string // SIMPLY_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *SimplyConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *SimplyConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.AccountName != "" {
-		m["SIMPLY_ACCOUNT_NAME"] = c.AccountName
+		cfg.AccountName = c.AccountName
 	}
 	if c.APIKey != "" {
-		m["SIMPLY_API_KEY"] = c.APIKey
-	}
-	if c.HTTPTimeout != "" {
-		m["SIMPLY_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.APIKey = c.APIKey
 	}
 	if c.PollingInterval != "" {
-		m["SIMPLY_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["SIMPLY_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["SIMPLY_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -65,8 +78,6 @@ func (c *SimplyConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.AccountName = val
 		case "apiKey", "SIMPLY_API_KEY":
 			c.APIKey = val
-		case "httpTimeout", "SIMPLY_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "SIMPLY_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "SIMPLY_PROPAGATION_TIMEOUT":

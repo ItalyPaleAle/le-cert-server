@@ -21,8 +21,6 @@ letsEncrypt:
     password: ""
     # EFFICIENTIP_USERNAME: Username
     username: ""
-    # EFFICIENTIP_HTTP_TIMEOUT: API request timeout in seconds (Default: 10)
-    httpTimeout: ""
     # EFFICIENTIP_INSECURE_SKIP_VERIFY: Whether or not to verify EfficientIP API certificate
     insecureSkipVerify: ""
     # EFFICIENTIP_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
@@ -33,5 +31,5 @@ letsEncrypt:
     viewName: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

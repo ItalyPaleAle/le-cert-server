@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/timewebcloud"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -12,27 +16,32 @@ import (
 // See https://timeweb.cloud/
 type TimewebcloudConfig struct {
 	AuthToken          string // TIMEWEBCLOUD_AUTH_TOKEN: Authentication token
-	HTTPTimeout        string // TIMEWEBCLOUD_HTTP_TIMEOUT: API request timeout in seconds (Default: 10)
 	PollingInterval    string // TIMEWEBCLOUD_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // TIMEWEBCLOUD_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *TimewebcloudConfig) envVars() map[string]string {
-	m := make(map[string]string, 4)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *TimewebcloudConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.AuthToken != "" {
-		m["TIMEWEBCLOUD_AUTH_TOKEN"] = c.AuthToken
-	}
-	if c.HTTPTimeout != "" {
-		m["TIMEWEBCLOUD_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.AuthToken = c.AuthToken
 	}
 	if c.PollingInterval != "" {
-		m["TIMEWEBCLOUD_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["TIMEWEBCLOUD_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -55,8 +64,6 @@ func (c *TimewebcloudConfig) UnmarshalYAML(value *yaml.Node) error {
 		switch key {
 		case "authToken", "TIMEWEBCLOUD_AUTH_TOKEN":
 			c.AuthToken = val
-		case "httpTimeout", "TIMEWEBCLOUD_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "TIMEWEBCLOUD_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "TIMEWEBCLOUD_PROPAGATION_TIMEOUT":

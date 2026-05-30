@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/active24"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,34 +17,43 @@ import (
 type Active24Config struct {
 	APIKey             string // ACTIVE24_API_KEY: API key
 	Secret             string // ACTIVE24_SECRET: Secret
-	HTTPTimeout        string // ACTIVE24_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // ACTIVE24_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // ACTIVE24_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // ACTIVE24_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *Active24Config) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *Active24Config) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIKey != "" {
-		m["ACTIVE24_API_KEY"] = c.APIKey
+		cfg.APIKey = c.APIKey
 	}
 	if c.Secret != "" {
-		m["ACTIVE24_SECRET"] = c.Secret
-	}
-	if c.HTTPTimeout != "" {
-		m["ACTIVE24_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Secret = c.Secret
 	}
 	if c.PollingInterval != "" {
-		m["ACTIVE24_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["ACTIVE24_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["ACTIVE24_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -65,8 +78,6 @@ func (c *Active24Config) UnmarshalYAML(value *yaml.Node) error {
 			c.APIKey = val
 		case "secret", "ACTIVE24_SECRET":
 			c.Secret = val
-		case "httpTimeout", "ACTIVE24_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "ACTIVE24_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "ACTIVE24_PROPAGATION_TIMEOUT":

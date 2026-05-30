@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/netcup"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -14,33 +18,38 @@ type NetcupConfig struct {
 	APIKey             string // NETCUP_API_KEY: API key
 	APIPassword        string // NETCUP_API_PASSWORD: API password
 	CustomerNumber     string // NETCUP_CUSTOMER_NUMBER: Customer number
-	HTTPTimeout        string // NETCUP_HTTP_TIMEOUT: API request timeout in seconds (Default: 10)
 	PollingInterval    string // NETCUP_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 30)
 	PropagationTimeout string // NETCUP_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 900)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *NetcupConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *NetcupConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIKey != "" {
-		m["NETCUP_API_KEY"] = c.APIKey
+		cfg.Key = c.APIKey
 	}
 	if c.APIPassword != "" {
-		m["NETCUP_API_PASSWORD"] = c.APIPassword
+		cfg.Password = c.APIPassword
 	}
 	if c.CustomerNumber != "" {
-		m["NETCUP_CUSTOMER_NUMBER"] = c.CustomerNumber
-	}
-	if c.HTTPTimeout != "" {
-		m["NETCUP_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Customer = c.CustomerNumber
 	}
 	if c.PollingInterval != "" {
-		m["NETCUP_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["NETCUP_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -67,8 +76,6 @@ func (c *NetcupConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.APIPassword = val
 		case "customerNumber", "NETCUP_CUSTOMER_NUMBER":
 			c.CustomerNumber = val
-		case "httpTimeout", "NETCUP_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "NETCUP_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "NETCUP_PROPAGATION_TIMEOUT":

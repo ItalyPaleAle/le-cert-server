@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/todaynic"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,34 +17,43 @@ import (
 type TodaynicConfig struct {
 	APIKey             string // TODAYNIC_API_KEY: API key
 	AuthUserID         string // TODAYNIC_AUTH_USER_ID: account ID
-	HTTPTimeout        string // TODAYNIC_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // TODAYNIC_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // TODAYNIC_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // TODAYNIC_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 600)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *TodaynicConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *TodaynicConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIKey != "" {
-		m["TODAYNIC_API_KEY"] = c.APIKey
+		cfg.APIKey = c.APIKey
 	}
 	if c.AuthUserID != "" {
-		m["TODAYNIC_AUTH_USER_ID"] = c.AuthUserID
-	}
-	if c.HTTPTimeout != "" {
-		m["TODAYNIC_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.AuthUserID = c.AuthUserID
 	}
 	if c.PollingInterval != "" {
-		m["TODAYNIC_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["TODAYNIC_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["TODAYNIC_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -65,8 +78,6 @@ func (c *TodaynicConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.APIKey = val
 		case "authUserID", "TODAYNIC_AUTH_USER_ID":
 			c.AuthUserID = val
-		case "httpTimeout", "TODAYNIC_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "TODAYNIC_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "TODAYNIC_PROPAGATION_TIMEOUT":

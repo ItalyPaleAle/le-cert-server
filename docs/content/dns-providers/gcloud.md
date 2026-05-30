@@ -15,10 +15,6 @@ letsEncrypt:
   dnsCredentials:
     # GCE_PROJECT: Project name (by default, the project name is auto-detected by using the metadata service)
     project: ""
-    # GCE_SERVICE_ACCOUNT: Account
-    serviceAccount: ""
-    # GCE_SERVICE_ACCOUNT_FILE: Account file path
-    serviceAccountFile: ""
     # GCE_ALLOW_PRIVATE_ZONE: Allows requested domain to be in private DNS zone, works only with a private ACME server (by default: false)
     allowPrivateZone: ""
     # GCE_IMPERSONATE_SERVICE_ACCOUNT: Service account email to impersonate
@@ -33,5 +29,5 @@ letsEncrypt:
     zoneID: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/shellrent"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,34 +17,43 @@ import (
 type ShellrentConfig struct {
 	Token              string // SHELLRENT_TOKEN: Token
 	Username           string // SHELLRENT_USERNAME: Username
-	HTTPTimeout        string // SHELLRENT_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // SHELLRENT_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
 	PropagationTimeout string // SHELLRENT_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 300)
 	TTL                string // SHELLRENT_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 3600)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *ShellrentConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *ShellrentConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Token != "" {
-		m["SHELLRENT_TOKEN"] = c.Token
+		cfg.Token = c.Token
 	}
 	if c.Username != "" {
-		m["SHELLRENT_USERNAME"] = c.Username
-	}
-	if c.HTTPTimeout != "" {
-		m["SHELLRENT_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Username = c.Username
 	}
 	if c.PollingInterval != "" {
-		m["SHELLRENT_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["SHELLRENT_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["SHELLRENT_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -65,8 +78,6 @@ func (c *ShellrentConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.Token = val
 		case "username", "SHELLRENT_USERNAME":
 			c.Username = val
-		case "httpTimeout", "SHELLRENT_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "SHELLRENT_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "SHELLRENT_PROPAGATION_TIMEOUT":

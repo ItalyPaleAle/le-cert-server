@@ -17,8 +17,6 @@ letsEncrypt:
     ddnsServerURL: ""
     # ISPCONFIG_DDNS_TOKEN: DDNS API token
     ddnsToken: ""
-    # ISPCONFIG_DDNS_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
-    ddnsHTTPTimeout: ""
     # ISPCONFIG_DDNS_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     ddnsPollingInterval: ""
     # ISPCONFIG_DDNS_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
@@ -27,5 +25,5 @@ letsEncrypt:
     ddnsTTL: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

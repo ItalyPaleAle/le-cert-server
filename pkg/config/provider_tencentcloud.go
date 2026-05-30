@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/tencentcloud"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -21,34 +25,51 @@ type TencentcloudConfig struct {
 	TTL                string // TENCENTCLOUD_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 600)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *TencentcloudConfig) envVars() map[string]string {
-	m := make(map[string]string, 8)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *TencentcloudConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.SecretID != "" {
-		m["TENCENTCLOUD_SECRET_ID"] = c.SecretID
+		cfg.SecretID = c.SecretID
 	}
 	if c.SecretKey != "" {
-		m["TENCENTCLOUD_SECRET_KEY"] = c.SecretKey
+		cfg.SecretKey = c.SecretKey
 	}
 	if c.HTTPTimeout != "" {
-		m["TENCENTCLOUD_HTTP_TIMEOUT"] = c.HTTPTimeout
+		v, err := strconv.Atoi(c.HTTPTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"httpTimeout\": %w", err)
+		}
+		cfg.HTTPTimeout = time.Duration(v) * time.Second
 	}
 	if c.PollingInterval != "" {
-		m["TENCENTCLOUD_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["TENCENTCLOUD_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.Region != "" {
-		m["TENCENTCLOUD_REGION"] = c.Region
+		cfg.Region = c.Region
 	}
 	if c.SessionToken != "" {
-		m["TENCENTCLOUD_SESSION_TOKEN"] = c.SessionToken
+		cfg.SessionToken = c.SessionToken
 	}
 	if c.TTL != "" {
-		m["TENCENTCLOUD_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials

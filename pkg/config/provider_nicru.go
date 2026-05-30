@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/nicru"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -14,41 +18,50 @@ type NicruConfig struct {
 	Password           string // NICRU_PASSWORD: Password for an account in RU CENTER
 	Secret             string // NICRU_SECRET: Secret for application in DNS-hosting RU CENTER
 	ServiceID          string // NICRU_SERVICE_ID: Service ID for application in DNS-hosting RU CENTER
-	ServiceName        string // NICRU_SERVICE_NAME: Service Name for DNS-hosting RU CENTER
 	User               string // NICRU_USER: Agreement for an account in RU CENTER
 	PollingInterval    string // NICRU_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 60)
 	PropagationTimeout string // NICRU_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 600)
 	TTL                string // NICRU_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 30)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *NicruConfig) envVars() map[string]string {
-	m := make(map[string]string, 8)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *NicruConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Password != "" {
-		m["NICRU_PASSWORD"] = c.Password
+		cfg.Password = c.Password
 	}
 	if c.Secret != "" {
-		m["NICRU_SECRET"] = c.Secret
+		cfg.Secret = c.Secret
 	}
 	if c.ServiceID != "" {
-		m["NICRU_SERVICE_ID"] = c.ServiceID
-	}
-	if c.ServiceName != "" {
-		m["NICRU_SERVICE_NAME"] = c.ServiceName
+		cfg.ServiceID = c.ServiceID
 	}
 	if c.User != "" {
-		m["NICRU_USER"] = c.User
+		cfg.Username = c.User
 	}
 	if c.PollingInterval != "" {
-		m["NICRU_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["NICRU_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["NICRU_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -75,8 +88,6 @@ func (c *NicruConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.Secret = val
 		case "serviceID", "NICRU_SERVICE_ID":
 			c.ServiceID = val
-		case "serviceName", "NICRU_SERVICE_NAME":
-			c.ServiceName = val
 		case "user", "NICRU_USER":
 			c.User = val
 		case "pollingInterval", "NICRU_POLLING_INTERVAL":

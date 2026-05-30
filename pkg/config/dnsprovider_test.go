@@ -26,9 +26,12 @@ func TestResolveDNSProvider_NormalizedName(t *testing.T) {
 	c.LetsEncrypt.DNSCredentials = decodeCredentials(t, "dnsAPIToken: secret-token\n")
 
 	err := c.Validate(testLogger())
-
 	require.NoError(t, err)
-	assert.Equal(t, map[string]string{"CF_DNS_API_TOKEN": "secret-token"}, c.GetDNSEnv())
+
+	// The decoded credentials must build a working lego provider without touching the environment
+	provider, err := c.NewDNSProvider()
+	require.NoError(t, err)
+	assert.NotNil(t, provider)
 }
 
 func TestResolveDNSProvider_RawEnvName(t *testing.T) {
@@ -36,9 +39,11 @@ func TestResolveDNSProvider_RawEnvName(t *testing.T) {
 	c.LetsEncrypt.DNSCredentials = decodeCredentials(t, "CF_DNS_API_TOKEN: secret-token\n")
 
 	err := c.Validate(testLogger())
-
 	require.NoError(t, err)
-	assert.Equal(t, map[string]string{"CF_DNS_API_TOKEN": "secret-token"}, c.GetDNSEnv())
+
+	cf, ok := c.internal.dnsProviderConfig.(*CloudflareConfig)
+	require.True(t, ok)
+	assert.Equal(t, "secret-token", cf.DNSAPIToken)
 }
 
 func TestResolveDNSProvider_Alias(t *testing.T) {
@@ -46,10 +51,12 @@ func TestResolveDNSProvider_Alias(t *testing.T) {
 	c.LetsEncrypt.DNSCredentials = decodeCredentials(t, "CLOUDFLARE_DNS_API_TOKEN: secret-token\n")
 
 	err := c.Validate(testLogger())
-
 	require.NoError(t, err)
-	// The alias maps to the canonical env var that lego consumes
-	assert.Equal(t, map[string]string{"CF_DNS_API_TOKEN": "secret-token"}, c.GetDNSEnv())
+
+	// The documented alias maps to the same field as the canonical env name
+	cf, ok := c.internal.dnsProviderConfig.(*CloudflareConfig)
+	require.True(t, ok)
+	assert.Equal(t, "secret-token", cf.DNSAPIToken)
 }
 
 func TestResolveDNSProvider_UnknownKeyErrors(t *testing.T) {
@@ -72,12 +79,15 @@ func TestResolveDNSProvider_UnknownProviderErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "dnsProvider")
 }
 
-func TestResolveDNSProvider_EmptyCredentials(t *testing.T) {
+func TestResolveDNSProvider_InvalidNumericValueErrors(t *testing.T) {
 	c := validConfig()
-	// No dnsCredentials set: the zero-value node must validate cleanly with an empty env
+	// ttl maps to an int field, so a non-numeric value must be rejected when building the provider
+	c.LetsEncrypt.DNSCredentials = decodeCredentials(t, "dnsAPIToken: secret-token\nttl: not-a-number\n")
 
 	err := c.Validate(testLogger())
-
 	require.NoError(t, err)
-	assert.Empty(t, c.GetDNSEnv())
+
+	_, err = c.NewDNSProvider()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "ttl")
 }

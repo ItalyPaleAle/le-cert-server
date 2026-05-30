@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/domeneshop"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,30 +17,35 @@ import (
 type DomeneshopConfig struct {
 	APISecret          string // DOMENESHOP_API_SECRET: API secret
 	APIToken           string // DOMENESHOP_API_TOKEN: API token
-	HTTPTimeout        string // DOMENESHOP_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // DOMENESHOP_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 20)
 	PropagationTimeout string // DOMENESHOP_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 300)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *DomeneshopConfig) envVars() map[string]string {
-	m := make(map[string]string, 5)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *DomeneshopConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APISecret != "" {
-		m["DOMENESHOP_API_SECRET"] = c.APISecret
+		cfg.APISecret = c.APISecret
 	}
 	if c.APIToken != "" {
-		m["DOMENESHOP_API_TOKEN"] = c.APIToken
-	}
-	if c.HTTPTimeout != "" {
-		m["DOMENESHOP_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.APIToken = c.APIToken
 	}
 	if c.PollingInterval != "" {
-		m["DOMENESHOP_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["DOMENESHOP_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -61,8 +70,6 @@ func (c *DomeneshopConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.APISecret = val
 		case "apiToken", "DOMENESHOP_API_TOKEN":
 			c.APIToken = val
-		case "httpTimeout", "DOMENESHOP_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "DOMENESHOP_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "DOMENESHOP_PROPAGATION_TIMEOUT":

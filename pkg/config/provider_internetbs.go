@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/internetbs"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,34 +17,43 @@ import (
 type InternetbsConfig struct {
 	BSAPIKey             string // INTERNET_BS_API_KEY: API key
 	BSPassword           string // INTERNET_BS_PASSWORD: API password
-	BSHTTPTimeout        string // INTERNET_BS_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	BSPollingInterval    string // INTERNET_BS_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	BSPropagationTimeout string // INTERNET_BS_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	BSTTL                string // INTERNET_BS_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 3600)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *InternetbsConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *InternetbsConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.BSAPIKey != "" {
-		m["INTERNET_BS_API_KEY"] = c.BSAPIKey
+		cfg.APIKey = c.BSAPIKey
 	}
 	if c.BSPassword != "" {
-		m["INTERNET_BS_PASSWORD"] = c.BSPassword
-	}
-	if c.BSHTTPTimeout != "" {
-		m["INTERNET_BS_HTTP_TIMEOUT"] = c.BSHTTPTimeout
+		cfg.Password = c.BSPassword
 	}
 	if c.BSPollingInterval != "" {
-		m["INTERNET_BS_POLLING_INTERVAL"] = c.BSPollingInterval
+		v, err := strconv.Atoi(c.BSPollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"bsPollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.BSPropagationTimeout != "" {
-		m["INTERNET_BS_PROPAGATION_TIMEOUT"] = c.BSPropagationTimeout
+		v, err := strconv.Atoi(c.BSPropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"bsPropagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.BSTTL != "" {
-		m["INTERNET_BS_TTL"] = c.BSTTL
+		v, err := strconv.Atoi(c.BSTTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"bsTTL\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -65,8 +78,6 @@ func (c *InternetbsConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.BSAPIKey = val
 		case "bsPassword", "INTERNET_BS_PASSWORD":
 			c.BSPassword = val
-		case "bsHTTPTimeout", "INTERNET_BS_HTTP_TIMEOUT":
-			c.BSHTTPTimeout = val
 		case "bsPollingInterval", "INTERNET_BS_POLLING_INTERVAL":
 			c.BSPollingInterval = val
 		case "bsPropagationTimeout", "INTERNET_BS_PROPAGATION_TIMEOUT":

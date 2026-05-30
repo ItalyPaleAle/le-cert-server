@@ -15,8 +15,6 @@ letsEncrypt:
   dnsCredentials:
     # EDGECENTER_PERMANENT_API_TOKEN: Permanent API token (https://edgecenter.ru/blog/permanent-api-token-explained/)
     permanentAPIToken: ""
-    # EDGECENTER_HTTP_TIMEOUT: API request timeout in seconds (Default: 10)
-    httpTimeout: ""
     # EDGECENTER_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 20)
     pollingInterval: ""
     # EDGECENTER_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 360)
@@ -25,5 +23,5 @@ letsEncrypt:
     ttl: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

@@ -4,7 +4,12 @@ package config
 
 import (
 	"fmt"
+	"net/url"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/checkdomain"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,34 +18,47 @@ import (
 type CheckdomainConfig struct {
 	Token              string // CHECKDOMAIN_TOKEN: API token
 	Endpoint           string // CHECKDOMAIN_ENDPOINT: API endpoint URL, defaults to https://api.checkdomain.de
-	HTTPTimeout        string // CHECKDOMAIN_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // CHECKDOMAIN_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 300)
 	PropagationTimeout string // CHECKDOMAIN_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 7)
 	TTL                string // CHECKDOMAIN_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 300)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *CheckdomainConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *CheckdomainConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Token != "" {
-		m["CHECKDOMAIN_TOKEN"] = c.Token
+		cfg.Token = c.Token
 	}
 	if c.Endpoint != "" {
-		m["CHECKDOMAIN_ENDPOINT"] = c.Endpoint
-	}
-	if c.HTTPTimeout != "" {
-		m["CHECKDOMAIN_HTTP_TIMEOUT"] = c.HTTPTimeout
+		v, err := url.Parse(c.Endpoint)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"endpoint\": %w", err)
+		}
+		cfg.Endpoint = v
 	}
 	if c.PollingInterval != "" {
-		m["CHECKDOMAIN_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["CHECKDOMAIN_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["CHECKDOMAIN_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -65,8 +83,6 @@ func (c *CheckdomainConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.Token = val
 		case "endpoint", "CHECKDOMAIN_ENDPOINT":
 			c.Endpoint = val
-		case "httpTimeout", "CHECKDOMAIN_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "CHECKDOMAIN_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "CHECKDOMAIN_PROPAGATION_TIMEOUT":

@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/allinkl"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,30 +17,35 @@ import (
 type AllinklConfig struct {
 	InklLogin              string // ALL_INKL_LOGIN: KAS login
 	InklPassword           string // ALL_INKL_PASSWORD: KAS password
-	InklHTTPTimeout        string // ALL_INKL_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	InklPollingInterval    string // ALL_INKL_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	InklPropagationTimeout string // ALL_INKL_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *AllinklConfig) envVars() map[string]string {
-	m := make(map[string]string, 5)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *AllinklConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.InklLogin != "" {
-		m["ALL_INKL_LOGIN"] = c.InklLogin
+		cfg.Login = c.InklLogin
 	}
 	if c.InklPassword != "" {
-		m["ALL_INKL_PASSWORD"] = c.InklPassword
-	}
-	if c.InklHTTPTimeout != "" {
-		m["ALL_INKL_HTTP_TIMEOUT"] = c.InklHTTPTimeout
+		cfg.Password = c.InklPassword
 	}
 	if c.InklPollingInterval != "" {
-		m["ALL_INKL_POLLING_INTERVAL"] = c.InklPollingInterval
+		v, err := strconv.Atoi(c.InklPollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"inklPollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.InklPropagationTimeout != "" {
-		m["ALL_INKL_PROPAGATION_TIMEOUT"] = c.InklPropagationTimeout
+		v, err := strconv.Atoi(c.InklPropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"inklPropagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -61,8 +70,6 @@ func (c *AllinklConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.InklLogin = val
 		case "inklPassword", "ALL_INKL_PASSWORD":
 			c.InklPassword = val
-		case "inklHTTPTimeout", "ALL_INKL_HTTP_TIMEOUT":
-			c.InklHTTPTimeout = val
 		case "inklPollingInterval", "ALL_INKL_POLLING_INTERVAL":
 			c.InklPollingInterval = val
 		case "inklPropagationTimeout", "ALL_INKL_PROPAGATION_TIMEOUT":

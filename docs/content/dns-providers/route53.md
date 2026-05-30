@@ -21,12 +21,8 @@ letsEncrypt:
     externalID: ""
     # AWS_HOSTED_ZONE_ID: Override the hosted zone ID.
     hostedZoneID: ""
-    # AWS_PROFILE: Managed by the AWS client (`AWS_PROFILE_FILE` is not supported)
-    profile: ""
     # AWS_REGION: Managed by the AWS client (`AWS_REGION_FILE` is not supported)
     region: ""
-    # AWS_SDK_LOAD_CONFIG: Managed by the AWS client. Retrieve the region from the CLI config file (`AWS_SDK_LOAD_CONFIG_FILE` is not supported)
-    sdkLoadConfig: ""
     # AWS_SECRET_ACCESS_KEY: Managed by the AWS client. Secret access key (`AWS_SECRET_ACCESS_KEY_FILE` is not supported, use `AWS_SHARED_CREDENTIALS_FILE` instead)
     secretAccessKey: ""
     # AWS_WAIT_FOR_RECORD_SETS_CHANGED: Wait for changes to be INSYNC (it can be unstable)
@@ -39,11 +35,9 @@ letsEncrypt:
     privateZone: ""
     # AWS_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
     propagationTimeout: ""
-    # AWS_SHARED_CREDENTIALS_FILE: Managed by the AWS client. Shared credentials file.
-    sharedCredentialsFile: ""
     # AWS_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 10)
     ttl: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

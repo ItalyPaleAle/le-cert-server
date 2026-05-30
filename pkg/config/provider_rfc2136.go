@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/rfc2136"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -25,58 +29,75 @@ type Rfc2136Config struct {
 	TSIGKey            string // DNSUPDATE_TSIG_KEY: Name of the secret key as defined in DNS server configuration. To disable TSIG authentication, leave the `DNSUPDATE_TSIG_KEY` variable unset.
 	TSIGSecret         string // DNSUPDATE_TSIG_SECRET: Secret key payload. To disable TSIG authentication, leave the `DNSUPDATE_TSIG_SECRET` variable unset.
 	TTL                string // DNSUPDATE_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
-	Zones              string // DNSUPDATE_ZONES: List of potential zones (separated by commas)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *Rfc2136Config) envVars() map[string]string {
-	m := make(map[string]string, 15)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *Rfc2136Config) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Nameserver != "" {
-		m["DNSUPDATE_NAMESERVER"] = c.Nameserver
+		cfg.Nameserver = c.Nameserver
 	}
 	if c.DNSTimeout != "" {
-		m["DNSUPDATE_DNS_TIMEOUT"] = c.DNSTimeout
+		v, err := strconv.Atoi(c.DNSTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"dnsTimeout\": %w", err)
+		}
+		cfg.DNSTimeout = time.Duration(v) * time.Second
 	}
 	if c.PollingInterval != "" {
-		m["DNSUPDATE_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["DNSUPDATE_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.SequenceInterval != "" {
-		m["DNSUPDATE_SEQUENCE_INTERVAL"] = c.SequenceInterval
+		v, err := strconv.Atoi(c.SequenceInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"sequenceInterval\": %w", err)
+		}
+		cfg.SequenceInterval = time.Duration(v) * time.Second
 	}
 	if c.TSIGAlgorithm != "" {
-		m["DNSUPDATE_TSIG_ALGORITHM"] = c.TSIGAlgorithm
+		cfg.TSIGAlgorithm = c.TSIGAlgorithm
 	}
 	if c.TSIGFile != "" {
-		m["DNSUPDATE_TSIG_FILE"] = c.TSIGFile
+		cfg.TSIGFile = c.TSIGFile
 	}
 	if c.TSIGGSSKeytabFile != "" {
-		m["DNSUPDATE_TSIG_GSS_KEYTAB_FILE"] = c.TSIGGSSKeytabFile
+		cfg.TSIGGSSKeytabFile = c.TSIGGSSKeytabFile
 	}
 	if c.TSIGGSSPassword != "" {
-		m["DNSUPDATE_TSIG_GSS_PASSWORD"] = c.TSIGGSSPassword
+		cfg.TSIGGSSPassword = c.TSIGGSSPassword
 	}
 	if c.TSIGGSSRealm != "" {
-		m["DNSUPDATE_TSIG_GSS_REALM"] = c.TSIGGSSRealm
+		cfg.TSIGGSSRealm = c.TSIGGSSRealm
 	}
 	if c.TSIGGSSUsername != "" {
-		m["DNSUPDATE_TSIG_GSS_USERNAME"] = c.TSIGGSSUsername
+		cfg.TSIGGSSUsername = c.TSIGGSSUsername
 	}
 	if c.TSIGKey != "" {
-		m["DNSUPDATE_TSIG_KEY"] = c.TSIGKey
+		cfg.TSIGKey = c.TSIGKey
 	}
 	if c.TSIGSecret != "" {
-		m["DNSUPDATE_TSIG_SECRET"] = c.TSIGSecret
+		cfg.TSIGSecret = c.TSIGSecret
 	}
 	if c.TTL != "" {
-		m["DNSUPDATE_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	if c.Zones != "" {
-		m["DNSUPDATE_ZONES"] = c.Zones
-	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -125,8 +146,6 @@ func (c *Rfc2136Config) UnmarshalYAML(value *yaml.Node) error {
 			c.TSIGSecret = val
 		case "ttl", "DNSUPDATE_TTL":
 			c.TTL = val
-		case "zones", "DNSUPDATE_ZONES":
-			c.Zones = val
 		default:
 			return fmt.Errorf("unknown credential key %q for DNS provider \"rfc2136\"", key)
 		}

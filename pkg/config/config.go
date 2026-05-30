@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/go-acme/lego/v4/challenge"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -225,9 +226,9 @@ type ConfigDev struct {
 
 // Internal properties
 type internal struct {
-	instanceID       string
-	configFileLoaded string            // Path to the config file that was loaded
-	dnsEnv           map[string]string // Resolved DNS provider environment variables
+	instanceID        string
+	configFileLoaded  string            // Path to the config file that was loaded
+	dnsProviderConfig dnsProviderConfig // Resolved, strongly-typed DNS provider credentials
 }
 
 // String implements fmt.Stringer and prints out the config for debugging
@@ -252,10 +253,14 @@ func (c *Config) GetInstanceID() string {
 	return c.internal.instanceID
 }
 
-// GetDNSEnv returns the resolved DNS provider environment variables
-// It is populated by resolveDNSProvider during Validate
-func (c *Config) GetDNSEnv() map[string]string {
-	return c.internal.dnsEnv
+// NewDNSProvider builds the lego DNS challenge provider from the resolved, strongly-typed credentials
+// Credentials are passed to lego using strong types and are never written to the process environment
+func (c *Config) NewDNSProvider() (challenge.Provider, error) {
+	if c.internal.dnsProviderConfig == nil {
+		return nil, errors.New("DNS provider has not been resolved; Validate must be called first")
+	}
+	//nolint:wrapcheck
+	return c.internal.dnsProviderConfig.newProvider()
 }
 
 // resolveDNSProvider validates the configured DNS provider and decodes its credentials
@@ -274,7 +279,7 @@ func (c *Config) resolveDNSProvider() error {
 		}
 	}
 
-	c.internal.dnsEnv = pc.envVars()
+	c.internal.dnsProviderConfig = pc
 	return nil
 }
 

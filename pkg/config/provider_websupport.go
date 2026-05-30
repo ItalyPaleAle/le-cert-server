@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/websupport"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,38 +17,43 @@ import (
 type WebsupportConfig struct {
 	APIKey             string // WEBSUPPORT_API_KEY: API key
 	Secret             string // WEBSUPPORT_SECRET: API secret
-	HTTPTimeout        string // WEBSUPPORT_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // WEBSUPPORT_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // WEBSUPPORT_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
-	SequenceInterval   string // WEBSUPPORT_SEQUENCE_INTERVAL: Time between sequential requests in seconds (Default: 60)
 	TTL                string // WEBSUPPORT_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 600)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *WebsupportConfig) envVars() map[string]string {
-	m := make(map[string]string, 7)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *WebsupportConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIKey != "" {
-		m["WEBSUPPORT_API_KEY"] = c.APIKey
+		cfg.APIKey = c.APIKey
 	}
 	if c.Secret != "" {
-		m["WEBSUPPORT_SECRET"] = c.Secret
-	}
-	if c.HTTPTimeout != "" {
-		m["WEBSUPPORT_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Secret = c.Secret
 	}
 	if c.PollingInterval != "" {
-		m["WEBSUPPORT_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["WEBSUPPORT_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
-	}
-	if c.SequenceInterval != "" {
-		m["WEBSUPPORT_SEQUENCE_INTERVAL"] = c.SequenceInterval
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["WEBSUPPORT_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -69,14 +78,10 @@ func (c *WebsupportConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.APIKey = val
 		case "secret", "WEBSUPPORT_SECRET":
 			c.Secret = val
-		case "httpTimeout", "WEBSUPPORT_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "WEBSUPPORT_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "WEBSUPPORT_PROPAGATION_TIMEOUT":
 			c.PropagationTimeout = val
-		case "sequenceInterval", "WEBSUPPORT_SEQUENCE_INTERVAL":
-			c.SequenceInterval = val
 		case "ttl", "WEBSUPPORT_TTL":
 			c.TTL = val
 		default:

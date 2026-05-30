@@ -25,11 +25,9 @@ letsEncrypt:
     propagationTimeout: ""
     # LWAPI_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 300)
     ttl: ""
-    # LWAPI_URL: Liquid Web API endpoint
-    url: ""
     # LWAPI_ZONE: DNS Zone
     zone: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

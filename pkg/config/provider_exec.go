@@ -5,6 +5,8 @@ package config
 import (
 	"fmt"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/exec"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,10 +15,11 @@ import (
 type ExecConfig struct {
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *ExecConfig) envVars() map[string]string {
-	m := make(map[string]string, 0)
-	return m
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *ExecConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials

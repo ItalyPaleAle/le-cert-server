@@ -17,8 +17,6 @@ letsEncrypt:
     clientID: ""
     # AZURE_CLIENT_SECRET: Client secret
     clientSecret: ""
-    # AZURE_ENVIRONMENT: Azure environment, one of: public, usgovernment, german, and china
-    environment: ""
     # AZURE_RESOURCE_GROUP: Resource group
     resourceGroup: ""
     # AZURE_SUBSCRIPTION_ID: Subscription ID
@@ -39,5 +37,5 @@ letsEncrypt:
     zoneName: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

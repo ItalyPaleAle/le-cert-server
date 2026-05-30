@@ -4,59 +4,48 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/edgedns"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
 // EdgednsConfig holds configuration for the "edgedns" DNS provider (Akamai EdgeDNS)
 // See https://www.akamai.com/us/en/products/security/edge-dns.jsp
 type EdgednsConfig struct {
-	AccessToken        string // AKAMAI_ACCESS_TOKEN: Access token, managed by the Akamai EdgeGrid client
-	ClientSecret       string // AKAMAI_CLIENT_SECRET: Client secret, managed by the Akamai EdgeGrid client
-	ClientToken        string // AKAMAI_CLIENT_TOKEN: Client token, managed by the Akamai EdgeGrid client
-	Edgerc             string // AKAMAI_EDGERC: Path to the .edgerc file, managed by the Akamai EdgeGrid client
-	EdgercSection      string // AKAMAI_EDGERC_SECTION: Configuration section, managed by the Akamai EdgeGrid client
-	Host               string // AKAMAI_HOST: API host, managed by the Akamai EdgeGrid client
-	AccountSwitchKey   string // AKAMAI_ACCOUNT_SWITCH_KEY: Target account ID when the DNS zone and credentials belong to different accounts
 	PollingInterval    string // AKAMAI_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 15)
 	PropagationTimeout string // AKAMAI_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 180)
 	TTL                string // AKAMAI_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *EdgednsConfig) envVars() map[string]string {
-	m := make(map[string]string, 10)
-	if c.AccessToken != "" {
-		m["AKAMAI_ACCESS_TOKEN"] = c.AccessToken
-	}
-	if c.ClientSecret != "" {
-		m["AKAMAI_CLIENT_SECRET"] = c.ClientSecret
-	}
-	if c.ClientToken != "" {
-		m["AKAMAI_CLIENT_TOKEN"] = c.ClientToken
-	}
-	if c.Edgerc != "" {
-		m["AKAMAI_EDGERC"] = c.Edgerc
-	}
-	if c.EdgercSection != "" {
-		m["AKAMAI_EDGERC_SECTION"] = c.EdgercSection
-	}
-	if c.Host != "" {
-		m["AKAMAI_HOST"] = c.Host
-	}
-	if c.AccountSwitchKey != "" {
-		m["AKAMAI_ACCOUNT_SWITCH_KEY"] = c.AccountSwitchKey
-	}
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *EdgednsConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.PollingInterval != "" {
-		m["AKAMAI_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["AKAMAI_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["AKAMAI_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -77,20 +66,6 @@ func (c *EdgednsConfig) UnmarshalYAML(value *yaml.Node) error {
 			return err
 		}
 		switch key {
-		case "accessToken", "AKAMAI_ACCESS_TOKEN":
-			c.AccessToken = val
-		case "clientSecret", "AKAMAI_CLIENT_SECRET":
-			c.ClientSecret = val
-		case "clientToken", "AKAMAI_CLIENT_TOKEN":
-			c.ClientToken = val
-		case "edgerc", "AKAMAI_EDGERC":
-			c.Edgerc = val
-		case "edgercSection", "AKAMAI_EDGERC_SECTION":
-			c.EdgercSection = val
-		case "host", "AKAMAI_HOST":
-			c.Host = val
-		case "accountSwitchKey", "AKAMAI_ACCOUNT_SWITCH_KEY":
-			c.AccountSwitchKey = val
 		case "pollingInterval", "AKAMAI_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "AKAMAI_PROPAGATION_TIMEOUT":

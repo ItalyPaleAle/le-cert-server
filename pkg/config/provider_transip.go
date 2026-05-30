@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/transip"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,34 +17,43 @@ import (
 type TransipConfig struct {
 	AccountName        string // TRANSIP_ACCOUNT_NAME: Account name
 	PrivateKeyPath     string // TRANSIP_PRIVATE_KEY_PATH: Private key path
-	HTTPTimeout        string // TRANSIP_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // TRANSIP_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
 	PropagationTimeout string // TRANSIP_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 600)
 	TTL                string // TRANSIP_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 10)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *TransipConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *TransipConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.AccountName != "" {
-		m["TRANSIP_ACCOUNT_NAME"] = c.AccountName
+		cfg.AccountName = c.AccountName
 	}
 	if c.PrivateKeyPath != "" {
-		m["TRANSIP_PRIVATE_KEY_PATH"] = c.PrivateKeyPath
-	}
-	if c.HTTPTimeout != "" {
-		m["TRANSIP_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.PrivateKeyPath = c.PrivateKeyPath
 	}
 	if c.PollingInterval != "" {
-		m["TRANSIP_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["TRANSIP_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["TRANSIP_TTL"] = c.TTL
+		v, err := strconv.ParseInt(c.TTL, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -65,8 +78,6 @@ func (c *TransipConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.AccountName = val
 		case "privateKeyPath", "TRANSIP_PRIVATE_KEY_PATH":
 			c.PrivateKeyPath = val
-		case "httpTimeout", "TRANSIP_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "TRANSIP_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "TRANSIP_PROPAGATION_TIMEOUT":

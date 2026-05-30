@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/zoneedit"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,30 +17,35 @@ import (
 type ZoneeditConfig struct {
 	AuthToken          string // ZONEEDIT_AUTH_TOKEN: Authentication token
 	User               string // ZONEEDIT_USER: User ID
-	HTTPTimeout        string // ZONEEDIT_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // ZONEEDIT_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // ZONEEDIT_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *ZoneeditConfig) envVars() map[string]string {
-	m := make(map[string]string, 5)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *ZoneeditConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.AuthToken != "" {
-		m["ZONEEDIT_AUTH_TOKEN"] = c.AuthToken
+		cfg.AuthToken = c.AuthToken
 	}
 	if c.User != "" {
-		m["ZONEEDIT_USER"] = c.User
-	}
-	if c.HTTPTimeout != "" {
-		m["ZONEEDIT_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.User = c.User
 	}
 	if c.PollingInterval != "" {
-		m["ZONEEDIT_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["ZONEEDIT_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -61,8 +70,6 @@ func (c *ZoneeditConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.AuthToken = val
 		case "user", "ZONEEDIT_USER":
 			c.User = val
-		case "httpTimeout", "ZONEEDIT_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "ZONEEDIT_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "ZONEEDIT_PROPAGATION_TIMEOUT":

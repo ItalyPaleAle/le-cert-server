@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/namedotcom"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,34 +17,43 @@ import (
 type NamedotcomConfig struct {
 	APIToken           string // NAMECOM_API_TOKEN: API token
 	Username           string // NAMECOM_USERNAME: Username
-	HTTPTimeout        string // NAMECOM_HTTP_TIMEOUT: API request timeout in seconds (Default: 10)
 	PollingInterval    string // NAMECOM_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 20)
 	PropagationTimeout string // NAMECOM_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 900)
 	TTL                string // NAMECOM_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 300)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *NamedotcomConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *NamedotcomConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIToken != "" {
-		m["NAMECOM_API_TOKEN"] = c.APIToken
+		cfg.APIToken = c.APIToken
 	}
 	if c.Username != "" {
-		m["NAMECOM_USERNAME"] = c.Username
-	}
-	if c.HTTPTimeout != "" {
-		m["NAMECOM_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Username = c.Username
 	}
 	if c.PollingInterval != "" {
-		m["NAMECOM_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["NAMECOM_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["NAMECOM_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -65,8 +78,6 @@ func (c *NamedotcomConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.APIToken = val
 		case "username", "NAMECOM_USERNAME":
 			c.Username = val
-		case "httpTimeout", "NAMECOM_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "NAMECOM_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "NAMECOM_PROPAGATION_TIMEOUT":

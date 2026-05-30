@@ -15,13 +15,11 @@ letsEncrypt:
   dnsCredentials:
     # BINDMAN_MANAGER_ADDRESS: The server URL, should have scheme, hostname, and port (if required) of the Bindman-DNS Manager server
     managerAddress: ""
-    # BINDMAN_HTTP_TIMEOUT: API request timeout in seconds (Default: 60)
-    httpTimeout: ""
     # BINDMAN_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     pollingInterval: ""
     # BINDMAN_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
     propagationTimeout: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/volcengine"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -22,37 +26,54 @@ type VolcengineConfig struct {
 	TTL                string // VOLC_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 600)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *VolcengineConfig) envVars() map[string]string {
-	m := make(map[string]string, 9)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *VolcengineConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Accesskey != "" {
-		m["VOLC_ACCESSKEY"] = c.Accesskey
+		cfg.AccessKey = c.Accesskey
 	}
 	if c.Secretkey != "" {
-		m["VOLC_SECRETKEY"] = c.Secretkey
+		cfg.SecretKey = c.Secretkey
 	}
 	if c.Host != "" {
-		m["VOLC_HOST"] = c.Host
+		cfg.Host = c.Host
 	}
 	if c.HTTPTimeout != "" {
-		m["VOLC_HTTP_TIMEOUT"] = c.HTTPTimeout
+		v, err := strconv.Atoi(c.HTTPTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"httpTimeout\": %w", err)
+		}
+		cfg.HTTPTimeout = time.Duration(v) * time.Second
 	}
 	if c.PollingInterval != "" {
-		m["VOLC_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["VOLC_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.Region != "" {
-		m["VOLC_REGION"] = c.Region
+		cfg.Region = c.Region
 	}
 	if c.Scheme != "" {
-		m["VOLC_SCHEME"] = c.Scheme
+		cfg.Scheme = c.Scheme
 	}
 	if c.TTL != "" {
-		m["VOLC_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials

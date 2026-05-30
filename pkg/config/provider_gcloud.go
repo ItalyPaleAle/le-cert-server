@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/gcloud"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -12,8 +16,6 @@ import (
 // See https://cloud.google.com
 type GcloudConfig struct {
 	Project                   string // GCE_PROJECT: Project name (by default, the project name is auto-detected by using the metadata service)
-	ServiceAccount            string // GCE_SERVICE_ACCOUNT: Account
-	ServiceAccountFile        string // GCE_SERVICE_ACCOUNT_FILE: Account file path
 	AllowPrivateZone          string // GCE_ALLOW_PRIVATE_ZONE: Allows requested domain to be in private DNS zone, works only with a private ACME server (by default: false)
 	ImpersonateServiceAccount string // GCE_IMPERSONATE_SERVICE_ACCOUNT: Service account email to impersonate
 	PollingInterval           string // GCE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 5)
@@ -22,37 +24,48 @@ type GcloudConfig struct {
 	ZoneID                    string // GCE_ZONE_ID: Allows to skip the automatic detection of the zone
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *GcloudConfig) envVars() map[string]string {
-	m := make(map[string]string, 9)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *GcloudConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Project != "" {
-		m["GCE_PROJECT"] = c.Project
-	}
-	if c.ServiceAccount != "" {
-		m["GCE_SERVICE_ACCOUNT"] = c.ServiceAccount
-	}
-	if c.ServiceAccountFile != "" {
-		m["GCE_SERVICE_ACCOUNT_FILE"] = c.ServiceAccountFile
+		cfg.Project = c.Project
 	}
 	if c.AllowPrivateZone != "" {
-		m["GCE_ALLOW_PRIVATE_ZONE"] = c.AllowPrivateZone
+		v, err := strconv.ParseBool(c.AllowPrivateZone)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"allowPrivateZone\": %w", err)
+		}
+		cfg.AllowPrivateZone = v
 	}
 	if c.ImpersonateServiceAccount != "" {
-		m["GCE_IMPERSONATE_SERVICE_ACCOUNT"] = c.ImpersonateServiceAccount
+		cfg.ImpersonateServiceAccount = c.ImpersonateServiceAccount
 	}
 	if c.PollingInterval != "" {
-		m["GCE_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["GCE_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["GCE_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
 	if c.ZoneID != "" {
-		m["GCE_ZONE_ID"] = c.ZoneID
+		cfg.ZoneID = c.ZoneID
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -75,10 +88,6 @@ func (c *GcloudConfig) UnmarshalYAML(value *yaml.Node) error {
 		switch key {
 		case "project", "GCE_PROJECT":
 			c.Project = val
-		case "serviceAccount", "GCE_SERVICE_ACCOUNT":
-			c.ServiceAccount = val
-		case "serviceAccountFile", "GCE_SERVICE_ACCOUNT_FILE":
-			c.ServiceAccountFile = val
 		case "allowPrivateZone", "GCE_ALLOW_PRIVATE_ZONE":
 			c.AllowPrivateZone = val
 		case "impersonateServiceAccount", "GCE_IMPERSONATE_SERVICE_ACCOUNT":

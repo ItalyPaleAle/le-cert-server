@@ -15,8 +15,6 @@ letsEncrypt:
   dnsCredentials:
     # HYPERONE_API_URL: Allows to pass custom API Endpoint to be used in the challenge (default https://api.hyperone.com/v2)
     apiURL: ""
-    # HYPERONE_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
-    httpTimeout: ""
     # HYPERONE_LOCATION_ID: Specifies location (region) to be used in API calls. (default pl-waw-1)
     locationID: ""
     # HYPERONE_PASSPORT_LOCATION: Allows to pass custom passport file location (default ~/.h1/passport.json)
@@ -29,5 +27,5 @@ letsEncrypt:
     ttl: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

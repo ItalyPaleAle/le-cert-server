@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/yandex360"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,34 +17,47 @@ import (
 type Yandex360Config struct {
 	OAUTHToken         string // YANDEX360_OAUTH_TOKEN: The OAuth Token
 	OrgID              string // YANDEX360_ORG_ID: The organization ID
-	HTTPTimeout        string // YANDEX360_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // YANDEX360_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // YANDEX360_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // YANDEX360_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 21600)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *Yandex360Config) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *Yandex360Config) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.OAUTHToken != "" {
-		m["YANDEX360_OAUTH_TOKEN"] = c.OAUTHToken
+		cfg.OAuthToken = c.OAUTHToken
 	}
 	if c.OrgID != "" {
-		m["YANDEX360_ORG_ID"] = c.OrgID
-	}
-	if c.HTTPTimeout != "" {
-		m["YANDEX360_HTTP_TIMEOUT"] = c.HTTPTimeout
+		v, err := strconv.ParseInt(c.OrgID, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"orgID\": %w", err)
+		}
+		cfg.OrgID = v
 	}
 	if c.PollingInterval != "" {
-		m["YANDEX360_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["YANDEX360_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["YANDEX360_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -65,8 +82,6 @@ func (c *Yandex360Config) UnmarshalYAML(value *yaml.Node) error {
 			c.OAUTHToken = val
 		case "orgID", "YANDEX360_ORG_ID":
 			c.OrgID = val
-		case "httpTimeout", "YANDEX360_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "YANDEX360_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "YANDEX360_PROPAGATION_TIMEOUT":

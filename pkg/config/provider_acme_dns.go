@@ -5,6 +5,8 @@ package config
 import (
 	"fmt"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/acmedns"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -14,25 +16,22 @@ type AcmeDNSConfig struct {
 	DNSAPIBase        string // ACME_DNS_API_BASE: The ACME-DNS API address
 	DNSStorageBaseURL string // ACME_DNS_STORAGE_BASE_URL: The ACME-DNS JSON account data server.
 	DNSStoragePath    string // ACME_DNS_STORAGE_PATH: The ACME-DNS JSON account data file. A per-domain account will be registered/persisted to this file and used for TXT updates.
-	DNSAllowlist      string // ACME_DNS_ALLOWLIST: Source networks using CIDR notation (multiple values should be separated with a comma).
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *AcmeDNSConfig) envVars() map[string]string {
-	m := make(map[string]string, 4)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *AcmeDNSConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.DNSAPIBase != "" {
-		m["ACME_DNS_API_BASE"] = c.DNSAPIBase
+		cfg.APIBase = c.DNSAPIBase
 	}
 	if c.DNSStorageBaseURL != "" {
-		m["ACME_DNS_STORAGE_BASE_URL"] = c.DNSStorageBaseURL
+		cfg.StorageBaseURL = c.DNSStorageBaseURL
 	}
 	if c.DNSStoragePath != "" {
-		m["ACME_DNS_STORAGE_PATH"] = c.DNSStoragePath
+		cfg.StoragePath = c.DNSStoragePath
 	}
-	if c.DNSAllowlist != "" {
-		m["ACME_DNS_ALLOWLIST"] = c.DNSAllowlist
-	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -59,8 +58,6 @@ func (c *AcmeDNSConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.DNSStorageBaseURL = val
 		case "dnsStoragePath", "ACME_DNS_STORAGE_PATH":
 			c.DNSStoragePath = val
-		case "dnsAllowlist", "ACME_DNS_ALLOWLIST":
-			c.DNSAllowlist = val
 		default:
 			return fmt.Errorf("unknown credential key %q for DNS provider \"acme-dns\"", key)
 		}

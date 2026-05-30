@@ -21,8 +21,6 @@ letsEncrypt:
     projectName: ""
     # OTC_USER_NAME: User name
     userName: ""
-    # OTC_HTTP_TIMEOUT: API request timeout in seconds (Default: 10)
-    httpTimeout: ""
     # OTC_IDENTITY_ENDPOINT: Identity endpoint URL (default: https://iam.eu-de.otc.t-systems.com:443/v3/auth/tokens)
     identityEndpoint: ""
     # OTC_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
@@ -37,5 +35,5 @@ letsEncrypt:
     ttl: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

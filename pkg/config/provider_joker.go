@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/joker"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -15,44 +19,57 @@ type JokerConfig struct {
 	APIMode            string // JOKER_API_MODE: 'DMAPI' or 'SVC'. DMAPI is for resellers accounts. (Default: DMAPI)
 	Password           string // JOKER_PASSWORD: Joker.com password
 	Username           string // JOKER_USERNAME: Joker.com username
-	HTTPTimeout        string // JOKER_HTTP_TIMEOUT: API request timeout in seconds (Default: 60)
 	PollingInterval    string // JOKER_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // JOKER_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
 	SequenceInterval   string // JOKER_SEQUENCE_INTERVAL: Time between sequential requests in seconds (Default: 60), only with 'SVC' mode
 	TTL                string // JOKER_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *JokerConfig) envVars() map[string]string {
-	m := make(map[string]string, 9)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *JokerConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIKey != "" {
-		m["JOKER_API_KEY"] = c.APIKey
+		cfg.APIKey = c.APIKey
 	}
 	if c.APIMode != "" {
-		m["JOKER_API_MODE"] = c.APIMode
+		cfg.APIMode = c.APIMode
 	}
 	if c.Password != "" {
-		m["JOKER_PASSWORD"] = c.Password
+		cfg.Password = c.Password
 	}
 	if c.Username != "" {
-		m["JOKER_USERNAME"] = c.Username
-	}
-	if c.HTTPTimeout != "" {
-		m["JOKER_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Username = c.Username
 	}
 	if c.PollingInterval != "" {
-		m["JOKER_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["JOKER_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.SequenceInterval != "" {
-		m["JOKER_SEQUENCE_INTERVAL"] = c.SequenceInterval
+		v, err := strconv.Atoi(c.SequenceInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"sequenceInterval\": %w", err)
+		}
+		cfg.SequenceInterval = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["JOKER_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -81,8 +98,6 @@ func (c *JokerConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.Password = val
 		case "username", "JOKER_USERNAME":
 			c.Username = val
-		case "httpTimeout", "JOKER_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "JOKER_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "JOKER_PROPAGATION_TIMEOUT":

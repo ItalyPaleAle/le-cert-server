@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/iwantmyname"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,34 +17,43 @@ import (
 type IwantmynameConfig struct {
 	Password           string // IWANTMYNAME_PASSWORD: API password
 	Username           string // IWANTMYNAME_USERNAME: API username
-	HTTPTimeout        string // IWANTMYNAME_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // IWANTMYNAME_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // IWANTMYNAME_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // IWANTMYNAME_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *IwantmynameConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *IwantmynameConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Password != "" {
-		m["IWANTMYNAME_PASSWORD"] = c.Password
+		cfg.Password = c.Password
 	}
 	if c.Username != "" {
-		m["IWANTMYNAME_USERNAME"] = c.Username
-	}
-	if c.HTTPTimeout != "" {
-		m["IWANTMYNAME_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Username = c.Username
 	}
 	if c.PollingInterval != "" {
-		m["IWANTMYNAME_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["IWANTMYNAME_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["IWANTMYNAME_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -65,8 +78,6 @@ func (c *IwantmynameConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.Password = val
 		case "username", "IWANTMYNAME_USERNAME":
 			c.Username = val
-		case "httpTimeout", "IWANTMYNAME_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "IWANTMYNAME_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "IWANTMYNAME_PROPAGATION_TIMEOUT":

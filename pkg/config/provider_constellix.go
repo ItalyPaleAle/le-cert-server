@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/constellix"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,34 +17,43 @@ import (
 type ConstellixConfig struct {
 	APIKey             string // CONSTELLIX_API_KEY: User API key
 	SecretKey          string // CONSTELLIX_SECRET_KEY: User secret key
-	HTTPTimeout        string // CONSTELLIX_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // CONSTELLIX_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
 	PropagationTimeout string // CONSTELLIX_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // CONSTELLIX_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 60)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *ConstellixConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *ConstellixConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIKey != "" {
-		m["CONSTELLIX_API_KEY"] = c.APIKey
+		cfg.APIKey = c.APIKey
 	}
 	if c.SecretKey != "" {
-		m["CONSTELLIX_SECRET_KEY"] = c.SecretKey
-	}
-	if c.HTTPTimeout != "" {
-		m["CONSTELLIX_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.SecretKey = c.SecretKey
 	}
 	if c.PollingInterval != "" {
-		m["CONSTELLIX_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["CONSTELLIX_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["CONSTELLIX_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -65,8 +78,6 @@ func (c *ConstellixConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.APIKey = val
 		case "secretKey", "CONSTELLIX_SECRET_KEY":
 			c.SecretKey = val
-		case "httpTimeout", "CONSTELLIX_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "CONSTELLIX_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "CONSTELLIX_PROPAGATION_TIMEOUT":

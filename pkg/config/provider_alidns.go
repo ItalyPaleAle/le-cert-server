@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/alidns"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -23,40 +27,57 @@ type AlidnsConfig struct {
 	TTL                string // ALICLOUD_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 600)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *AlidnsConfig) envVars() map[string]string {
-	m := make(map[string]string, 10)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *AlidnsConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.AccessKey != "" {
-		m["ALICLOUD_ACCESS_KEY"] = c.AccessKey
+		cfg.APIKey = c.AccessKey
 	}
 	if c.RAMRole != "" {
-		m["ALICLOUD_RAM_ROLE"] = c.RAMRole
+		cfg.RAMRole = c.RAMRole
 	}
 	if c.SecretKey != "" {
-		m["ALICLOUD_SECRET_KEY"] = c.SecretKey
+		cfg.SecretKey = c.SecretKey
 	}
 	if c.SecurityToken != "" {
-		m["ALICLOUD_SECURITY_TOKEN"] = c.SecurityToken
+		cfg.SecurityToken = c.SecurityToken
 	}
 	if c.HTTPTimeout != "" {
-		m["ALICLOUD_HTTP_TIMEOUT"] = c.HTTPTimeout
+		v, err := strconv.Atoi(c.HTTPTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"httpTimeout\": %w", err)
+		}
+		cfg.HTTPTimeout = time.Duration(v) * time.Second
 	}
 	if c.Line != "" {
-		m["ALICLOUD_LINE"] = c.Line
+		cfg.Line = c.Line
 	}
 	if c.PollingInterval != "" {
-		m["ALICLOUD_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["ALICLOUD_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.RegionID != "" {
-		m["ALICLOUD_REGION_ID"] = c.RegionID
+		cfg.RegionID = c.RegionID
 	}
 	if c.TTL != "" {
-		m["ALICLOUD_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials

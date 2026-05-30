@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/netnod"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -12,31 +16,40 @@ import (
 // See https://www.netnod.se/dns/
 type NetnodConfig struct {
 	Token              string // NETNOD_TOKEN: API token
-	HTTPTimeout        string // NETNOD_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // NETNOD_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // NETNOD_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // NETNOD_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *NetnodConfig) envVars() map[string]string {
-	m := make(map[string]string, 5)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *NetnodConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Token != "" {
-		m["NETNOD_TOKEN"] = c.Token
-	}
-	if c.HTTPTimeout != "" {
-		m["NETNOD_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Token = c.Token
 	}
 	if c.PollingInterval != "" {
-		m["NETNOD_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["NETNOD_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["NETNOD_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -59,8 +72,6 @@ func (c *NetnodConfig) UnmarshalYAML(value *yaml.Node) error {
 		switch key {
 		case "token", "NETNOD_TOKEN":
 			c.Token = val
-		case "httpTimeout", "NETNOD_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "NETNOD_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "NETNOD_PROPAGATION_TIMEOUT":

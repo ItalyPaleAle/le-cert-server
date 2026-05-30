@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/cloudflare"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -16,43 +20,52 @@ type CloudflareConfig struct {
 	DNSAPIToken        string // CF_DNS_API_TOKEN: API token with DNS:Edit permission (since v3.1.0)
 	ZoneAPIToken       string // CF_ZONE_API_TOKEN: API token with Zone:Read permission (since v3.1.0)
 	BaseURL            string // CLOUDFLARE_BASE_URL: API base URL (Default: https://api.cloudflare.com/client/v4)
-	HTTPTimeout        string // CLOUDFLARE_HTTP_TIMEOUT: API request timeout in seconds (Default: )
 	PollingInterval    string // CLOUDFLARE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // CLOUDFLARE_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
 	TTL                string // CLOUDFLARE_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *CloudflareConfig) envVars() map[string]string {
-	m := make(map[string]string, 9)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *CloudflareConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIEmail != "" {
-		m["CF_API_EMAIL"] = c.APIEmail
+		cfg.AuthEmail = c.APIEmail
 	}
 	if c.APIKey != "" {
-		m["CF_API_KEY"] = c.APIKey
+		cfg.AuthKey = c.APIKey
 	}
 	if c.DNSAPIToken != "" {
-		m["CF_DNS_API_TOKEN"] = c.DNSAPIToken
+		cfg.AuthToken = c.DNSAPIToken
 	}
 	if c.ZoneAPIToken != "" {
-		m["CF_ZONE_API_TOKEN"] = c.ZoneAPIToken
+		cfg.ZoneToken = c.ZoneAPIToken
 	}
 	if c.BaseURL != "" {
-		m["CLOUDFLARE_BASE_URL"] = c.BaseURL
-	}
-	if c.HTTPTimeout != "" {
-		m["CLOUDFLARE_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.BaseURL = c.BaseURL
 	}
 	if c.PollingInterval != "" {
-		m["CLOUDFLARE_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["CLOUDFLARE_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["CLOUDFLARE_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -83,8 +96,6 @@ func (c *CloudflareConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.ZoneAPIToken = val
 		case "baseURL", "CLOUDFLARE_BASE_URL":
 			c.BaseURL = val
-		case "httpTimeout", "CLOUDFLARE_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "CLOUDFLARE_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "CLOUDFLARE_PROPAGATION_TIMEOUT":

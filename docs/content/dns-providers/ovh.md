@@ -19,16 +19,10 @@ letsEncrypt:
     applicationKey: ""
     # OVH_APPLICATION_SECRET: Application secret (Application Key authentication)
     applicationSecret: ""
-    # OVH_CLIENT_ID: Client ID (OAuth2)
-    clientID: ""
-    # OVH_CLIENT_SECRET: Client secret (OAuth2)
-    clientSecret: ""
     # OVH_CONSUMER_KEY: Consumer key (Application Key authentication)
     consumerKey: ""
     # OVH_ENDPOINT: Endpoint URL (ovh-eu or ovh-ca)
     endpoint: ""
-    # OVH_HTTP_TIMEOUT: API request timeout in seconds (Default: 180)
-    httpTimeout: ""
     # OVH_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     pollingInterval: ""
     # OVH_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
@@ -37,5 +31,5 @@ letsEncrypt:
     ttl: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

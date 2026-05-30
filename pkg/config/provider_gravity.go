@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/gravity"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -14,37 +18,46 @@ type GravityConfig struct {
 	Password           string // GRAVITY_PASSWORD: Password
 	ServerURL          string // GRAVITY_SERVER_URL: URL of the server
 	Username           string // GRAVITY_USERNAME: Username
-	HTTPTimeout        string // GRAVITY_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // GRAVITY_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // GRAVITY_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	SequenceInterval   string // GRAVITY_SEQUENCE_INTERVAL: Time between sequential requests in seconds (Default: 1)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *GravityConfig) envVars() map[string]string {
-	m := make(map[string]string, 7)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *GravityConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Password != "" {
-		m["GRAVITY_PASSWORD"] = c.Password
+		cfg.Password = c.Password
 	}
 	if c.ServerURL != "" {
-		m["GRAVITY_SERVER_URL"] = c.ServerURL
+		cfg.ServerURL = c.ServerURL
 	}
 	if c.Username != "" {
-		m["GRAVITY_USERNAME"] = c.Username
-	}
-	if c.HTTPTimeout != "" {
-		m["GRAVITY_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Username = c.Username
 	}
 	if c.PollingInterval != "" {
-		m["GRAVITY_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["GRAVITY_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.SequenceInterval != "" {
-		m["GRAVITY_SEQUENCE_INTERVAL"] = c.SequenceInterval
+		v, err := strconv.Atoi(c.SequenceInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"sequenceInterval\": %w", err)
+		}
+		cfg.SequenceInterval = time.Duration(v) * time.Second
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -71,8 +84,6 @@ func (c *GravityConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.ServerURL = val
 		case "username", "GRAVITY_USERNAME":
 			c.Username = val
-		case "httpTimeout", "GRAVITY_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "GRAVITY_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "GRAVITY_PROPAGATION_TIMEOUT":

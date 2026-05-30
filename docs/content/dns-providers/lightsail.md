@@ -13,19 +13,13 @@ See the [lego documentation](https://go-acme.github.io/lego/dns/lightsail/) for 
 letsEncrypt:
   dnsProvider: "lightsail"
   dnsCredentials:
-    # AWS_ACCESS_KEY_ID: Managed by the AWS client. Access key ID (`AWS_ACCESS_KEY_ID_FILE` is not supported, use `AWS_SHARED_CREDENTIALS_FILE` instead)
-    accessKeyID: ""
-    # AWS_SECRET_ACCESS_KEY: Managed by the AWS client. Secret access key (`AWS_SECRET_ACCESS_KEY_FILE` is not supported, use `AWS_SHARED_CREDENTIALS_FILE` instead)
-    secretAccessKey: ""
     # DNS_ZONE: Domain name of the DNS zone
     zone: ""
-    # AWS_SHARED_CREDENTIALS_FILE: Managed by the AWS client. Shared credentials file.
-    sharedCredentialsFile: ""
     # LIGHTSAIL_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     pollingInterval: ""
     # LIGHTSAIL_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
     propagationTimeout: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

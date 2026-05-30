@@ -4,43 +4,56 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/myaddr"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
 // MyaddrConfig holds configuration for the "myaddr" DNS provider (myaddr.{tools,dev,io})
 // See https://myaddr.tools/
 type MyaddrConfig struct {
-	PrivateKeysMapping string // MYADDR_PRIVATE_KEYS_MAPPING: Mapping between subdomains and private keys. The format is: `<subdomain1>:<private_key1>,<subdomain2>:<private_key2>,<subdomain3>:<private_key3>`
-	HTTPTimeout        string // MYADDR_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // MYADDR_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // MYADDR_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	SequenceInterval   string // MYADDR_SEQUENCE_INTERVAL: Time between sequential requests in seconds (Default: 2)
 	TTL                string // MYADDR_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *MyaddrConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
-	if c.PrivateKeysMapping != "" {
-		m["MYADDR_PRIVATE_KEYS_MAPPING"] = c.PrivateKeysMapping
-	}
-	if c.HTTPTimeout != "" {
-		m["MYADDR_HTTP_TIMEOUT"] = c.HTTPTimeout
-	}
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *MyaddrConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.PollingInterval != "" {
-		m["MYADDR_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["MYADDR_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.SequenceInterval != "" {
-		m["MYADDR_SEQUENCE_INTERVAL"] = c.SequenceInterval
+		v, err := strconv.Atoi(c.SequenceInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"sequenceInterval\": %w", err)
+		}
+		cfg.SequenceInterval = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["MYADDR_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -61,10 +74,6 @@ func (c *MyaddrConfig) UnmarshalYAML(value *yaml.Node) error {
 			return err
 		}
 		switch key {
-		case "privateKeysMapping", "MYADDR_PRIVATE_KEYS_MAPPING":
-			c.PrivateKeysMapping = val
-		case "httpTimeout", "MYADDR_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "MYADDR_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "MYADDR_PROPAGATION_TIMEOUT":

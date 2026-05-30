@@ -4,39 +4,48 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/dnshomede"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
 // DnshomedeConfig holds configuration for the "dnshomede" DNS provider (dnsHome.de)
 // See https://www.dnshome.de
 type DnshomedeConfig struct {
-	Credentials        string // DNSHOMEDE_CREDENTIALS: Comma-separated list of domain:password credential pairs
-	HTTPTimeout        string // DNSHOMEDE_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // DNSHOMEDE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 1200)
 	PropagationTimeout string // DNSHOMEDE_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 2)
 	SequenceInterval   string // DNSHOMEDE_SEQUENCE_INTERVAL: Time between sequential requests in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *DnshomedeConfig) envVars() map[string]string {
-	m := make(map[string]string, 5)
-	if c.Credentials != "" {
-		m["DNSHOMEDE_CREDENTIALS"] = c.Credentials
-	}
-	if c.HTTPTimeout != "" {
-		m["DNSHOMEDE_HTTP_TIMEOUT"] = c.HTTPTimeout
-	}
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *DnshomedeConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.PollingInterval != "" {
-		m["DNSHOMEDE_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["DNSHOMEDE_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.SequenceInterval != "" {
-		m["DNSHOMEDE_SEQUENCE_INTERVAL"] = c.SequenceInterval
+		v, err := strconv.Atoi(c.SequenceInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"sequenceInterval\": %w", err)
+		}
+		cfg.SequenceInterval = time.Duration(v) * time.Second
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -57,10 +66,6 @@ func (c *DnshomedeConfig) UnmarshalYAML(value *yaml.Node) error {
 			return err
 		}
 		switch key {
-		case "credentials", "DNSHOMEDE_CREDENTIALS":
-			c.Credentials = val
-		case "httpTimeout", "DNSHOMEDE_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "DNSHOMEDE_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "DNSHOMEDE_PROPAGATION_TIMEOUT":

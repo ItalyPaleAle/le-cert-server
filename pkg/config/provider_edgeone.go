@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/edgeone"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -19,40 +23,53 @@ type EdgeoneConfig struct {
 	Region             string // EDGEONE_REGION: Region
 	SessionToken       string // EDGEONE_SESSION_TOKEN: Access Key token
 	TTL                string // EDGEONE_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 60)
-	ZonesMapping       string // EDGEONE_ZONES_MAPPING: Mapping between DNS zones and site IDs. (ex: 'example.org:id1,example.com:id2')
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *EdgeoneConfig) envVars() map[string]string {
-	m := make(map[string]string, 9)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *EdgeoneConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.SecretID != "" {
-		m["EDGEONE_SECRET_ID"] = c.SecretID
+		cfg.SecretID = c.SecretID
 	}
 	if c.SecretKey != "" {
-		m["EDGEONE_SECRET_KEY"] = c.SecretKey
+		cfg.SecretKey = c.SecretKey
 	}
 	if c.HTTPTimeout != "" {
-		m["EDGEONE_HTTP_TIMEOUT"] = c.HTTPTimeout
+		v, err := strconv.Atoi(c.HTTPTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"httpTimeout\": %w", err)
+		}
+		cfg.HTTPTimeout = time.Duration(v) * time.Second
 	}
 	if c.PollingInterval != "" {
-		m["EDGEONE_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["EDGEONE_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.Region != "" {
-		m["EDGEONE_REGION"] = c.Region
+		cfg.Region = c.Region
 	}
 	if c.SessionToken != "" {
-		m["EDGEONE_SESSION_TOKEN"] = c.SessionToken
+		cfg.SessionToken = c.SessionToken
 	}
 	if c.TTL != "" {
-		m["EDGEONE_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	if c.ZonesMapping != "" {
-		m["EDGEONE_ZONES_MAPPING"] = c.ZonesMapping
-	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -89,8 +106,6 @@ func (c *EdgeoneConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.SessionToken = val
 		case "ttl", "EDGEONE_TTL":
 			c.TTL = val
-		case "zonesMapping", "EDGEONE_ZONES_MAPPING":
-			c.ZonesMapping = val
 		default:
 			return fmt.Errorf("unknown credential key %q for DNS provider \"edgeone\"", key)
 		}

@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/wedos"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,34 +17,43 @@ import (
 type WedosConfig struct {
 	Username           string // WEDOS_USERNAME: Username is the same as for the admin account
 	WAPIPassword       string // WEDOS_WAPI_PASSWORD: Password needs to be generated and IP allowed in the admin interface
-	HTTPTimeout        string // WEDOS_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // WEDOS_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
 	PropagationTimeout string // WEDOS_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 600)
 	TTL                string // WEDOS_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 300)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *WedosConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *WedosConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Username != "" {
-		m["WEDOS_USERNAME"] = c.Username
+		cfg.Username = c.Username
 	}
 	if c.WAPIPassword != "" {
-		m["WEDOS_WAPI_PASSWORD"] = c.WAPIPassword
-	}
-	if c.HTTPTimeout != "" {
-		m["WEDOS_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Password = c.WAPIPassword
 	}
 	if c.PollingInterval != "" {
-		m["WEDOS_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["WEDOS_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["WEDOS_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -65,8 +78,6 @@ func (c *WedosConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.Username = val
 		case "wapiPassword", "WEDOS_WAPI_PASSWORD":
 			c.WAPIPassword = val
-		case "httpTimeout", "WEDOS_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "WEDOS_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "WEDOS_PROPAGATION_TIMEOUT":

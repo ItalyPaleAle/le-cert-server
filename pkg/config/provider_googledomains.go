@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/googledomains"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -12,27 +16,32 @@ import (
 // See https://github.com/go-acme/lego/issues/2553
 type GoogledomainsConfig struct {
 	DomainsAccessToken        string // GOOGLE_DOMAINS_ACCESS_TOKEN: Access token
-	DomainsHTTPTimeout        string // GOOGLE_DOMAINS_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	DomainsPollingInterval    string // GOOGLE_DOMAINS_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	DomainsPropagationTimeout string // GOOGLE_DOMAINS_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *GoogledomainsConfig) envVars() map[string]string {
-	m := make(map[string]string, 4)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *GoogledomainsConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.DomainsAccessToken != "" {
-		m["GOOGLE_DOMAINS_ACCESS_TOKEN"] = c.DomainsAccessToken
-	}
-	if c.DomainsHTTPTimeout != "" {
-		m["GOOGLE_DOMAINS_HTTP_TIMEOUT"] = c.DomainsHTTPTimeout
+		cfg.AccessToken = c.DomainsAccessToken
 	}
 	if c.DomainsPollingInterval != "" {
-		m["GOOGLE_DOMAINS_POLLING_INTERVAL"] = c.DomainsPollingInterval
+		v, err := strconv.Atoi(c.DomainsPollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"domainsPollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.DomainsPropagationTimeout != "" {
-		m["GOOGLE_DOMAINS_PROPAGATION_TIMEOUT"] = c.DomainsPropagationTimeout
+		v, err := strconv.Atoi(c.DomainsPropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"domainsPropagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -55,8 +64,6 @@ func (c *GoogledomainsConfig) UnmarshalYAML(value *yaml.Node) error {
 		switch key {
 		case "domainsAccessToken", "GOOGLE_DOMAINS_ACCESS_TOKEN":
 			c.DomainsAccessToken = val
-		case "domainsHTTPTimeout", "GOOGLE_DOMAINS_HTTP_TIMEOUT":
-			c.DomainsHTTPTimeout = val
 		case "domainsPollingInterval", "GOOGLE_DOMAINS_POLLING_INTERVAL":
 			c.DomainsPollingInterval = val
 		case "domainsPropagationTimeout", "GOOGLE_DOMAINS_PROPAGATION_TIMEOUT":

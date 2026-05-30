@@ -2,13 +2,16 @@
 
 package config
 
+import "github.com/go-acme/lego/v4/challenge"
+
 // dnsProviderConfig is implemented by every generated per-provider credentials struct
 type dnsProviderConfig interface {
-	envVars() map[string]string
+	// newProvider builds the lego DNS challenge provider using strong types
+	newProvider() (challenge.Provider, error)
 }
 
 // newDNSProviderConfig returns an empty credentials struct for the given lego provider code
-// The second return value is false when the code is not a known lego DNS provider
+// The second return value is false when the code is not a supported lego DNS provider
 func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 	switch code {
 	case "acme-dns":
@@ -237,8 +240,6 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &MailinaboxConfig{}, true
 	case "manageengine":
 		return &ManageengineConfig{}, true
-	case "manual":
-		return &ManualConfig{}, true
 	case "metaname":
 		return &MetanameConfig{}, true
 	case "metaregistrar":

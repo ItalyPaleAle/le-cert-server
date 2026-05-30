@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/vkcloud"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -22,37 +26,50 @@ type VkcloudConfig struct {
 	CloudTTL                string // VK_CLOUD_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 60)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *VkcloudConfig) envVars() map[string]string {
-	m := make(map[string]string, 9)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *VkcloudConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.CloudPassword != "" {
-		m["VK_CLOUD_PASSWORD"] = c.CloudPassword
+		cfg.Password = c.CloudPassword
 	}
 	if c.CloudProjectID != "" {
-		m["VK_CLOUD_PROJECT_ID"] = c.CloudProjectID
+		cfg.ProjectID = c.CloudProjectID
 	}
 	if c.CloudUsername != "" {
-		m["VK_CLOUD_USERNAME"] = c.CloudUsername
+		cfg.Username = c.CloudUsername
 	}
 	if c.CloudDNSEndpoint != "" {
-		m["VK_CLOUD_DNS_ENDPOINT"] = c.CloudDNSEndpoint
+		cfg.DNSEndpoint = c.CloudDNSEndpoint
 	}
 	if c.CloudDomainName != "" {
-		m["VK_CLOUD_DOMAIN_NAME"] = c.CloudDomainName
+		cfg.DomainName = c.CloudDomainName
 	}
 	if c.CloudIdentityEndpoint != "" {
-		m["VK_CLOUD_IDENTITY_ENDPOINT"] = c.CloudIdentityEndpoint
+		cfg.IdentityEndpoint = c.CloudIdentityEndpoint
 	}
 	if c.CloudPollingInterval != "" {
-		m["VK_CLOUD_POLLING_INTERVAL"] = c.CloudPollingInterval
+		v, err := strconv.Atoi(c.CloudPollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"cloudPollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.CloudPropagationTimeout != "" {
-		m["VK_CLOUD_PROPAGATION_TIMEOUT"] = c.CloudPropagationTimeout
+		v, err := strconv.Atoi(c.CloudPropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"cloudPropagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.CloudTTL != "" {
-		m["VK_CLOUD_TTL"] = c.CloudTTL
+		v, err := strconv.Atoi(c.CloudTTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"cloudTTL\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials

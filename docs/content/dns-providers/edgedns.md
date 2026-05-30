@@ -13,20 +13,6 @@ See the [lego documentation](https://go-acme.github.io/lego/dns/edgedns/) for fu
 letsEncrypt:
   dnsProvider: "edgedns"
   dnsCredentials:
-    # AKAMAI_ACCESS_TOKEN: Access token, managed by the Akamai EdgeGrid client
-    accessToken: ""
-    # AKAMAI_CLIENT_SECRET: Client secret, managed by the Akamai EdgeGrid client
-    clientSecret: ""
-    # AKAMAI_CLIENT_TOKEN: Client token, managed by the Akamai EdgeGrid client
-    clientToken: ""
-    # AKAMAI_EDGERC: Path to the .edgerc file, managed by the Akamai EdgeGrid client
-    edgerc: ""
-    # AKAMAI_EDGERC_SECTION: Configuration section, managed by the Akamai EdgeGrid client
-    edgercSection: ""
-    # AKAMAI_HOST: API host, managed by the Akamai EdgeGrid client
-    host: ""
-    # AKAMAI_ACCOUNT_SWITCH_KEY: Target account ID when the DNS zone and credentials belong to different accounts
-    accountSwitchKey: ""
     # AKAMAI_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 15)
     pollingInterval: ""
     # AKAMAI_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 180)
@@ -35,5 +21,5 @@ letsEncrypt:
     ttl: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

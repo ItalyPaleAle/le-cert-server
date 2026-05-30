@@ -13,10 +13,6 @@ See the [lego documentation](https://go-acme.github.io/lego/dns/dnshomede/) for 
 letsEncrypt:
   dnsProvider: "dnshomede"
   dnsCredentials:
-    # DNSHOMEDE_CREDENTIALS: Comma-separated list of domain:password credential pairs
-    credentials: ""
-    # DNSHOMEDE_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
-    httpTimeout: ""
     # DNSHOMEDE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 1200)
     pollingInterval: ""
     # DNSHOMEDE_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 2)
@@ -25,5 +21,5 @@ letsEncrypt:
     sequenceInterval: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

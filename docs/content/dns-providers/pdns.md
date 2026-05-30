@@ -15,12 +15,8 @@ letsEncrypt:
   dnsCredentials:
     # PDNS_API_KEY: API key
     apiKey: ""
-    # PDNS_API_URL: API URL
-    apiURL: ""
     # PDNS_API_VERSION: Skip API version autodetection and use the provided version number.
     apiVersion: ""
-    # PDNS_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
-    httpTimeout: ""
     # PDNS_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     pollingInterval: ""
     # PDNS_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
@@ -31,5 +27,5 @@ letsEncrypt:
     ttl: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

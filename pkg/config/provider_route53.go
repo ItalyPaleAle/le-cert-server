@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/route53"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -15,68 +19,81 @@ type Route53Config struct {
 	AssumeRoleARN            string // AWS_ASSUME_ROLE_ARN: Managed by the AWS Role ARN (`AWS_ASSUME_ROLE_ARN_FILE` is not supported)
 	ExternalID               string // AWS_EXTERNAL_ID: Managed by STS AssumeRole API operation (`AWS_EXTERNAL_ID_FILE` is not supported)
 	HostedZoneID             string // AWS_HOSTED_ZONE_ID: Override the hosted zone ID.
-	Profile                  string // AWS_PROFILE: Managed by the AWS client (`AWS_PROFILE_FILE` is not supported)
 	Region                   string // AWS_REGION: Managed by the AWS client (`AWS_REGION_FILE` is not supported)
-	SDKLoadConfig            string // AWS_SDK_LOAD_CONFIG: Managed by the AWS client. Retrieve the region from the CLI config file (`AWS_SDK_LOAD_CONFIG_FILE` is not supported)
 	SecretAccessKey          string // AWS_SECRET_ACCESS_KEY: Managed by the AWS client. Secret access key (`AWS_SECRET_ACCESS_KEY_FILE` is not supported, use `AWS_SHARED_CREDENTIALS_FILE` instead)
 	WaitForRecordSetsChanged string // AWS_WAIT_FOR_RECORD_SETS_CHANGED: Wait for changes to be INSYNC (it can be unstable)
 	MaxRetries               string // AWS_MAX_RETRIES: The number of maximum returns the service will use to make an individual API request
 	PollingInterval          string // AWS_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 4)
 	PrivateZone              string // AWS_PRIVATE_ZONE: Set to true to use private zones only (default: use public zones only)
 	PropagationTimeout       string // AWS_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
-	SharedCredentialsFile    string // AWS_SHARED_CREDENTIALS_FILE: Managed by the AWS client. Shared credentials file.
 	TTL                      string // AWS_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 10)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *Route53Config) envVars() map[string]string {
-	m := make(map[string]string, 15)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *Route53Config) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.AccessKeyID != "" {
-		m["AWS_ACCESS_KEY_ID"] = c.AccessKeyID
+		cfg.AccessKeyID = c.AccessKeyID
 	}
 	if c.AssumeRoleARN != "" {
-		m["AWS_ASSUME_ROLE_ARN"] = c.AssumeRoleARN
+		cfg.AssumeRoleArn = c.AssumeRoleARN
 	}
 	if c.ExternalID != "" {
-		m["AWS_EXTERNAL_ID"] = c.ExternalID
+		cfg.ExternalID = c.ExternalID
 	}
 	if c.HostedZoneID != "" {
-		m["AWS_HOSTED_ZONE_ID"] = c.HostedZoneID
-	}
-	if c.Profile != "" {
-		m["AWS_PROFILE"] = c.Profile
+		cfg.HostedZoneID = c.HostedZoneID
 	}
 	if c.Region != "" {
-		m["AWS_REGION"] = c.Region
-	}
-	if c.SDKLoadConfig != "" {
-		m["AWS_SDK_LOAD_CONFIG"] = c.SDKLoadConfig
+		cfg.Region = c.Region
 	}
 	if c.SecretAccessKey != "" {
-		m["AWS_SECRET_ACCESS_KEY"] = c.SecretAccessKey
+		cfg.SecretAccessKey = c.SecretAccessKey
 	}
 	if c.WaitForRecordSetsChanged != "" {
-		m["AWS_WAIT_FOR_RECORD_SETS_CHANGED"] = c.WaitForRecordSetsChanged
+		v, err := strconv.ParseBool(c.WaitForRecordSetsChanged)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"waitForRecordSetsChanged\": %w", err)
+		}
+		cfg.WaitForRecordSetsChanged = v
 	}
 	if c.MaxRetries != "" {
-		m["AWS_MAX_RETRIES"] = c.MaxRetries
+		v, err := strconv.Atoi(c.MaxRetries)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"maxRetries\": %w", err)
+		}
+		cfg.MaxRetries = v
 	}
 	if c.PollingInterval != "" {
-		m["AWS_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PrivateZone != "" {
-		m["AWS_PRIVATE_ZONE"] = c.PrivateZone
+		v, err := strconv.ParseBool(c.PrivateZone)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"privateZone\": %w", err)
+		}
+		cfg.PrivateZone = v
 	}
 	if c.PropagationTimeout != "" {
-		m["AWS_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
-	}
-	if c.SharedCredentialsFile != "" {
-		m["AWS_SHARED_CREDENTIALS_FILE"] = c.SharedCredentialsFile
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["AWS_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -105,12 +122,8 @@ func (c *Route53Config) UnmarshalYAML(value *yaml.Node) error {
 			c.ExternalID = val
 		case "hostedZoneID", "AWS_HOSTED_ZONE_ID":
 			c.HostedZoneID = val
-		case "profile", "AWS_PROFILE":
-			c.Profile = val
 		case "region", "AWS_REGION":
 			c.Region = val
-		case "sdkLoadConfig", "AWS_SDK_LOAD_CONFIG":
-			c.SDKLoadConfig = val
 		case "secretAccessKey", "AWS_SECRET_ACCESS_KEY":
 			c.SecretAccessKey = val
 		case "waitForRecordSetsChanged", "AWS_WAIT_FOR_RECORD_SETS_CHANGED":
@@ -123,8 +136,6 @@ func (c *Route53Config) UnmarshalYAML(value *yaml.Node) error {
 			c.PrivateZone = val
 		case "propagationTimeout", "AWS_PROPAGATION_TIMEOUT":
 			c.PropagationTimeout = val
-		case "sharedCredentialsFile", "AWS_SHARED_CREDENTIALS_FILE":
-			c.SharedCredentialsFile = val
 		case "ttl", "AWS_TTL":
 			c.TTL = val
 		default:

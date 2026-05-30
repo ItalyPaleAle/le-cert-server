@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/iijdpf"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -19,28 +23,41 @@ type IijdpfConfig struct {
 	DPFTTL                string // IIJ_DPF_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 300)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *IijdpfConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *IijdpfConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.DPFAPIToken != "" {
-		m["IIJ_DPF_API_TOKEN"] = c.DPFAPIToken
+		cfg.Token = c.DPFAPIToken
 	}
 	if c.DPFDPMServiceCode != "" {
-		m["IIJ_DPF_DPM_SERVICE_CODE"] = c.DPFDPMServiceCode
+		cfg.ServiceCode = c.DPFDPMServiceCode
 	}
 	if c.DPFAPIEndpoint != "" {
-		m["IIJ_DPF_API_ENDPOINT"] = c.DPFAPIEndpoint
+		cfg.Endpoint = c.DPFAPIEndpoint
 	}
 	if c.DPFPollingInterval != "" {
-		m["IIJ_DPF_POLLING_INTERVAL"] = c.DPFPollingInterval
+		v, err := strconv.Atoi(c.DPFPollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"dpfPollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.DPFPropagationTimeout != "" {
-		m["IIJ_DPF_PROPAGATION_TIMEOUT"] = c.DPFPropagationTimeout
+		v, err := strconv.Atoi(c.DPFPropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"dpfPropagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.DPFTTL != "" {
-		m["IIJ_DPF_TTL"] = c.DPFTTL
+		v, err := strconv.Atoi(c.DPFTTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"dpfTTL\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials

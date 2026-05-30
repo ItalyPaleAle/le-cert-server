@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/bindman"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -12,27 +16,32 @@ import (
 // See https://github.com/labbsr0x/bindman-dns-webhook
 type BindmanConfig struct {
 	ManagerAddress     string // BINDMAN_MANAGER_ADDRESS: The server URL, should have scheme, hostname, and port (if required) of the Bindman-DNS Manager server
-	HTTPTimeout        string // BINDMAN_HTTP_TIMEOUT: API request timeout in seconds (Default: 60)
 	PollingInterval    string // BINDMAN_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // BINDMAN_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *BindmanConfig) envVars() map[string]string {
-	m := make(map[string]string, 4)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *BindmanConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.ManagerAddress != "" {
-		m["BINDMAN_MANAGER_ADDRESS"] = c.ManagerAddress
-	}
-	if c.HTTPTimeout != "" {
-		m["BINDMAN_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.BaseURL = c.ManagerAddress
 	}
 	if c.PollingInterval != "" {
-		m["BINDMAN_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["BINDMAN_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -55,8 +64,6 @@ func (c *BindmanConfig) UnmarshalYAML(value *yaml.Node) error {
 		switch key {
 		case "managerAddress", "BINDMAN_MANAGER_ADDRESS":
 			c.ManagerAddress = val
-		case "httpTimeout", "BINDMAN_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "BINDMAN_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "BINDMAN_PROPAGATION_TIMEOUT":

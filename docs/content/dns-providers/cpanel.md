@@ -19,8 +19,6 @@ letsEncrypt:
     token: ""
     # CPANEL_USERNAME: username
     username: ""
-    # CPANEL_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
-    httpTimeout: ""
     # CPANEL_MODE: use cpanel API or WHM API (Default: cpanel)
     mode: ""
     # CPANEL_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
@@ -31,5 +29,5 @@ letsEncrypt:
     ttl: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

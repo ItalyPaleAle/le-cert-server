@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/nicmanager"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -17,46 +21,55 @@ type NicmanagerConfig struct {
 	APIUsername        string // NICMANAGER_API_USERNAME: Username, used for Username-based login
 	APIMode            string // NICMANAGER_API_MODE: mode: 'anycast' or 'zones' (for FreeDNS) (default: 'anycast')
 	APIOTP             string // NICMANAGER_API_OTP: TOTP Secret (optional)
-	HTTPTimeout        string // NICMANAGER_HTTP_TIMEOUT: API request timeout in seconds (Default: 10)
 	PollingInterval    string // NICMANAGER_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // NICMANAGER_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 300)
 	TTL                string // NICMANAGER_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 900)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *NicmanagerConfig) envVars() map[string]string {
-	m := make(map[string]string, 10)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *NicmanagerConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIEmail != "" {
-		m["NICMANAGER_API_EMAIL"] = c.APIEmail
+		cfg.Email = c.APIEmail
 	}
 	if c.APILogin != "" {
-		m["NICMANAGER_API_LOGIN"] = c.APILogin
+		cfg.Login = c.APILogin
 	}
 	if c.APIPassword != "" {
-		m["NICMANAGER_API_PASSWORD"] = c.APIPassword
+		cfg.Password = c.APIPassword
 	}
 	if c.APIUsername != "" {
-		m["NICMANAGER_API_USERNAME"] = c.APIUsername
+		cfg.Username = c.APIUsername
 	}
 	if c.APIMode != "" {
-		m["NICMANAGER_API_MODE"] = c.APIMode
+		cfg.Mode = c.APIMode
 	}
 	if c.APIOTP != "" {
-		m["NICMANAGER_API_OTP"] = c.APIOTP
-	}
-	if c.HTTPTimeout != "" {
-		m["NICMANAGER_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.OTPSecret = c.APIOTP
 	}
 	if c.PollingInterval != "" {
-		m["NICMANAGER_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["NICMANAGER_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["NICMANAGER_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -89,8 +102,6 @@ func (c *NicmanagerConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.APIMode = val
 		case "apiOTP", "NICMANAGER_API_OTP":
 			c.APIOTP = val
-		case "httpTimeout", "NICMANAGER_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "NICMANAGER_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "NICMANAGER_PROPAGATION_TIMEOUT":

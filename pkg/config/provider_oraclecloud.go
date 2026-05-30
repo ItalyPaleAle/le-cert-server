@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/oraclecloud"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -12,87 +16,40 @@ import (
 // See https://cloud.oracle.com/home
 type OraclecloudConfig struct {
 	CompartmentOCID    string // OCI_COMPARTMENT_OCID: Compartment OCID
-	Fingerprint        string // OCI_FINGERPRINT: Public key fingerprint (ignored if `OCI_AUTH_TYPE` is not empty)
-	PrivateKeyPassword string // OCI_PRIVATE_KEY_PASSWORD: Private key password (ignored if `OCI_AUTH_TYPE` is not empty)
-	PrivateKeyPath     string // OCI_PRIVATE_KEY_PATH: Private key file (ignored if `OCI_AUTH_TYPE` is not empty)
-	Region             string // OCI_REGION: Region (it can be empty if `OCI_AUTH_TYPE` is not empty).
-	TenancyOCID        string // OCI_TENANCY_OCID: Tenancy OCID (ignored if `OCI_AUTH_TYPE` is not empty)
-	UserOCID           string // OCI_USER_OCID: User OCID (ignored if `OCI_AUTH_TYPE` is not empty)
-	AuthType           string // OCI_AUTH_TYPE: Authorization type. Possible values: 'instance_principal', 'user_principal', ''. (Default: '')
-	ConfigFile         string // OCI_CONFIG_FILE: Path to the configuration file. (only for `OCI_AUTH_TYPE=user_principal`)
-	HTTPTimeout        string // OCI_HTTP_TIMEOUT: API request timeout in seconds (Default: 60)
 	PollingInterval    string // OCI_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
-	Profile            string // OCI_PROFILE: Profile name. (only for `OCI_AUTH_TYPE=user_principal`)
 	PropagationTimeout string // OCI_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // OCI_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
-	VarFingerprint     string // TF_VAR_fingerprint: Alias on `OCI_FINGERPRINT`
-	VarPrivateKeyPath  string // TF_VAR_private_key_path: Alias on `OCI_PRIVATE_KEY_PATH`
-	VarRegion          string // TF_VAR_region: Alias on `OCI_REGION`
-	VarTenancyOCID     string // TF_VAR_tenancy_ocid: Alias on `OCI_TENANCY_OCID`
-	VarUserOCID        string // TF_VAR_user_ocid: Alias on `OCI_USER_OCID`
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *OraclecloudConfig) envVars() map[string]string {
-	m := make(map[string]string, 19)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *OraclecloudConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.CompartmentOCID != "" {
-		m["OCI_COMPARTMENT_OCID"] = c.CompartmentOCID
-	}
-	if c.Fingerprint != "" {
-		m["OCI_FINGERPRINT"] = c.Fingerprint
-	}
-	if c.PrivateKeyPassword != "" {
-		m["OCI_PRIVATE_KEY_PASSWORD"] = c.PrivateKeyPassword
-	}
-	if c.PrivateKeyPath != "" {
-		m["OCI_PRIVATE_KEY_PATH"] = c.PrivateKeyPath
-	}
-	if c.Region != "" {
-		m["OCI_REGION"] = c.Region
-	}
-	if c.TenancyOCID != "" {
-		m["OCI_TENANCY_OCID"] = c.TenancyOCID
-	}
-	if c.UserOCID != "" {
-		m["OCI_USER_OCID"] = c.UserOCID
-	}
-	if c.AuthType != "" {
-		m["OCI_AUTH_TYPE"] = c.AuthType
-	}
-	if c.ConfigFile != "" {
-		m["OCI_CONFIG_FILE"] = c.ConfigFile
-	}
-	if c.HTTPTimeout != "" {
-		m["OCI_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.CompartmentID = c.CompartmentOCID
 	}
 	if c.PollingInterval != "" {
-		m["OCI_POLLING_INTERVAL"] = c.PollingInterval
-	}
-	if c.Profile != "" {
-		m["OCI_PROFILE"] = c.Profile
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["OCI_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["OCI_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	if c.VarFingerprint != "" {
-		m["TF_VAR_fingerprint"] = c.VarFingerprint
-	}
-	if c.VarPrivateKeyPath != "" {
-		m["TF_VAR_private_key_path"] = c.VarPrivateKeyPath
-	}
-	if c.VarRegion != "" {
-		m["TF_VAR_region"] = c.VarRegion
-	}
-	if c.VarTenancyOCID != "" {
-		m["TF_VAR_tenancy_ocid"] = c.VarTenancyOCID
-	}
-	if c.VarUserOCID != "" {
-		m["TF_VAR_user_ocid"] = c.VarUserOCID
-	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -115,42 +72,12 @@ func (c *OraclecloudConfig) UnmarshalYAML(value *yaml.Node) error {
 		switch key {
 		case "compartmentOCID", "OCI_COMPARTMENT_OCID":
 			c.CompartmentOCID = val
-		case "fingerprint", "OCI_FINGERPRINT":
-			c.Fingerprint = val
-		case "privateKeyPassword", "OCI_PRIVATE_KEY_PASSWORD":
-			c.PrivateKeyPassword = val
-		case "privateKeyPath", "OCI_PRIVATE_KEY_PATH":
-			c.PrivateKeyPath = val
-		case "region", "OCI_REGION":
-			c.Region = val
-		case "tenancyOCID", "OCI_TENANCY_OCID":
-			c.TenancyOCID = val
-		case "userOCID", "OCI_USER_OCID":
-			c.UserOCID = val
-		case "authType", "OCI_AUTH_TYPE":
-			c.AuthType = val
-		case "configFile", "OCI_CONFIG_FILE":
-			c.ConfigFile = val
-		case "httpTimeout", "OCI_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "OCI_POLLING_INTERVAL":
 			c.PollingInterval = val
-		case "profile", "OCI_PROFILE":
-			c.Profile = val
 		case "propagationTimeout", "OCI_PROPAGATION_TIMEOUT":
 			c.PropagationTimeout = val
 		case "ttl", "OCI_TTL":
 			c.TTL = val
-		case "varFingerprint", "TF_VAR_fingerprint":
-			c.VarFingerprint = val
-		case "varPrivateKeyPath", "TF_VAR_private_key_path":
-			c.VarPrivateKeyPath = val
-		case "varRegion", "TF_VAR_region":
-			c.VarRegion = val
-		case "varTenancyOCID", "TF_VAR_tenancy_ocid":
-			c.VarTenancyOCID = val
-		case "varUserOCID", "TF_VAR_user_ocid":
-			c.VarUserOCID = val
 		default:
 			return fmt.Errorf("unknown credential key %q for DNS provider \"oraclecloud\"", key)
 		}

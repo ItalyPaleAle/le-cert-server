@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/ispconfigddns"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,34 +17,43 @@ import (
 type IspconfigddnsConfig struct {
 	DDNSServerURL          string // ISPCONFIG_DDNS_SERVER_URL: API server URL (ex: https://panel.example.com:8080)
 	DDNSToken              string // ISPCONFIG_DDNS_TOKEN: DDNS API token
-	DDNSHTTPTimeout        string // ISPCONFIG_DDNS_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	DDNSPollingInterval    string // ISPCONFIG_DDNS_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	DDNSPropagationTimeout string // ISPCONFIG_DDNS_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	DDNSTTL                string // ISPCONFIG_DDNS_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 3600)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *IspconfigddnsConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *IspconfigddnsConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.DDNSServerURL != "" {
-		m["ISPCONFIG_DDNS_SERVER_URL"] = c.DDNSServerURL
+		cfg.ServerURL = c.DDNSServerURL
 	}
 	if c.DDNSToken != "" {
-		m["ISPCONFIG_DDNS_TOKEN"] = c.DDNSToken
-	}
-	if c.DDNSHTTPTimeout != "" {
-		m["ISPCONFIG_DDNS_HTTP_TIMEOUT"] = c.DDNSHTTPTimeout
+		cfg.Token = c.DDNSToken
 	}
 	if c.DDNSPollingInterval != "" {
-		m["ISPCONFIG_DDNS_POLLING_INTERVAL"] = c.DDNSPollingInterval
+		v, err := strconv.Atoi(c.DDNSPollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ddnsPollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.DDNSPropagationTimeout != "" {
-		m["ISPCONFIG_DDNS_PROPAGATION_TIMEOUT"] = c.DDNSPropagationTimeout
+		v, err := strconv.Atoi(c.DDNSPropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ddnsPropagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.DDNSTTL != "" {
-		m["ISPCONFIG_DDNS_TTL"] = c.DDNSTTL
+		v, err := strconv.Atoi(c.DDNSTTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ddnsTTL\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -65,8 +78,6 @@ func (c *IspconfigddnsConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.DDNSServerURL = val
 		case "ddnsToken", "ISPCONFIG_DDNS_TOKEN":
 			c.DDNSToken = val
-		case "ddnsHTTPTimeout", "ISPCONFIG_DDNS_HTTP_TIMEOUT":
-			c.DDNSHTTPTimeout = val
 		case "ddnsPollingInterval", "ISPCONFIG_DDNS_POLLING_INTERVAL":
 			c.DDNSPollingInterval = val
 		case "ddnsPropagationTimeout", "ISPCONFIG_DDNS_PROPAGATION_TIMEOUT":

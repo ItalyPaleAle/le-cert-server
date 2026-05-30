@@ -4,7 +4,12 @@ package config
 
 import (
 	"fmt"
+	"net/url"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/zoneee"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -14,33 +19,42 @@ type ZoneeeConfig struct {
 	APIKey             string // ZONEEE_API_KEY: API key
 	APIUser            string // ZONEEE_API_USER: API user
 	Endpoint           string // ZONEEE_ENDPOINT: API endpoint URL
-	HTTPTimeout        string // ZONEEE_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // ZONEEE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 5)
 	PropagationTimeout string // ZONEEE_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 300)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *ZoneeeConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *ZoneeeConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIKey != "" {
-		m["ZONEEE_API_KEY"] = c.APIKey
+		cfg.APIKey = c.APIKey
 	}
 	if c.APIUser != "" {
-		m["ZONEEE_API_USER"] = c.APIUser
+		cfg.Username = c.APIUser
 	}
 	if c.Endpoint != "" {
-		m["ZONEEE_ENDPOINT"] = c.Endpoint
-	}
-	if c.HTTPTimeout != "" {
-		m["ZONEEE_HTTP_TIMEOUT"] = c.HTTPTimeout
+		v, err := url.Parse(c.Endpoint)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"endpoint\": %w", err)
+		}
+		cfg.Endpoint = v
 	}
 	if c.PollingInterval != "" {
-		m["ZONEEE_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["ZONEEE_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -67,8 +81,6 @@ func (c *ZoneeeConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.APIUser = val
 		case "endpoint", "ZONEEE_ENDPOINT":
 			c.Endpoint = val
-		case "httpTimeout", "ZONEEE_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "ZONEEE_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "ZONEEE_PROPAGATION_TIMEOUT":

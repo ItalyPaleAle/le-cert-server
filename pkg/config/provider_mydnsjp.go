@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/mydnsjp"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,30 +17,35 @@ import (
 type MydnsjpConfig struct {
 	MasterID           string // MYDNSJP_MASTER_ID: Master ID
 	Password           string // MYDNSJP_PASSWORD: Password
-	HTTPTimeout        string // MYDNSJP_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // MYDNSJP_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // MYDNSJP_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *MydnsjpConfig) envVars() map[string]string {
-	m := make(map[string]string, 5)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *MydnsjpConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.MasterID != "" {
-		m["MYDNSJP_MASTER_ID"] = c.MasterID
+		cfg.MasterID = c.MasterID
 	}
 	if c.Password != "" {
-		m["MYDNSJP_PASSWORD"] = c.Password
-	}
-	if c.HTTPTimeout != "" {
-		m["MYDNSJP_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Password = c.Password
 	}
 	if c.PollingInterval != "" {
-		m["MYDNSJP_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["MYDNSJP_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -61,8 +70,6 @@ func (c *MydnsjpConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.MasterID = val
 		case "password", "MYDNSJP_PASSWORD":
 			c.Password = val
-		case "httpTimeout", "MYDNSJP_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "MYDNSJP_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "MYDNSJP_PROPAGATION_TIMEOUT":

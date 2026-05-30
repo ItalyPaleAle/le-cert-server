@@ -13,10 +13,6 @@ See the [lego documentation](https://go-acme.github.io/lego/dns/myaddr/) for ful
 letsEncrypt:
   dnsProvider: "myaddr"
   dnsCredentials:
-    # MYADDR_PRIVATE_KEYS_MAPPING: Mapping between subdomains and private keys. The format is: `<subdomain1>:<private_key1>,<subdomain2>:<private_key2>,<subdomain3>:<private_key3>`
-    privateKeysMapping: ""
-    # MYADDR_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
-    httpTimeout: ""
     # MYADDR_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     pollingInterval: ""
     # MYADDR_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
@@ -27,5 +23,5 @@ letsEncrypt:
     ttl: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

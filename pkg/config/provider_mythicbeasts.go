@@ -4,7 +4,12 @@ package config
 
 import (
 	"fmt"
+	"net/url"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/mythicbeasts"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -15,40 +20,60 @@ type MythicbeastsConfig struct {
 	Username           string // MYTHICBEASTS_USERNAME: User name
 	APIEndpoint        string // MYTHICBEASTS_API_ENDPOINT: The endpoint for the API (must implement v2)
 	AuthAPIEndpoint    string // MYTHICBEASTS_AUTH_API_ENDPOINT: The endpoint for Mythic Beasts' Authentication
-	HTTPTimeout        string // MYTHICBEASTS_HTTP_TIMEOUT: API request timeout in seconds (Default: 10)
 	PollingInterval    string // MYTHICBEASTS_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // MYTHICBEASTS_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // MYTHICBEASTS_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *MythicbeastsConfig) envVars() map[string]string {
-	m := make(map[string]string, 8)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *MythicbeastsConfig) newProvider() (challenge.Provider, error) {
+	cfg, err := prov.NewDefaultConfig()
+	if err != nil {
+		return nil, err
+	}
 	if c.Password != "" {
-		m["MYTHICBEASTS_PASSWORD"] = c.Password
+		cfg.Password = c.Password
 	}
 	if c.Username != "" {
-		m["MYTHICBEASTS_USERNAME"] = c.Username
+		cfg.UserName = c.Username
 	}
 	if c.APIEndpoint != "" {
-		m["MYTHICBEASTS_API_ENDPOINT"] = c.APIEndpoint
+		v, err := url.Parse(c.APIEndpoint)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"apiEndpoint\": %w", err)
+		}
+		cfg.APIEndpoint = v
 	}
 	if c.AuthAPIEndpoint != "" {
-		m["MYTHICBEASTS_AUTH_API_ENDPOINT"] = c.AuthAPIEndpoint
-	}
-	if c.HTTPTimeout != "" {
-		m["MYTHICBEASTS_HTTP_TIMEOUT"] = c.HTTPTimeout
+		v, err := url.Parse(c.AuthAPIEndpoint)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"authAPIEndpoint\": %w", err)
+		}
+		cfg.AuthAPIEndpoint = v
 	}
 	if c.PollingInterval != "" {
-		m["MYTHICBEASTS_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["MYTHICBEASTS_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["MYTHICBEASTS_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -77,8 +102,6 @@ func (c *MythicbeastsConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.APIEndpoint = val
 		case "authAPIEndpoint", "MYTHICBEASTS_AUTH_API_ENDPOINT":
 			c.AuthAPIEndpoint = val
-		case "httpTimeout", "MYTHICBEASTS_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "MYTHICBEASTS_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "MYTHICBEASTS_PROPAGATION_TIMEOUT":

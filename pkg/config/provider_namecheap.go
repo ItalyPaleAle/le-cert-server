@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/namecheap"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,38 +17,43 @@ import (
 type NamecheapConfig struct {
 	APIKey             string // NAMECHEAP_API_KEY: API key
 	APIUser            string // NAMECHEAP_API_USER: API user
-	HTTPTimeout        string // NAMECHEAP_HTTP_TIMEOUT: API request timeout in seconds (Default: 60)
 	PollingInterval    string // NAMECHEAP_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 15)
 	PropagationTimeout string // NAMECHEAP_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 3600)
-	Sandbox            string // NAMECHEAP_SANDBOX: Activate the sandbox (boolean)
 	TTL                string // NAMECHEAP_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *NamecheapConfig) envVars() map[string]string {
-	m := make(map[string]string, 7)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *NamecheapConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIKey != "" {
-		m["NAMECHEAP_API_KEY"] = c.APIKey
+		cfg.APIKey = c.APIKey
 	}
 	if c.APIUser != "" {
-		m["NAMECHEAP_API_USER"] = c.APIUser
-	}
-	if c.HTTPTimeout != "" {
-		m["NAMECHEAP_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.APIUser = c.APIUser
 	}
 	if c.PollingInterval != "" {
-		m["NAMECHEAP_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["NAMECHEAP_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
-	}
-	if c.Sandbox != "" {
-		m["NAMECHEAP_SANDBOX"] = c.Sandbox
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["NAMECHEAP_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -69,14 +78,10 @@ func (c *NamecheapConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.APIKey = val
 		case "apiUser", "NAMECHEAP_API_USER":
 			c.APIUser = val
-		case "httpTimeout", "NAMECHEAP_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "NAMECHEAP_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "NAMECHEAP_PROPAGATION_TIMEOUT":
 			c.PropagationTimeout = val
-		case "sandbox", "NAMECHEAP_SANDBOX":
-			c.Sandbox = val
 		case "ttl", "NAMECHEAP_TTL":
 			c.TTL = val
 		default:

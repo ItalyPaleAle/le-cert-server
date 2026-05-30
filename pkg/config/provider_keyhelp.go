@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/keyhelp"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,34 +17,43 @@ import (
 type KeyhelpConfig struct {
 	APIKey             string // KEYHELP_API_KEY: API key
 	BaseURL            string // KEYHELP_BASE_URL: Server URL
-	HTTPTimeout        string // KEYHELP_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // KEYHELP_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // KEYHELP_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // KEYHELP_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *KeyhelpConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *KeyhelpConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIKey != "" {
-		m["KEYHELP_API_KEY"] = c.APIKey
+		cfg.APIKey = c.APIKey
 	}
 	if c.BaseURL != "" {
-		m["KEYHELP_BASE_URL"] = c.BaseURL
-	}
-	if c.HTTPTimeout != "" {
-		m["KEYHELP_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.BaseURL = c.BaseURL
 	}
 	if c.PollingInterval != "" {
-		m["KEYHELP_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["KEYHELP_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["KEYHELP_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -65,8 +78,6 @@ func (c *KeyhelpConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.APIKey = val
 		case "baseURL", "KEYHELP_BASE_URL":
 			c.BaseURL = val
-		case "httpTimeout", "KEYHELP_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "KEYHELP_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "KEYHELP_PROPAGATION_TIMEOUT":

@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/ovh"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -14,53 +18,54 @@ type OvhConfig struct {
 	AccessToken        string // OVH_ACCESS_TOKEN: Access token
 	ApplicationKey     string // OVH_APPLICATION_KEY: Application key (Application Key authentication)
 	ApplicationSecret  string // OVH_APPLICATION_SECRET: Application secret (Application Key authentication)
-	ClientID           string // OVH_CLIENT_ID: Client ID (OAuth2)
-	ClientSecret       string // OVH_CLIENT_SECRET: Client secret (OAuth2)
 	ConsumerKey        string // OVH_CONSUMER_KEY: Consumer key (Application Key authentication)
 	Endpoint           string // OVH_ENDPOINT: Endpoint URL (ovh-eu or ovh-ca)
-	HTTPTimeout        string // OVH_HTTP_TIMEOUT: API request timeout in seconds (Default: 180)
 	PollingInterval    string // OVH_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // OVH_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // OVH_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *OvhConfig) envVars() map[string]string {
-	m := make(map[string]string, 11)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *OvhConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.AccessToken != "" {
-		m["OVH_ACCESS_TOKEN"] = c.AccessToken
+		cfg.AccessToken = c.AccessToken
 	}
 	if c.ApplicationKey != "" {
-		m["OVH_APPLICATION_KEY"] = c.ApplicationKey
+		cfg.ApplicationKey = c.ApplicationKey
 	}
 	if c.ApplicationSecret != "" {
-		m["OVH_APPLICATION_SECRET"] = c.ApplicationSecret
-	}
-	if c.ClientID != "" {
-		m["OVH_CLIENT_ID"] = c.ClientID
-	}
-	if c.ClientSecret != "" {
-		m["OVH_CLIENT_SECRET"] = c.ClientSecret
+		cfg.ApplicationSecret = c.ApplicationSecret
 	}
 	if c.ConsumerKey != "" {
-		m["OVH_CONSUMER_KEY"] = c.ConsumerKey
+		cfg.ConsumerKey = c.ConsumerKey
 	}
 	if c.Endpoint != "" {
-		m["OVH_ENDPOINT"] = c.Endpoint
-	}
-	if c.HTTPTimeout != "" {
-		m["OVH_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.APIEndpoint = c.Endpoint
 	}
 	if c.PollingInterval != "" {
-		m["OVH_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["OVH_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["OVH_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -87,16 +92,10 @@ func (c *OvhConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.ApplicationKey = val
 		case "applicationSecret", "OVH_APPLICATION_SECRET":
 			c.ApplicationSecret = val
-		case "clientID", "OVH_CLIENT_ID":
-			c.ClientID = val
-		case "clientSecret", "OVH_CLIENT_SECRET":
-			c.ClientSecret = val
 		case "consumerKey", "OVH_CONSUMER_KEY":
 			c.ConsumerKey = val
 		case "endpoint", "OVH_ENDPOINT":
 			c.Endpoint = val
-		case "httpTimeout", "OVH_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "OVH_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "OVH_PROPAGATION_TIMEOUT":

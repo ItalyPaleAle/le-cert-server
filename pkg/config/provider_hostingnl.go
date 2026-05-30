@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/hostingnl"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -12,31 +16,40 @@ import (
 // See https://hosting.nl
 type HostingnlConfig struct {
 	APIKey             string // HOSTINGNL_API_KEY: The API key
-	HTTPTimeout        string // HOSTINGNL_HTTP_TIMEOUT: API request timeout in seconds (Default: 10)
 	PollingInterval    string // HOSTINGNL_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // HOSTINGNL_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
 	TTL                string // HOSTINGNL_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *HostingnlConfig) envVars() map[string]string {
-	m := make(map[string]string, 5)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *HostingnlConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIKey != "" {
-		m["HOSTINGNL_API_KEY"] = c.APIKey
-	}
-	if c.HTTPTimeout != "" {
-		m["HOSTINGNL_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.APIKey = c.APIKey
 	}
 	if c.PollingInterval != "" {
-		m["HOSTINGNL_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["HOSTINGNL_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["HOSTINGNL_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -59,8 +72,6 @@ func (c *HostingnlConfig) UnmarshalYAML(value *yaml.Node) error {
 		switch key {
 		case "apiKey", "HOSTINGNL_API_KEY":
 			c.APIKey = val
-		case "httpTimeout", "HOSTINGNL_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "HOSTINGNL_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "HOSTINGNL_PROPAGATION_TIMEOUT":

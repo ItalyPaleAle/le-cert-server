@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/bluecatv2"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -16,47 +20,60 @@ type Bluecatv2Config struct {
 	ServerURL          string // BLUECATV2_SERVER_URL: The server URL: it should have a scheme, hostname, and port (if required) of the authoritative Bluecat BAM serve
 	Username           string // BLUECATV2_USERNAME: API username
 	ViewName           string // BLUECATV2_VIEW_NAME: DNS View Name
-	HTTPTimeout        string // BLUECATV2_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // BLUECATV2_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // BLUECATV2_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	SkipDeploy         string // BLUECATV2_SKIP_DEPLOY: Skip quick deployements
 	TTL                string // BLUECATV2_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *Bluecatv2Config) envVars() map[string]string {
-	m := make(map[string]string, 10)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *Bluecatv2Config) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.ConfigName != "" {
-		m["BLUECATV2_CONFIG_NAME"] = c.ConfigName
+		cfg.ConfigName = c.ConfigName
 	}
 	if c.Password != "" {
-		m["BLUECATV2_PASSWORD"] = c.Password
+		cfg.Password = c.Password
 	}
 	if c.ServerURL != "" {
-		m["BLUECATV2_SERVER_URL"] = c.ServerURL
+		cfg.ServerURL = c.ServerURL
 	}
 	if c.Username != "" {
-		m["BLUECATV2_USERNAME"] = c.Username
+		cfg.Username = c.Username
 	}
 	if c.ViewName != "" {
-		m["BLUECATV2_VIEW_NAME"] = c.ViewName
-	}
-	if c.HTTPTimeout != "" {
-		m["BLUECATV2_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.ViewName = c.ViewName
 	}
 	if c.PollingInterval != "" {
-		m["BLUECATV2_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["BLUECATV2_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.SkipDeploy != "" {
-		m["BLUECATV2_SKIP_DEPLOY"] = c.SkipDeploy
+		v, err := strconv.ParseBool(c.SkipDeploy)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"skipDeploy\": %w", err)
+		}
+		cfg.SkipDeploy = v
 	}
 	if c.TTL != "" {
-		m["BLUECATV2_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -87,8 +104,6 @@ func (c *Bluecatv2Config) UnmarshalYAML(value *yaml.Node) error {
 			c.Username = val
 		case "viewName", "BLUECATV2_VIEW_NAME":
 			c.ViewName = val
-		case "httpTimeout", "BLUECATV2_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "BLUECATV2_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "BLUECATV2_PROPAGATION_TIMEOUT":

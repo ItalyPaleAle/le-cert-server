@@ -4,39 +4,48 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/syse"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
 // SyseConfig holds configuration for the "syse" DNS provider (Syse)
 // See https://www.syse.no/
 type SyseConfig struct {
-	Credentials        string // SYSE_CREDENTIALS: Comma-separated list of `zone:password` credential pairs
-	HTTPTimeout        string // SYSE_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // SYSE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
 	PropagationTimeout string // SYSE_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 1200)
 	TTL                string // SYSE_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *SyseConfig) envVars() map[string]string {
-	m := make(map[string]string, 5)
-	if c.Credentials != "" {
-		m["SYSE_CREDENTIALS"] = c.Credentials
-	}
-	if c.HTTPTimeout != "" {
-		m["SYSE_HTTP_TIMEOUT"] = c.HTTPTimeout
-	}
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *SyseConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.PollingInterval != "" {
-		m["SYSE_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["SYSE_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["SYSE_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -57,10 +66,6 @@ func (c *SyseConfig) UnmarshalYAML(value *yaml.Node) error {
 			return err
 		}
 		switch key {
-		case "credentials", "SYSE_CREDENTIALS":
-			c.Credentials = val
-		case "httpTimeout", "SYSE_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "SYSE_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "SYSE_PROPAGATION_TIMEOUT":

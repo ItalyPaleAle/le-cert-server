@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/scaleway"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -14,37 +18,46 @@ type ScalewayConfig struct {
 	ProjectID          string // SCW_PROJECT_ID: Project to use (optional)
 	SecretKey          string // SCW_SECRET_KEY: Secret key
 	AccessKey          string // SCW_ACCESS_KEY: Access key
-	HTTPTimeout        string // SCW_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // SCW_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
 	PropagationTimeout string // SCW_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
 	TTL                string // SCW_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 60)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *ScalewayConfig) envVars() map[string]string {
-	m := make(map[string]string, 7)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *ScalewayConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.ProjectID != "" {
-		m["SCW_PROJECT_ID"] = c.ProjectID
+		cfg.ProjectID = c.ProjectID
 	}
 	if c.SecretKey != "" {
-		m["SCW_SECRET_KEY"] = c.SecretKey
+		cfg.Token = c.SecretKey
 	}
 	if c.AccessKey != "" {
-		m["SCW_ACCESS_KEY"] = c.AccessKey
-	}
-	if c.HTTPTimeout != "" {
-		m["SCW_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.AccessKey = c.AccessKey
 	}
 	if c.PollingInterval != "" {
-		m["SCW_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["SCW_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["SCW_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -71,8 +84,6 @@ func (c *ScalewayConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.SecretKey = val
 		case "accessKey", "SCW_ACCESS_KEY":
 			c.AccessKey = val
-		case "httpTimeout", "SCW_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "SCW_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "SCW_PROPAGATION_TIMEOUT":

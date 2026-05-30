@@ -19,8 +19,6 @@ letsEncrypt:
     secret: ""
     # NICRU_SERVICE_ID: Service ID for application in DNS-hosting RU CENTER
     serviceID: ""
-    # NICRU_SERVICE_NAME: Service Name for DNS-hosting RU CENTER
-    serviceName: ""
     # NICRU_USER: Agreement for an account in RU CENTER
     user: ""
     # NICRU_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 60)
@@ -31,5 +29,5 @@ letsEncrypt:
     ttl: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

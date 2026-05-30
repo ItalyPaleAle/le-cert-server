@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/f5xc"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -14,41 +18,50 @@ type F5xcConfig struct {
 	APIToken           string // F5XC_API_TOKEN: API token
 	GroupName          string // F5XC_GROUP_NAME: Group name
 	TenantName         string // F5XC_TENANT_NAME: XC Tenant shortname
-	HTTPTimeout        string // F5XC_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // F5XC_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // F5XC_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	Server             string // F5XC_SERVER: Server domain (Default: console.ves.volterra.io)
 	TTL                string // F5XC_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *F5xcConfig) envVars() map[string]string {
-	m := make(map[string]string, 8)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *F5xcConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIToken != "" {
-		m["F5XC_API_TOKEN"] = c.APIToken
+		cfg.APIToken = c.APIToken
 	}
 	if c.GroupName != "" {
-		m["F5XC_GROUP_NAME"] = c.GroupName
+		cfg.GroupName = c.GroupName
 	}
 	if c.TenantName != "" {
-		m["F5XC_TENANT_NAME"] = c.TenantName
-	}
-	if c.HTTPTimeout != "" {
-		m["F5XC_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.TenantName = c.TenantName
 	}
 	if c.PollingInterval != "" {
-		m["F5XC_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["F5XC_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.Server != "" {
-		m["F5XC_SERVER"] = c.Server
+		cfg.Server = c.Server
 	}
 	if c.TTL != "" {
-		m["F5XC_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -75,8 +88,6 @@ func (c *F5xcConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.GroupName = val
 		case "tenantName", "F5XC_TENANT_NAME":
 			c.TenantName = val
-		case "httpTimeout", "F5XC_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "F5XC_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "F5XC_PROPAGATION_TIMEOUT":

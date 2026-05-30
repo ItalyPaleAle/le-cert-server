@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/porkbun"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,34 +17,43 @@ import (
 type PorkbunConfig struct {
 	APIKey             string // PORKBUN_API_KEY: API key
 	SecretAPIKey       string // PORKBUN_SECRET_API_KEY: secret API key
-	HTTPTimeout        string // PORKBUN_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // PORKBUN_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
 	PropagationTimeout string // PORKBUN_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 600)
 	TTL                string // PORKBUN_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 300)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *PorkbunConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *PorkbunConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIKey != "" {
-		m["PORKBUN_API_KEY"] = c.APIKey
+		cfg.APIKey = c.APIKey
 	}
 	if c.SecretAPIKey != "" {
-		m["PORKBUN_SECRET_API_KEY"] = c.SecretAPIKey
-	}
-	if c.HTTPTimeout != "" {
-		m["PORKBUN_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.SecretAPIKey = c.SecretAPIKey
 	}
 	if c.PollingInterval != "" {
-		m["PORKBUN_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["PORKBUN_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["PORKBUN_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -65,8 +78,6 @@ func (c *PorkbunConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.APIKey = val
 		case "secretAPIKey", "PORKBUN_SECRET_API_KEY":
 			c.SecretAPIKey = val
-		case "httpTimeout", "PORKBUN_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "PORKBUN_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "PORKBUN_PROPAGATION_TIMEOUT":

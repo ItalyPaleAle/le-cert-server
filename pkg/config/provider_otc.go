@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/otc"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -15,7 +19,6 @@ type OtcConfig struct {
 	Password           string // OTC_PASSWORD: Password
 	ProjectName        string // OTC_PROJECT_NAME: Project name
 	UserName           string // OTC_USER_NAME: User name
-	HTTPTimeout        string // OTC_HTTP_TIMEOUT: API request timeout in seconds (Default: 10)
 	IdentityEndpoint   string // OTC_IDENTITY_ENDPOINT: Identity endpoint URL (default: https://iam.eu-de.otc.t-systems.com:443/v3/auth/tokens)
 	PollingInterval    string // OTC_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PrivateZone        string // OTC_PRIVATE_ZONE: Set to true to use private zones only (default: use public zones only)
@@ -24,43 +27,61 @@ type OtcConfig struct {
 	TTL                string // OTC_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 300)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *OtcConfig) envVars() map[string]string {
-	m := make(map[string]string, 11)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *OtcConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.DomainName != "" {
-		m["OTC_DOMAIN_NAME"] = c.DomainName
+		cfg.DomainName = c.DomainName
 	}
 	if c.Password != "" {
-		m["OTC_PASSWORD"] = c.Password
+		cfg.Password = c.Password
 	}
 	if c.ProjectName != "" {
-		m["OTC_PROJECT_NAME"] = c.ProjectName
+		cfg.ProjectName = c.ProjectName
 	}
 	if c.UserName != "" {
-		m["OTC_USER_NAME"] = c.UserName
-	}
-	if c.HTTPTimeout != "" {
-		m["OTC_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.UserName = c.UserName
 	}
 	if c.IdentityEndpoint != "" {
-		m["OTC_IDENTITY_ENDPOINT"] = c.IdentityEndpoint
+		cfg.IdentityEndpoint = c.IdentityEndpoint
 	}
 	if c.PollingInterval != "" {
-		m["OTC_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PrivateZone != "" {
-		m["OTC_PRIVATE_ZONE"] = c.PrivateZone
+		v, err := strconv.ParseBool(c.PrivateZone)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"privateZone\": %w", err)
+		}
+		cfg.PrivateZone = v
 	}
 	if c.PropagationTimeout != "" {
-		m["OTC_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.SequenceInterval != "" {
-		m["OTC_SEQUENCE_INTERVAL"] = c.SequenceInterval
+		v, err := strconv.Atoi(c.SequenceInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"sequenceInterval\": %w", err)
+		}
+		cfg.SequenceInterval = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["OTC_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -89,8 +110,6 @@ func (c *OtcConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.ProjectName = val
 		case "userName", "OTC_USER_NAME":
 			c.UserName = val
-		case "httpTimeout", "OTC_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "identityEndpoint", "OTC_IDENTITY_ENDPOINT":
 			c.IdentityEndpoint = val
 		case "pollingInterval", "OTC_POLLING_INTERVAL":

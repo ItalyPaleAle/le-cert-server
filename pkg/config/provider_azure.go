@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/azure"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,7 +17,6 @@ import (
 type AzureConfig struct {
 	ClientID           string // AZURE_CLIENT_ID: Client ID
 	ClientSecret       string // AZURE_CLIENT_SECRET: Client secret
-	Environment        string // AZURE_ENVIRONMENT: Azure environment, one of: public, usgovernment, german, and china
 	ResourceGroup      string // AZURE_RESOURCE_GROUP: Resource group
 	SubscriptionID     string // AZURE_SUBSCRIPTION_ID: Subscription ID
 	TenantID           string // AZURE_TENANT_ID: Tenant ID
@@ -25,46 +28,60 @@ type AzureConfig struct {
 	ZoneName           string // AZURE_ZONE_NAME: Zone name to use inside Azure DNS service to add the TXT record in
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *AzureConfig) envVars() map[string]string {
-	m := make(map[string]string, 12)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *AzureConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.ClientID != "" {
-		m["AZURE_CLIENT_ID"] = c.ClientID
+		cfg.ClientID = c.ClientID
 	}
 	if c.ClientSecret != "" {
-		m["AZURE_CLIENT_SECRET"] = c.ClientSecret
-	}
-	if c.Environment != "" {
-		m["AZURE_ENVIRONMENT"] = c.Environment
+		cfg.ClientSecret = c.ClientSecret
 	}
 	if c.ResourceGroup != "" {
-		m["AZURE_RESOURCE_GROUP"] = c.ResourceGroup
+		cfg.ResourceGroup = c.ResourceGroup
 	}
 	if c.SubscriptionID != "" {
-		m["AZURE_SUBSCRIPTION_ID"] = c.SubscriptionID
+		cfg.SubscriptionID = c.SubscriptionID
 	}
 	if c.TenantID != "" {
-		m["AZURE_TENANT_ID"] = c.TenantID
+		cfg.TenantID = c.TenantID
 	}
 	if c.MetadataEndpoint != "" {
-		m["AZURE_METADATA_ENDPOINT"] = c.MetadataEndpoint
+		cfg.MetadataEndpoint = c.MetadataEndpoint
 	}
 	if c.PollingInterval != "" {
-		m["AZURE_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PrivateZone != "" {
-		m["AZURE_PRIVATE_ZONE"] = c.PrivateZone
+		v, err := strconv.ParseBool(c.PrivateZone)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"privateZone\": %w", err)
+		}
+		cfg.PrivateZone = v
 	}
 	if c.PropagationTimeout != "" {
-		m["AZURE_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["AZURE_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
 	if c.ZoneName != "" {
-		m["AZURE_ZONE_NAME"] = c.ZoneName
+		cfg.ZoneName = c.ZoneName
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -89,8 +106,6 @@ func (c *AzureConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.ClientID = val
 		case "clientSecret", "AZURE_CLIENT_SECRET":
 			c.ClientSecret = val
-		case "environment", "AZURE_ENVIRONMENT":
-			c.Environment = val
 		case "resourceGroup", "AZURE_RESOURCE_GROUP":
 			c.ResourceGroup = val
 		case "subscriptionID", "AZURE_SUBSCRIPTION_ID":

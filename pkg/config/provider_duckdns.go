@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/duckdns"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -12,31 +16,40 @@ import (
 // See https://www.duckdns.org/
 type DuckdnsConfig struct {
 	Token              string // DUCKDNS_TOKEN: Account token
-	HTTPTimeout        string // DUCKDNS_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // DUCKDNS_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // DUCKDNS_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	SequenceInterval   string // DUCKDNS_SEQUENCE_INTERVAL: Time between sequential requests in seconds (Default: 60)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *DuckdnsConfig) envVars() map[string]string {
-	m := make(map[string]string, 5)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *DuckdnsConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Token != "" {
-		m["DUCKDNS_TOKEN"] = c.Token
-	}
-	if c.HTTPTimeout != "" {
-		m["DUCKDNS_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Token = c.Token
 	}
 	if c.PollingInterval != "" {
-		m["DUCKDNS_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["DUCKDNS_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.SequenceInterval != "" {
-		m["DUCKDNS_SEQUENCE_INTERVAL"] = c.SequenceInterval
+		v, err := strconv.Atoi(c.SequenceInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"sequenceInterval\": %w", err)
+		}
+		cfg.SequenceInterval = time.Duration(v) * time.Second
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -59,8 +72,6 @@ func (c *DuckdnsConfig) UnmarshalYAML(value *yaml.Node) error {
 		switch key {
 		case "token", "DUCKDNS_TOKEN":
 			c.Token = val
-		case "httpTimeout", "DUCKDNS_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "DUCKDNS_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "DUCKDNS_PROPAGATION_TIMEOUT":

@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/technitium"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,34 +17,43 @@ import (
 type TechnitiumConfig struct {
 	APIToken           string // TECHNITIUM_API_TOKEN: API token
 	ServerBaseURL      string // TECHNITIUM_SERVER_BASE_URL: Server base URL
-	HTTPTimeout        string // TECHNITIUM_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // TECHNITIUM_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // TECHNITIUM_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // TECHNITIUM_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *TechnitiumConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *TechnitiumConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIToken != "" {
-		m["TECHNITIUM_API_TOKEN"] = c.APIToken
+		cfg.APIToken = c.APIToken
 	}
 	if c.ServerBaseURL != "" {
-		m["TECHNITIUM_SERVER_BASE_URL"] = c.ServerBaseURL
-	}
-	if c.HTTPTimeout != "" {
-		m["TECHNITIUM_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.BaseURL = c.ServerBaseURL
 	}
 	if c.PollingInterval != "" {
-		m["TECHNITIUM_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["TECHNITIUM_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["TECHNITIUM_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -65,8 +78,6 @@ func (c *TechnitiumConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.APIToken = val
 		case "serverBaseURL", "TECHNITIUM_SERVER_BASE_URL":
 			c.ServerBaseURL = val
-		case "httpTimeout", "TECHNITIUM_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "TECHNITIUM_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "TECHNITIUM_PROPAGATION_TIMEOUT":

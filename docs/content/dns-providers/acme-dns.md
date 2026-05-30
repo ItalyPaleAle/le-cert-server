@@ -19,9 +19,7 @@ letsEncrypt:
     dnsStorageBaseURL: ""
     # ACME_DNS_STORAGE_PATH: The ACME-DNS JSON account data file. A per-domain account will be registered/persisted to this file and used for TXT updates.
     dnsStoragePath: ""
-    # ACME_DNS_ALLOWLIST: Source networks using CIDR notation (multiple values should be separated with a comma).
-    dnsAllowlist: ""
 ```
 
+Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
-Credentials may also be supplied directly as system environment variables, in which case `dnsCredentials` can be omitted.

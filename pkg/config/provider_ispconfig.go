@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/ispconfig"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -14,41 +18,54 @@ type IspconfigConfig struct {
 	Password           string // ISPCONFIG_PASSWORD: Password
 	ServerURL          string // ISPCONFIG_SERVER_URL: Server URL
 	Username           string // ISPCONFIG_USERNAME: Username
-	HTTPTimeout        string // ISPCONFIG_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	InsecureSkipVerify string // ISPCONFIG_INSECURE_SKIP_VERIFY: Whether to verify the API certificate
 	PollingInterval    string // ISPCONFIG_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // ISPCONFIG_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // ISPCONFIG_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *IspconfigConfig) envVars() map[string]string {
-	m := make(map[string]string, 8)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *IspconfigConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Password != "" {
-		m["ISPCONFIG_PASSWORD"] = c.Password
+		cfg.Password = c.Password
 	}
 	if c.ServerURL != "" {
-		m["ISPCONFIG_SERVER_URL"] = c.ServerURL
+		cfg.ServerURL = c.ServerURL
 	}
 	if c.Username != "" {
-		m["ISPCONFIG_USERNAME"] = c.Username
-	}
-	if c.HTTPTimeout != "" {
-		m["ISPCONFIG_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Username = c.Username
 	}
 	if c.InsecureSkipVerify != "" {
-		m["ISPCONFIG_INSECURE_SKIP_VERIFY"] = c.InsecureSkipVerify
+		v, err := strconv.ParseBool(c.InsecureSkipVerify)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"insecureSkipVerify\": %w", err)
+		}
+		cfg.InsecureSkipVerify = v
 	}
 	if c.PollingInterval != "" {
-		m["ISPCONFIG_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["ISPCONFIG_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["ISPCONFIG_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -75,8 +92,6 @@ func (c *IspconfigConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.ServerURL = val
 		case "username", "ISPCONFIG_USERNAME":
 			c.Username = val
-		case "httpTimeout", "ISPCONFIG_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "insecureSkipVerify", "ISPCONFIG_INSECURE_SKIP_VERIFY":
 			c.InsecureSkipVerify = val
 		case "pollingInterval", "ISPCONFIG_POLLING_INTERVAL":

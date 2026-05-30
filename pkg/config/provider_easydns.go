@@ -4,7 +4,12 @@ package config
 
 import (
 	"fmt"
+	"net/url"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/easydns"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -14,41 +19,58 @@ type EasydnsConfig struct {
 	Key                string // EASYDNS_KEY: API Key
 	Token              string // EASYDNS_TOKEN: API Token
 	Endpoint           string // EASYDNS_ENDPOINT: The endpoint URL of the API Server
-	HTTPTimeout        string // EASYDNS_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // EASYDNS_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // EASYDNS_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	SequenceInterval   string // EASYDNS_SEQUENCE_INTERVAL: Time between sequential requests in seconds (Default: 60)
 	TTL                string // EASYDNS_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *EasydnsConfig) envVars() map[string]string {
-	m := make(map[string]string, 8)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *EasydnsConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.Key != "" {
-		m["EASYDNS_KEY"] = c.Key
+		cfg.Key = c.Key
 	}
 	if c.Token != "" {
-		m["EASYDNS_TOKEN"] = c.Token
+		cfg.Token = c.Token
 	}
 	if c.Endpoint != "" {
-		m["EASYDNS_ENDPOINT"] = c.Endpoint
-	}
-	if c.HTTPTimeout != "" {
-		m["EASYDNS_HTTP_TIMEOUT"] = c.HTTPTimeout
+		v, err := url.Parse(c.Endpoint)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"endpoint\": %w", err)
+		}
+		cfg.Endpoint = v
 	}
 	if c.PollingInterval != "" {
-		m["EASYDNS_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["EASYDNS_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.SequenceInterval != "" {
-		m["EASYDNS_SEQUENCE_INTERVAL"] = c.SequenceInterval
+		v, err := strconv.Atoi(c.SequenceInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"sequenceInterval\": %w", err)
+		}
+		cfg.SequenceInterval = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["EASYDNS_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -75,8 +97,6 @@ func (c *EasydnsConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.Token = val
 		case "endpoint", "EASYDNS_ENDPOINT":
 			c.Endpoint = val
-		case "httpTimeout", "EASYDNS_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "EASYDNS_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "EASYDNS_PROPAGATION_TIMEOUT":

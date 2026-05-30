@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/webnamesca"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -13,34 +17,43 @@ import (
 type WebnamescaConfig struct {
 	APIKey             string // WEBNAMESCA_API_KEY: API key
 	APIUser            string // WEBNAMESCA_API_USER: API username
-	HTTPTimeout        string // WEBNAMESCA_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // WEBNAMESCA_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // WEBNAMESCA_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // WEBNAMESCA_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *WebnamescaConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *WebnamescaConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.APIKey != "" {
-		m["WEBNAMESCA_API_KEY"] = c.APIKey
+		cfg.APIKey = c.APIKey
 	}
 	if c.APIUser != "" {
-		m["WEBNAMESCA_API_USER"] = c.APIUser
-	}
-	if c.HTTPTimeout != "" {
-		m["WEBNAMESCA_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.APIUser = c.APIUser
 	}
 	if c.PollingInterval != "" {
-		m["WEBNAMESCA_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["WEBNAMESCA_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["WEBNAMESCA_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -65,8 +78,6 @@ func (c *WebnamescaConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.APIKey = val
 		case "apiUser", "WEBNAMESCA_API_USER":
 			c.APIUser = val
-		case "httpTimeout", "WEBNAMESCA_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "WEBNAMESCA_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "WEBNAMESCA_PROPAGATION_TIMEOUT":

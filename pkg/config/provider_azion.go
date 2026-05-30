@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/azion"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -12,35 +16,48 @@ import (
 // See https://www.azion.com/en/products/edge-dns/
 type AzionConfig struct {
 	PersonalToken      string // AZION_PERSONAL_TOKEN: Your Azion personal token.
-	HTTPTimeout        string // AZION_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PageSize           string // AZION_PAGE_SIZE: The page size for the API request (Default: 50)
 	PollingInterval    string // AZION_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // AZION_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // AZION_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *AzionConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *AzionConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.PersonalToken != "" {
-		m["AZION_PERSONAL_TOKEN"] = c.PersonalToken
-	}
-	if c.HTTPTimeout != "" {
-		m["AZION_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.PersonalToken = c.PersonalToken
 	}
 	if c.PageSize != "" {
-		m["AZION_PAGE_SIZE"] = c.PageSize
+		v, err := strconv.Atoi(c.PageSize)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pageSize\": %w", err)
+		}
+		cfg.PageSize = v
 	}
 	if c.PollingInterval != "" {
-		m["AZION_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["AZION_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
 	if c.TTL != "" {
-		m["AZION_TTL"] = c.TTL
+		v, err := strconv.Atoi(c.TTL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = v
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -63,8 +80,6 @@ func (c *AzionConfig) UnmarshalYAML(value *yaml.Node) error {
 		switch key {
 		case "personalToken", "AZION_PERSONAL_TOKEN":
 			c.PersonalToken = val
-		case "httpTimeout", "AZION_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pageSize", "AZION_PAGE_SIZE":
 			c.PageSize = val
 		case "pollingInterval", "AZION_POLLING_INTERVAL":

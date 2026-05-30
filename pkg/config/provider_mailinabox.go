@@ -4,7 +4,11 @@ package config
 
 import (
 	"fmt"
+	"strconv"
+	"time"
 
+	"github.com/go-acme/lego/v4/challenge"
+	prov "github.com/go-acme/lego/v4/providers/dns/mailinabox"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -14,33 +18,38 @@ type MailinaboxConfig struct {
 	BaseURL            string // MAILINABOX_BASE_URL: Base API URL (ex: https://box.example.com)
 	Email              string // MAILINABOX_EMAIL: User email
 	Password           string // MAILINABOX_PASSWORD: User password
-	HTTPTimeout        string // MAILINABOX_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // MAILINABOX_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 4)
 	PropagationTimeout string // MAILINABOX_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
 }
 
-// envVars returns the lego environment variables for the populated (non-empty) fields
-func (c *MailinaboxConfig) envVars() map[string]string {
-	m := make(map[string]string, 6)
+// newProvider builds the lego DNS challenge provider using strong types
+// Credentials are passed directly to lego and never written to the process environment
+func (c *MailinaboxConfig) newProvider() (challenge.Provider, error) {
+	cfg := prov.NewDefaultConfig()
 	if c.BaseURL != "" {
-		m["MAILINABOX_BASE_URL"] = c.BaseURL
+		cfg.BaseURL = c.BaseURL
 	}
 	if c.Email != "" {
-		m["MAILINABOX_EMAIL"] = c.Email
+		cfg.Email = c.Email
 	}
 	if c.Password != "" {
-		m["MAILINABOX_PASSWORD"] = c.Password
-	}
-	if c.HTTPTimeout != "" {
-		m["MAILINABOX_HTTP_TIMEOUT"] = c.HTTPTimeout
+		cfg.Password = c.Password
 	}
 	if c.PollingInterval != "" {
-		m["MAILINABOX_POLLING_INTERVAL"] = c.PollingInterval
+		v, err := strconv.Atoi(c.PollingInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"pollingInterval\": %w", err)
+		}
+		cfg.PollingInterval = time.Duration(v) * time.Second
 	}
 	if c.PropagationTimeout != "" {
-		m["MAILINABOX_PROPAGATION_TIMEOUT"] = c.PropagationTimeout
+		v, err := strconv.Atoi(c.PropagationTimeout)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"propagationTimeout\": %w", err)
+		}
+		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
-	return m
+	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
@@ -67,8 +76,6 @@ func (c *MailinaboxConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.Email = val
 		case "password", "MAILINABOX_PASSWORD":
 			c.Password = val
-		case "httpTimeout", "MAILINABOX_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "MAILINABOX_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "MAILINABOX_PROPAGATION_TIMEOUT":
