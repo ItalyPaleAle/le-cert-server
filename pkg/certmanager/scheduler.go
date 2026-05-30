@@ -2,7 +2,6 @@ package certmanager
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"time"
 )
@@ -28,7 +27,11 @@ func (s *Scheduler) Run(ctx context.Context) error {
 	// Run once immediately
 	err := s.manager.RenewExpiringCertificates(ctx)
 	if err != nil {
-		return fmt.Errorf("certificate renewal check failed: %w", err)
+		// Treat this as non-fatal error, as it could be a transient Let's Encrypt failure
+		// We can still serve cached certificates
+		slog.ErrorContext(ctx, "Initial certificate renewal check failed", "error", err)
+	} else {
+		slog.InfoContext(ctx, "Initial certificate renewal check completed successfully")
 	}
 
 	ticker := time.NewTicker(s.interval)
