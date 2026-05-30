@@ -176,7 +176,7 @@ func (a *JWTAuthenticator) Middleware(next http.Handler) http.Handler {
 		token, err := a.validateToken(r.Context(), tokenString)
 		if err != nil {
 			slog.WarnContext(r.Context(), "Token validation failed", slog.Any("error", err))
-			http.Error(w, fmt.Sprintf("Invalid token: %v", err), http.StatusUnauthorized)
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
 			return
 		}
 

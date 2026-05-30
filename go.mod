@@ -11,19 +11,13 @@ require (
 	github.com/jinzhu/copier v0.4.0
 	github.com/lestrrat-go/httprc/v3 v3.0.5
 	github.com/lestrrat-go/jwx/v3 v3.1.1
-	github.com/lmittmann/tint v1.1.3
-	github.com/mattn/go-isatty v0.0.22
 	github.com/samber/slog-http v1.12.1
 	github.com/spf13/cast v1.10.0
 	github.com/stretchr/testify v1.11.1
-	go.opentelemetry.io/contrib/bridges/otelslog v0.18.0
-	go.opentelemetry.io/contrib/exporters/autoexport v0.68.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.68.0
 	go.opentelemetry.io/otel v1.43.0
-	go.opentelemetry.io/otel/log v0.19.0
 	go.opentelemetry.io/otel/metric v1.43.0
 	go.opentelemetry.io/otel/sdk v1.43.0
-	go.opentelemetry.io/otel/sdk/log v0.19.0
 	golang.org/x/sync v0.20.0
 	modernc.org/sqlite v1.50.1
 	tailscale.com v1.98.5
@@ -172,7 +166,9 @@ require (
 	github.com/linode/linodego v1.68.0 // indirect
 	github.com/liquidweb/liquidweb-cli v0.7.0 // indirect
 	github.com/liquidweb/liquidweb-go v1.6.4 // indirect
+	github.com/lmittmann/tint v1.1.3 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
+	github.com/mattn/go-isatty v0.0.22 // indirect
 	github.com/mdlayher/netlink v1.7.3-0.20250113171957-fbb4dce95f42 // indirect
 	github.com/mdlayher/socket v0.5.0 // indirect
 	github.com/miekg/dns v1.1.72 // indirect
@@ -260,7 +256,9 @@ require (
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
 	go.mongodb.org/mongo-driver v1.17.9 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
+	go.opentelemetry.io/contrib/bridges/otelslog v0.18.0 // indirect
 	go.opentelemetry.io/contrib/bridges/prometheus v0.68.0 // indirect
+	go.opentelemetry.io/contrib/exporters/autoexport v0.68.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.19.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.19.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.43.0 // indirect
@@ -272,6 +270,8 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdoutlog v0.19.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.43.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.43.0 // indirect
+	go.opentelemetry.io/otel/log v0.19.0 // indirect
+	go.opentelemetry.io/otel/sdk/log v0.19.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
