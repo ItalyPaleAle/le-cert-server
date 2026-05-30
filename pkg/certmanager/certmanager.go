@@ -17,6 +17,7 @@ import (
 	"github.com/go-acme/lego/v4/certificate"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/italypaleale/le-cert-server/pkg/config"
 	"github.com/italypaleale/le-cert-server/pkg/metrics"
@@ -34,6 +35,16 @@ type CertManager interface {
 type certManager struct {
 	storage    *storage.Storage
 	appMetrics *metrics.AppMetrics
+
+	// Collapses concurrent obtain/renew operations for the same domain into a single ACME call
+	// Without this, multiple nodes requesting the same uncached certificate at once would each start an independent ACME order, racing on the DNS-01 challenge record and exhausting Let's Encrypt rate limits
+	group singleflight.Group
+}
+
+// obtainResult is the value shared between callers collapsed by the singleflight group
+type obtainResult struct {
+	cert   *storage.Certificate
+	cached bool
 }
 
 // NewCertManager creates a new certificate manager
@@ -179,7 +190,26 @@ func (cm *certManager) createLegoClient(user *User) (*lego.Client, error) {
 }
 
 // ObtainCertificate obtains a new certificate for the specified domain
-func (cm *certManager) ObtainCertificate(ctx context.Context, domain string) (cert *storage.Certificate, cached bool, err error) {
+// Concurrent calls for the same domain are collapsed into a single ACME order
+func (cm *certManager) ObtainCertificate(ctx context.Context, domain string) (*storage.Certificate, bool, error) {
+	res, err, _ := cm.group.Do("obtain:"+domain, func() (any, error) {
+		cert, cached, innerErr := cm.obtainCertificate(ctx, domain)
+		if innerErr != nil {
+			return nil, innerErr
+		}
+		return obtainResult{cert: cert, cached: cached}, nil
+	})
+	if err != nil {
+		//nolint:wrapcheck
+		return nil, false, err
+	}
+
+	result, _ := res.(obtainResult)
+	return result.cert, result.cached, nil
+}
+
+// obtainCertificate performs the actual work of obtaining a certificate
+func (cm *certManager) obtainCertificate(ctx context.Context, domain string) (cert *storage.Certificate, cached bool, err error) {
 	cfg := config.Get()
 
 	// Check if we already have a valid certificate
@@ -257,7 +287,22 @@ func (cm *certManager) ObtainCertificate(ctx context.Context, domain string) (ce
 }
 
 // RenewCertificate renews an existing certificate
+// Concurrent calls for the same domain are collapsed into a single ACME order
 func (cm *certManager) RenewCertificate(ctx context.Context, domain string) (*storage.Certificate, error) {
+	res, err, _ := cm.group.Do("renew:"+domain, func() (any, error) {
+		return cm.renewCertificate(ctx, domain)
+	})
+	if err != nil {
+		//nolint:wrapcheck
+		return nil, err
+	}
+
+	cert, _ := res.(*storage.Certificate)
+	return cert, nil
+}
+
+// renewCertificate performs the actual work of renewing a certificate
+func (cm *certManager) renewCertificate(ctx context.Context, domain string) (*storage.Certificate, error) {
 	// Get existing certificate
 	cert, err := cm.storage.GetCertificate(ctx, domain)
 	if err != nil {
