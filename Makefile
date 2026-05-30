@@ -14,4 +14,4 @@ gen-config:
 
 # Ensure gen-config ran
 check-config-diff: gen-config
-	git diff --exit-code config.sample.yaml docs/Configuration.md
+	git diff --exit-code config.sample.yaml config.md
