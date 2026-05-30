@@ -30,7 +30,7 @@ func (cm *certManager) createDNSProvider() (challenge.Provider, error) {
 // The credentials can also be provided as system environment variables, in which case dnsCredentials may be empty
 func setDNSCredentialsEnv() error {
 	cfg := config.Get()
-	for key, value := range cfg.LetsEncrypt.DNSCredentials {
+	for key, value := range cfg.GetDNSEnv() {
 		err := os.Setenv(key, value)
 		if err != nil {
 			return fmt.Errorf("failed to set environment variable %s: %w", key, err)

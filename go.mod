@@ -2,7 +2,10 @@ module github.com/italypaleale/le-cert-server
 
 go 1.26.3
 
-tool github.com/italypaleale/go-kit/tools/gen-config
+tool (
+	github.com/italypaleale/go-kit/tools/gen-config
+	github.com/italypaleale/le-cert-server/tools/gen-dns-providers
+)
 
 require (
 	github.com/go-acme/lego/v4 v4.35.2
@@ -11,6 +14,7 @@ require (
 	github.com/jinzhu/copier v0.4.0
 	github.com/lestrrat-go/httprc/v3 v3.0.5
 	github.com/lestrrat-go/jwx/v3 v3.1.1
+	github.com/pelletier/go-toml/v2 v2.2.0
 	github.com/samber/slog-http v1.12.1
 	github.com/spf13/cast v1.10.0
 	github.com/stretchr/testify v1.11.1
@@ -20,6 +24,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.43.0
 	golang.org/x/sync v0.20.0
 	modernc.org/sqlite v1.50.1
+	sigs.k8s.io/yaml v1.6.0
 	tailscale.com v1.98.5
 )
 
@@ -198,7 +203,6 @@ require (
 	github.com/nzdjb/go-metaname v1.0.0 // indirect
 	github.com/openshift/gssapi v0.0.0-20161010215902-5fb4217df13b // indirect
 	github.com/ovh/go-ovh v1.9.0 // indirect
-	github.com/pelletier/go-toml/v2 v2.2.0 // indirect
 	github.com/peterhellberg/link v1.2.0 // indirect
 	github.com/pires/go-proxyproto v0.8.1 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
@@ -307,5 +311,4 @@ require (
 	modernc.org/libc v1.72.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	sigs.k8s.io/yaml v1.6.0 // indirect
 )

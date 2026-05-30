@@ -41,6 +41,11 @@ jobs:
           echo "If this fails, please run 'make gen-config' to fix"
           make check-config-diff
 
+      - name: Check DNS provider codegen is in sync
+        run: |
+          echo "If this fails, please run 'make gen-dns-providers' to fix"
+          make check-dns-providers-diff
+
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:

@@ -3,9 +3,12 @@ package config
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"path/filepath"
 	"strings"
+
+	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
 // Config represents the application configuration
@@ -129,14 +132,12 @@ type ConfigLetsEncrypt struct {
 	// +required
 	DNSProvider string `yaml:"dnsProvider"`
 
-	// DNS provider credentials (provider-specific environment variables)
-	// These will be set as environment variables for the DNS provider
-	// You can also set these as system environment variables instead of in the config
-	// Refer to the Lego provider docs for the supported values: https://go-acme.github.io/lego/dns/
-	// Examples:
-	//   - Cloudflare: set CF_DNS_API_TOKEN
-	//   - AWS Route53, set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
-	DNSCredentials map[string]string `yaml:"dnsCredentials"`
+	// DNS provider credentials, validated against the selected `dnsProvider`
+	// Keys can be the normalized names (e.g. `dnsAPIToken`) or the raw lego environment-variable names (e.g. `CF_DNS_API_TOKEN`) and documented aliases; unknown keys are rejected
+	// You can also set these as system environment variables instead of in the config, in which case this can be omitted
+	// See the per-provider pages for the accepted keys: https://github.com/italypaleale/le-cert-server/tree/main/docs/content/dns-providers
+	// +default see the per-provider docs at https://go-acme.github.io/lego/dns/
+	DNSCredentials yaml.Node `yaml:"dnsCredentials"`
 
 	// Certificate renewal threshold in days
 	// +default 30
@@ -225,7 +226,8 @@ type ConfigDev struct {
 // Internal properties
 type internal struct {
 	instanceID       string
-	configFileLoaded string // Path to the config file that was loaded
+	configFileLoaded string            // Path to the config file that was loaded
+	dnsEnv           map[string]string // Resolved DNS provider environment variables
 }
 
 // String implements fmt.Stringer and prints out the config for debugging
@@ -250,6 +252,32 @@ func (c *Config) GetInstanceID() string {
 	return c.internal.instanceID
 }
 
+// GetDNSEnv returns the resolved DNS provider environment variables
+// It is populated by resolveDNSProvider during Validate
+func (c *Config) GetDNSEnv() map[string]string {
+	return c.internal.dnsEnv
+}
+
+// resolveDNSProvider validates the configured DNS provider and decodes its credentials
+// The credentials node is decoded after load because the provider must be known first
+func (c *Config) resolveDNSProvider() error {
+	pc, ok := newDNSProviderConfig(c.LetsEncrypt.DNSProvider)
+	if !ok {
+		return fmt.Errorf("configuration option 'letsEncrypt.dnsProvider' has an unknown value '%s'; see https://go-acme.github.io/lego/dns/ for the list of supported providers", c.LetsEncrypt.DNSProvider)
+	}
+
+	node := c.LetsEncrypt.DNSCredentials
+	if node.Kind == yaml.MappingNode && len(node.Content) > 0 {
+		err := node.Decode(pc)
+		if err != nil {
+			return fmt.Errorf("failed to decode configuration option 'letsEncrypt.dnsCredentials': %w", err)
+		}
+	}
+
+	c.internal.dnsEnv = pc.envVars()
+	return nil
+}
+
 // Validate the configuration and performs some sanitization
 func (c *Config) Validate(logger *slog.Logger) error {
 	if c.Server.Port < 0 {
@@ -260,6 +288,10 @@ func (c *Config) Validate(logger *slog.Logger) error {
 	}
 	if c.LetsEncrypt.DNSProvider == "" {
 		return errors.New("configuration option 'letsEncrypt.dnsProvider' is required")
+	}
+	err := c.resolveDNSProvider()
+	if err != nil {
+		return err
 	}
 
 	c.Server.Listener = strings.ToLower(c.Server.Listener)

@@ -18,6 +18,9 @@ linters:
   exclusions:
     paths:
       - "tools/gen-config"
+      - "tools/gen-dns-providers"
+      - "pkg/config/provider_.*\\.go"
+      - "pkg/config/dnsproviders_gen\\.go"
 
   # Disable specific linters.
   disable:

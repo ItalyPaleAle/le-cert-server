@@ -100,16 +100,14 @@ letsEncrypt:
   ## Required
   dnsProvider: ""
 
-  ## letsEncrypt.dnsCredentials (map)
+  ## letsEncrypt.dnsCredentials (yaml.Node)
   ## Description:
-  ##   DNS provider credentials (provider-specific environment variables)
-  ##   These will be set as environment variables for the DNS provider
-  ##   You can also set these as system environment variables instead of in the config
-  ##   Refer to the Lego provider docs for the supported values: https://go-acme.github.io/lego/dns/
-  ##   Examples:
-  ##     - Cloudflare: set CF_DNS_API_TOKEN
-  ##     - AWS Route53, set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION
-  #dnsCredentials: 
+  ##   DNS provider credentials, validated against the selected `dnsProvider`
+  ##   Keys can be the normalized names (e.g. `dnsAPIToken`) or the raw lego environment-variable names (e.g. `CF_DNS_API_TOKEN`) and documented aliases; unknown keys are rejected
+  ##   You can also set these as system environment variables instead of in the config, in which case this can be omitted
+  ##   See the per-provider pages for the accepted keys: https://github.com/italypaleale/le-cert-server/tree/main/docs/content/dns-providers
+  ## Default: see the per-provider docs at https://go-acme.github.io/lego/dns/
+  #dnsCredentials: see the per-provider docs at https://go-acme.github.io/lego/dns/
 
   ## letsEncrypt.renewalDays (number)
   ## Description:
