@@ -21,6 +21,8 @@ jobs:
       contents: read
     env:
       GOLANGCI_LINT_VERSION: "v2.11.4"
+      # Required by github.com/lestrrat-go/jwx/v4, which uses encoding/json/v2
+      GOEXPERIMENT: jsonv2
     steps:
 
       - name: Check out code

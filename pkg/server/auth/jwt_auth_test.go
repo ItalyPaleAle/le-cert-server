@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lestrrat-go/jwx/v3/jwa"
-	"github.com/lestrrat-go/jwx/v3/jwk"
-	"github.com/lestrrat-go/jwx/v3/jws"
-	"github.com/lestrrat-go/jwx/v3/jwt"
+	"github.com/lestrrat-go/jwx/v4/jwa"
+	"github.com/lestrrat-go/jwx/v4/jwk"
+	"github.com/lestrrat-go/jwx/v4/jws"
+	"github.com/lestrrat-go/jwx/v4/jwt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -50,7 +50,7 @@ func generateTestKeyPair(t *testing.T) (*rsa.PrivateKey, *rsa.PublicKey) {
 func createTestJWKS(t *testing.T, kid string, publicKey *rsa.PublicKey) jwk.Set {
 	t.Helper()
 
-	key, err := jwk.Import(publicKey)
+	key, err := jwk.Import[jwk.Key](publicKey)
 	require.NoError(t, err)
 
 	err = key.Set(jwk.KeyIDKey, kid)

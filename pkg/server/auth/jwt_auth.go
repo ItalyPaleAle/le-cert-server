@@ -12,11 +12,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jwx-go/jwkfetch/v4"
 	"github.com/lestrrat-go/httprc/v3"
 	"github.com/lestrrat-go/httprc/v3/errsink"
-	"github.com/lestrrat-go/jwx/v3/jwk"
-	"github.com/lestrrat-go/jwx/v3/jws"
-	"github.com/lestrrat-go/jwx/v3/jwt"
+	"github.com/lestrrat-go/jwx/v4/jwk"
+	"github.com/lestrrat-go/jwx/v4/jws"
+	"github.com/lestrrat-go/jwx/v4/jwt"
 	"github.com/spf13/cast"
 )
 
@@ -26,7 +27,7 @@ type JWTAuthenticator struct {
 	audience       string
 	requiredScopes []string
 	domainsClaim   string
-	cache          *jwk.Cache
+	cache          *jwkfetch.Cache
 	keySet         jwk.Set
 	httpClient     *http.Client
 }
@@ -65,10 +66,12 @@ func NewJWTAuthenticator(ctx context.Context, issuerURL string, audience string,
 	}
 
 	// Create JWK cache for automatic JWKS refreshing
-	a.cache, err = jwk.NewCache(ctx, httprc.NewClient(
-		httprc.WithHTTPClient(httpClient),
-		httprc.WithErrorSink(errsink.NewSlog(slog.Default().With("scope", "jwkcache"))),
-	))
+	a.cache, err = jwkfetch.NewCache(ctx,
+		httprc.NewClient(
+			httprc.WithErrorSink(errsink.NewSlog(slog.Default().With("scope", "jwkcache"))),
+		),
+		jwkfetch.WithHTTPClient(httpClient),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create JWK cache: %w", err)
 	}
@@ -77,8 +80,8 @@ func NewJWTAuthenticator(ctx context.Context, issuerURL string, audience string,
 	// The cache can dynamically decide how often to refresh the keyset based on the HTTP headers returned by the server, but the value must be at least 1 hour, and at most 7 days
 	err = a.cache.Register(ctx,
 		jwksURL,
-		jwk.WithMaxInterval(7*24*time.Hour),
-		jwk.WithMinInterval(15*time.Minute),
+		jwkfetch.WithMaxInterval(7*24*time.Hour),
+		jwkfetch.WithMinInterval(15*time.Minute),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register JWKS URL with cache: %w", err)
@@ -187,7 +190,7 @@ func (a *JWTAuthenticator) Middleware(next http.Handler) http.Handler {
 		var domains []string
 		if a.domainsClaim != "" {
 			var domainsAny any
-			err = token.Get(a.domainsClaim, &domainsAny)
+			domainsAny, err = jwt.Get[any](token, a.domainsClaim)
 			if err != nil {
 				slog.WarnContext(
 					r.Context(),
@@ -267,11 +270,10 @@ func (a *JWTAuthenticator) validateToken(ctx context.Context, tokenString string
 // validateScopes checks if the token has all required scopes
 func (a *JWTAuthenticator) validateScopes(token jwt.Token) error {
 	// Get scope claim - it could be either a string or a slice
-	var scopeValue any
-	err := token.Get("scope", &scopeValue)
+	scopeValue, err := jwt.Get[any](token, "scope")
 	if err != nil {
 		// Try alternative claim name
-		err = token.Get("scopes", &scopeValue)
+		scopeValue, err = jwt.Get[any](token, "scopes")
 		if err != nil {
 			return errors.New("token missing scope claim")
 		}

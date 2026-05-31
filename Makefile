@@ -1,3 +1,6 @@
+# Required by github.com/lestrrat-go/jwx/v4, which uses encoding/json/v2
+export GOEXPERIMENT := jsonv2
+
 .PHONY: lint test test-race gen-config check-config-diff gen-dns-providers check-dns-providers-diff
 
 lint:
