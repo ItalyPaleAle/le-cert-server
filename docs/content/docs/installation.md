@@ -9,7 +9,7 @@ weight: 20
 Use the pre-built Docker image:
 
 ```sh
-docker pull ghcr.io/italypaleale/le-cert-server:v0
+docker pull ghcr.io/italypaleale/le-cert-server:v1
 ```
 
 ## Using Pre-built Binaries
@@ -84,7 +84,7 @@ Use the pre-built Docker image from GitHub Container Registry:
 
 ```bash
 # Pull the latest image
-docker pull ghcr.io/italypaleale/le-cert-server:v0
+docker pull ghcr.io/italypaleale/le-cert-server:v1
 
 # Run the container
 docker run -d \
@@ -92,7 +92,7 @@ docker run -d \
   -p 8443:8443 \
   -v /var/lib/le-cert-server:/var/lib/le-cert-server \
   -v /etc/le-cert-server/config.yaml:/etc/le-cert-server/config.yaml:ro \
-  ghcr.io/italypaleale/le-cert-server:v0
+  ghcr.io/italypaleale/le-cert-server:v1
 ```
 
 **Docker Compose Example:**
@@ -102,7 +102,7 @@ version: '3.8'
 
 services:
   cert-server:
-    image: ghcr.io/italypaleale/le-cert-server:v0
+    image: ghcr.io/italypaleale/le-cert-server:v1
     container_name: cert-server
     restart: unless-stopped
     ports:

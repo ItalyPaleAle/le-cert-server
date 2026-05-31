@@ -51,7 +51,7 @@ docker run -d \
   -p 8443:8443 \
   -v $(pwd)/config.yaml:/etc/le-cert-server/config.yaml:ro \
   -v le-cert-data:/var/lib/le-cert-server \
-  ghcr.io/italypaleale/le-cert-server:v0
+  ghcr.io/italypaleale/le-cert-server:v1
 ```
 
 > See [Installation](./installation.md) for all options to deploy le-cert-server, including standalone binaries.
