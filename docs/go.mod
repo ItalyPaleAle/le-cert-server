@@ -1,7 +1,7 @@
 module github.com/italypaleale/tsiam/docs
 
-go 1.26.3
+go 1.26.2
 
-tool github.com/italypaleale/go-kit/tools/gen-config
+tool github.com/italypaleale/hugo-assets/cmd/vercel-docs-build
 
-require github.com/italypaleale/go-kit v0.0.0-20260620130522-3cb485fabbc9 // indirect
+require github.com/italypaleale/hugo-assets v0.0.0-20260625101919-30edcdce5680 // indirect
