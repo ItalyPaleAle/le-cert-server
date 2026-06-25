@@ -1,5 +1,7 @@
 module github.com/italypaleale/tsiam/docs
 
-go 1.26.2
+go 1.26.3
 
-require github.com/italypaleale/hugo-assets v0.0.0-20260530133241-3ae9a1c6762d
+tool github.com/italypaleale/go-kit/tools/gen-config
+
+require github.com/italypaleale/go-kit v0.0.0-20260620130522-3cb485fabbc9 // indirect
