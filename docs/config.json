@@ -1,0 +1,15 @@
+{
+  "baseURL": "https://le-cert-server.italypaleale.me/",
+  "title": "le-cert-server",
+  "locale": "en-us",
+  "description": "Secure, centralized Let's Encrypt certificate management for multiple servers and distributed systems",
+  "plausibleAnalytics": true,
+  "github": {
+    "url": "https://github.com/italypaleale/le-cert-server",
+    "repo": "https://github.com/italypaleale/le-cert-server",
+    "branch": "main"
+  },
+  "theme": {
+    "scheme": "indigo"
+  }
+}
