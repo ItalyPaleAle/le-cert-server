@@ -4,5 +4,12 @@
     "github.com/italypaleale/*",
     "golang.org/x/*",
     "tailscale.com"
+  ],
+  "allow": [
+    {
+      "module": "modernc.org/sqlite",
+      "version": "v1.56.0",
+      "reason": ""
+    }
   ]
 }
