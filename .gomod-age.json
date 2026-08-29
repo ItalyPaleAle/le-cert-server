@@ -7,8 +7,13 @@
   ],
   "allow": [
     {
-      "module": "modernc.org/sqlite",
-      "version": "v1.56.0",
+      "module": "go.opentelemetry.io/otel",
+      "version": "v1.46.0",
+      "reason": ""
+    },
+    {
+      "module": "go.opentelemetry.io/otel/metric",
+      "version": "v1.46.0",
       "reason": ""
     }
   ]
