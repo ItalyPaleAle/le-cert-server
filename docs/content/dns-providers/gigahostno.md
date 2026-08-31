@@ -13,6 +13,8 @@ See the [lego documentation](https://go-acme.github.io/lego/dns/gigahostno/) for
 letsEncrypt:
   dnsProvider: "gigahostno"
   dnsCredentials:
+    # GIGAHOSTNO_API_KEY: API key (optionnal of GIGAHOSTNO_USERNAME and GIGAHOSTNO_PASSWORD are defined)
+    apiKey: ""
     # GIGAHOSTNO_PASSWORD: Password (optional if GIGAHOSTNO_API_KEY is defined)
     password: ""
     # GIGAHOSTNO_USERNAME: Username (optional if GIGAHOSTNO_API_KEY is defined)

@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-acme/lego/v5/challenge"
@@ -29,6 +30,7 @@ type DnsupdateConfig struct {
 	TSIGKey            string // DNSUPDATE_TSIG_KEY: Name of the secret key as defined in DNS server configuration. To disable TSIG authentication, leave the `DNSUPDATE_TSIG_KEY` variable unset.
 	TSIGSecret         string // DNSUPDATE_TSIG_SECRET: Secret key payload. To disable TSIG authentication, leave the `DNSUPDATE_TSIG_SECRET` variable unset.
 	TTL                string // DNSUPDATE_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
+	Zones              string // DNSUPDATE_ZONES: List of potential zones (separated by commas) (comma-separated list)
 }
 
 // newProvider builds the lego DNS challenge provider using strong types
@@ -97,6 +99,9 @@ func (c *DnsupdateConfig) newProvider() (challenge.Provider, error) {
 		}
 		cfg.TTL = v
 	}
+	if c.Zones != "" {
+		cfg.Zones = strings.Split(c.Zones, ",")
+	}
 	return prov.NewDNSProviderConfig(cfg)
 }
 
@@ -146,6 +151,8 @@ func (c *DnsupdateConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.TSIGSecret = val
 		case "ttl", "DNSUPDATE_TTL":
 			c.TTL = val
+		case "zones", "DNSUPDATE_ZONES":
+			c.Zones = val
 		default:
 			return fmt.Errorf("unknown credential key %q for DNS provider \"dnsupdate\"", key)
 		}

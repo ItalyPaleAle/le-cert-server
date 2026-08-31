@@ -4,6 +4,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 // See https://www.powerdns.com/
 type PdnsConfig struct {
 	APIKey             string // PDNS_API_KEY: API key
+	APIURL             string // PDNS_API_URL: API URL
 	APIVersion         string // PDNS_API_VERSION: Skip API version autodetection and use the provided version number.
 	PollingInterval    string // PDNS_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // PDNS_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
@@ -29,6 +31,13 @@ func (c *PdnsConfig) newProvider() (challenge.Provider, error) {
 	cfg := prov.NewDefaultConfig()
 	if c.APIKey != "" {
 		cfg.APIKey = c.APIKey
+	}
+	if c.APIURL != "" {
+		v, err := url.Parse(c.APIURL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"apiURL\": %w", err)
+		}
+		cfg.Host = v
 	}
 	if c.APIVersion != "" {
 		v, err := strconv.Atoi(c.APIVersion)
@@ -84,6 +93,8 @@ func (c *PdnsConfig) UnmarshalYAML(value *yaml.Node) error {
 		switch key {
 		case "apiKey", "PDNS_API_KEY":
 			c.APIKey = val
+		case "apiURL", "PDNS_API_URL":
+			c.APIURL = val
 		case "apiVersion", "PDNS_API_VERSION":
 			c.APIVersion = val
 		case "pollingInterval", "PDNS_POLLING_INTERVAL":

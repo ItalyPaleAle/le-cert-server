@@ -29,6 +29,8 @@ letsEncrypt:
     sessionToken: ""
     # EDGEONE_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 60)
     ttl: ""
+    # EDGEONE_ZONES_MAPPING: Mapping between DNS zones and site IDs. (ex: 'example.org:id1,example.com:id2') (comma-separated list of key:value pairs)
+    zonesMapping: ""
 ```
 
 Credentials are passed directly to lego using strong types and are never written to the process environment.

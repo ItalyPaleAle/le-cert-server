@@ -31,3 +31,7 @@ letsEncrypt:
 
 Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
+
+`NAMESURFER_INSECURE_SKIP_VERIFY` is not supported: lego only applies it in the
+code path that reads the whole configuration from the environment, which
+le-cert-server does not use. TLS certificate verification is always enforced.

@@ -25,3 +25,7 @@ letsEncrypt:
 
 Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
+
+lego's provider descriptor lists `HOSTTECH_PASSWORD`, but the Hosttech API client
+authenticates with the API key alone and has no password field. Only `apiKey` is
+needed.

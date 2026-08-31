@@ -4,6 +4,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/go-acme/lego/v5/challenge"
 	prov "github.com/go-acme/lego/v5/providers/dns/acmedns"
@@ -16,6 +17,7 @@ type AcmednsConfig struct {
 	DNSAPIBase        string // ACME_DNS_API_BASE: The ACME-DNS API address
 	DNSStorageBaseURL string // ACME_DNS_STORAGE_BASE_URL: The ACME-DNS JSON account data server.
 	DNSStoragePath    string // ACME_DNS_STORAGE_PATH: The ACME-DNS JSON account data file. A per-domain account will be registered/persisted to this file and used for TXT updates.
+	DNSAllowlist      string // ACME_DNS_ALLOWLIST: Source networks using CIDR notation (multiple values should be separated with a comma). (comma-separated list)
 }
 
 // newProvider builds the lego DNS challenge provider using strong types
@@ -30,6 +32,9 @@ func (c *AcmednsConfig) newProvider() (challenge.Provider, error) {
 	}
 	if c.DNSStoragePath != "" {
 		cfg.StoragePath = c.DNSStoragePath
+	}
+	if c.DNSAllowlist != "" {
+		cfg.AllowList = strings.Split(c.DNSAllowlist, ",")
 	}
 	return prov.NewDNSProviderConfig(cfg)
 }
@@ -58,6 +63,8 @@ func (c *AcmednsConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.DNSStorageBaseURL = val
 		case "dnsStoragePath", "ACME_DNS_STORAGE_PATH":
 			c.DNSStoragePath = val
+		case "dnsAllowlist", "ACME_DNS_ALLOWLIST":
+			c.DNSAllowlist = val
 		default:
 			return fmt.Errorf("unknown credential key %q for DNS provider \"acmedns\"", key)
 		}

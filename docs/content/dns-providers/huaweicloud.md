@@ -25,6 +25,8 @@ letsEncrypt:
     pollingInterval: ""
     # HUAWEICLOUD_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
     propagationTimeout: ""
+    # HUAWEICLOUD_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 300)
+    ttl: ""
 ```
 
 Credentials are passed directly to lego using strong types and are never written to the process environment.

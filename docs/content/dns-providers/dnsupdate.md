@@ -41,6 +41,8 @@ letsEncrypt:
     tsigSecret: ""
     # DNSUPDATE_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
     ttl: ""
+    # DNSUPDATE_ZONES: List of potential zones (separated by commas) (comma-separated list)
+    zones: ""
 ```
 
 Credentials are passed directly to lego using strong types and are never written to the process environment.

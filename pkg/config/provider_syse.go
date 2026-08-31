@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-acme/lego/v5/challenge"
+	legoenv "github.com/go-acme/lego/v5/platform/env"
 	prov "github.com/go-acme/lego/v5/providers/dns/syse"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
@@ -15,6 +16,7 @@ import (
 // SyseConfig holds configuration for the "syse" DNS provider (Syse)
 // See https://www.syse.no/
 type SyseConfig struct {
+	Credentials        string // SYSE_CREDENTIALS: Comma-separated list of `zone:password` credential pairs (comma-separated list of key:value pairs)
 	PollingInterval    string // SYSE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
 	PropagationTimeout string // SYSE_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 1200)
 	TTL                string // SYSE_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
@@ -24,6 +26,13 @@ type SyseConfig struct {
 // Credentials are passed directly to lego and never written to the process environment
 func (c *SyseConfig) newProvider() (challenge.Provider, error) {
 	cfg := prov.NewDefaultConfig()
+	if c.Credentials != "" {
+		v, err := legoenv.ParsePairs(c.Credentials)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"credentials\": %w", err)
+		}
+		cfg.Credentials = v
+	}
 	if c.PollingInterval != "" {
 		v, err := strconv.Atoi(c.PollingInterval)
 		if err != nil {
@@ -66,6 +75,8 @@ func (c *SyseConfig) UnmarshalYAML(value *yaml.Node) error {
 			return err
 		}
 		switch key {
+		case "credentials", "SYSE_CREDENTIALS":
+			c.Credentials = val
 		case "pollingInterval", "SYSE_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "SYSE_PROPAGATION_TIMEOUT":

@@ -332,8 +332,6 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &OvhConfig{}, true
 	case "pdns":
 		return &PdnsConfig{}, true
-	case "plesk":
-		return &PleskConfig{}, true
 	case "pointdns":
 		return &PointdnsConfig{}, true
 	case "porkbun":
@@ -368,8 +366,6 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &SelectelConfig{}, true
 	case "selectelv2":
 		return &Selectelv2Config{}, true
-	case "selfhostde":
-		return &SelfhostdeConfig{}, true
 	case "servercow":
 		return &ServercowConfig{}, true
 	case "shellrent":

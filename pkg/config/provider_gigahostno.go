@@ -15,6 +15,7 @@ import (
 // GigahostnoConfig holds configuration for the "gigahostno" DNS provider (Gigahost.no)
 // See https://gigahost.no/
 type GigahostnoConfig struct {
+	APIKey             string // GIGAHOSTNO_API_KEY: API key (optionnal of GIGAHOSTNO_USERNAME and GIGAHOSTNO_PASSWORD are defined)
 	Password           string // GIGAHOSTNO_PASSWORD: Password (optional if GIGAHOSTNO_API_KEY is defined)
 	Username           string // GIGAHOSTNO_USERNAME: Username (optional if GIGAHOSTNO_API_KEY is defined)
 	PollingInterval    string // GIGAHOSTNO_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
@@ -27,6 +28,9 @@ type GigahostnoConfig struct {
 // Credentials are passed directly to lego and never written to the process environment
 func (c *GigahostnoConfig) newProvider() (challenge.Provider, error) {
 	cfg := prov.NewDefaultConfig()
+	if c.APIKey != "" {
+		cfg.APIkey = c.APIKey
+	}
 	if c.Password != "" {
 		cfg.Password = c.Password
 	}
@@ -78,6 +82,8 @@ func (c *GigahostnoConfig) UnmarshalYAML(value *yaml.Node) error {
 			return err
 		}
 		switch key {
+		case "apiKey", "GIGAHOSTNO_API_KEY":
+			c.APIKey = val
 		case "password", "GIGAHOSTNO_PASSWORD":
 			c.Password = val
 		case "username", "GIGAHOSTNO_USERNAME":

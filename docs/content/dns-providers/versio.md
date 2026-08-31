@@ -17,6 +17,8 @@ letsEncrypt:
     password: ""
     # VERSIO_USERNAME: Basic authentication username
     username: ""
+    # VERSIO_ENDPOINT: The endpoint URL of the API Server
+    endpoint: ""
     # VERSIO_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 5)
     pollingInterval: ""
     # VERSIO_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)

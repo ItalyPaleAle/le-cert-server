@@ -13,6 +13,8 @@ See the [lego documentation](https://go-acme.github.io/lego/dns/dnshomede/) for 
 letsEncrypt:
   dnsProvider: "dnshomede"
   dnsCredentials:
+    # DNSHOMEDE_CREDENTIALS: Comma-separated list of domain:password credential pairs (comma-separated list of key:value pairs)
+    credentials: ""
     # DNSHOMEDE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 1200)
     pollingInterval: ""
     # DNSHOMEDE_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 2)

@@ -39,6 +39,9 @@ const notesPath = "tools/gen-dns-providers/provider-notes.yaml"
 // aliasesPath is the hand-maintained file mapping DNS provider codes that lego has renamed to the code that replaces them, relative to the module root
 const aliasesPath = "tools/gen-dns-providers/provider-aliases.yaml"
 
+// unsupportedPath is the hand-maintained list of DNS provider codes that cannot be used with le-cert-server, relative to the module root
+const unsupportedPath = "tools/gen-dns-providers/provider-unsupported.yaml"
+
 // envVarRegexp matches valid environment-variable names
 // Some lego TOMLs include descriptive prose as table keys, which we skip
 var envVarRegexp = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
@@ -60,8 +63,21 @@ type mappedField struct {
 	providerField
 	// LegoField is the target field name on the lego Config struct
 	LegoField string
-	// Conv is the conversion kind: string, int, int64, bool, duration
+	// Conv is the conversion kind: string, int, int32, int64, bool, duration, url, stringslice or pairs
 	Conv string
+}
+
+// formatHint describes the expected shape of the value for conversions that are not a plain scalar
+// It is empty when the value is passed through as-is, since the lego description already covers those
+func (f mappedField) formatHint() string {
+	switch f.Conv {
+	case "stringslice":
+		return "comma-separated list"
+	case "pairs":
+		return "comma-separated list of key:value pairs"
+	default:
+		return ""
+	}
 }
 
 // provider is the resolved model for a single DNS provider
@@ -74,13 +90,35 @@ type provider struct {
 	ImportPath              string
 	Fields                  []mappedField
 	DefaultConfigReturnsErr bool
+	// Warnings lists the descriptor fields that could not be mapped onto a lego Config field
+	Warnings []string
 }
 
 // needsStrconv reports whether the generated newProvider uses strconv
 func (p provider) needsStrconv() bool {
 	for _, f := range p.Fields {
 		switch f.Conv {
-		case "int", "int64", "bool", "duration":
+		case "int", "int32", "int64", "bool", "duration":
+			return true
+		}
+	}
+	return false
+}
+
+// needsStrings reports whether the generated newProvider uses the strings package
+func (p provider) needsStrings() bool {
+	for _, f := range p.Fields {
+		if f.Conv == "stringslice" {
+			return true
+		}
+	}
+	return false
+}
+
+// needsLegoEnv reports whether the generated newProvider uses lego's env package to parse a value
+func (p provider) needsLegoEnv() bool {
+	for _, f := range p.Fields {
+		if f.Conv == "pairs" {
 			return true
 		}
 	}
@@ -148,6 +186,17 @@ func run() error {
 		return providers[i].Code < providers[j].Code
 	})
 
+	// Providers that cannot be used are validated against the full set, then removed before anything is generated
+	unsupported, err := loadUnsupportedProviders()
+	if err != nil {
+		return err
+	}
+	err = validateUnsupportedProviders(unsupported, providers)
+	if err != nil {
+		return err
+	}
+	providers = excludeUnsupported(providers, unsupported)
+
 	aliases, err := loadProviderAliases()
 	if err != nil {
 		return err
@@ -162,6 +211,7 @@ func run() error {
 		return err
 	}
 	warnUnknownNotes(notes, providers)
+	reportProviderWarnings(providers, notes)
 
 	configDir := filepath.Join("pkg", "config")
 	docsDir := filepath.Join("docs", "content", "dns-providers")
@@ -193,6 +243,9 @@ func run() error {
 	}
 
 	fmt.Fprintf(os.Stderr, "Generated %d DNS providers (skipped %d: %s), %d deprecated codes\n", len(providers), len(skipped), strings.Join(skipped, ", "), len(aliases))
+	if len(unsupported) > 0 {
+		fmt.Fprintf(os.Stderr, "Excluded %d unsupported DNS providers: %s\n", len(unsupported), strings.Join(unsupported, ", "))
+	}
 	return nil
 }
 
@@ -242,7 +295,7 @@ func parseProvider(path string, legoDir string) (provider, bool, error) {
 	addKeys := sortedKeys(cfg.Configuration.Additional, descs)
 	fields := normalizeProvider(credKeys, addKeys, descs)
 
-	mapped := mapFields(cfg.Code, fields, analysis)
+	mapped, warnings := mapFields(fields, analysis)
 
 	return provider{
 		Code:                    cfg.Code,
@@ -253,14 +306,17 @@ func parseProvider(path string, legoDir string) (provider, bool, error) {
 		ImportPath:              legoModule + "/providers/dns/" + filepath.Base(dir),
 		Fields:                  mapped,
 		DefaultConfigReturnsErr: analysis.defaultConfigReturnsErr,
+		Warnings:                warnings,
 	}, true, nil
 }
 
-// mapFields resolves each normalized field onto a lego Config field using two strategies:
-// first the environment variable that lego assigns to a Config field, then the Go field name
-// Fields that cannot be mapped to a supported type are dropped
-func mapFields(code string, fields []providerField, a legoAnalysis) []mappedField {
+// mapFields resolves each normalized field onto a lego Config field using four strategies:
+// the environment variable that lego assigns to a Config field, that same variable compared without its
+// namespace prefix, then the Go field name, and finally the field name with additional segments stripped
+// Fields that cannot be mapped to a supported type are dropped, and each dropped field is reported as a warning
+func mapFields(fields []providerField, a legoAnalysis) ([]mappedField, []string) {
 	mapped := make([]mappedField, 0, len(fields))
+	var warnings []string
 
 	// configFieldNames sorted for deterministic env-based matching
 	cfgNames := make([]string, 0, len(a.configFields))
@@ -268,6 +324,10 @@ func mapFields(code string, fields []providerField, a legoAnalysis) []mappedFiel
 		cfgNames = append(cfgNames, name)
 	}
 	sort.Strings(cfgNames)
+
+	// A few providers document their variables under a namespace that differs from the one their Go constants use (e.g. liquidweb declares LIQUID_WEB_ but its descriptor lists LWAPI_), so matching also happens on the suffix
+	legoNS := commonEnvPrefix(mapValues(a.fieldEnv))
+	tomlNS := commonEnvPrefix(fieldEnvVars(fields))
 
 	for _, f := range fields {
 		envSet := make(map[string]bool, 1+len(f.Aliases))
@@ -285,14 +345,28 @@ func mapFields(code string, fields []providerField, a legoAnalysis) []mappedFiel
 				break
 			}
 		}
-		// Strategy 2: a Config field whose Go name matches the normalized field name
+		// Strategy 2: the same match, ignoring the namespace prefix on either side
+		if target == "" && legoNS != "" && tomlNS != "" && legoNS != tomlNS {
+			suffixSet := make(map[string]bool, len(envSet))
+			for env := range envSet {
+				suffixSet[strings.TrimPrefix(env, tomlNS)] = true
+			}
+			for _, cf := range cfgNames {
+				env := a.fieldEnv[cf]
+				if env != "" && strings.HasPrefix(env, legoNS) && suffixSet[strings.TrimPrefix(env, legoNS)] {
+					target = cf
+					break
+				}
+			}
+		}
+		// Strategy 3: a Config field whose Go name matches the normalized field name
 		if target == "" {
 			_, ok := a.configFields[f.GoName]
 			if ok {
 				target = f.GoName
 			}
 		}
-		// Strategy 3: a Config field that matches after stripping additional leading segments
+		// Strategy 4: a Config field that matches after stripping additional leading segments
 		// This handles providers with multi-word env namespaces (e.g. GOOGLE_DOMAINS_ACCESS_TOKEN -> AccessToken)
 		if target == "" {
 			segs := strings.Split(f.EnvVar, "_")
@@ -306,15 +380,15 @@ func mapFields(code string, fields []providerField, a legoAnalysis) []mappedFiel
 			}
 		}
 		if target == "" {
-			fmt.Fprintf(os.Stderr, "  warn: [%s] %s has no lego Config field, dropping\n", code, f.EnvVar)
+			warnings = append(warnings, fmt.Sprintf("%s has no lego Config field, dropping", f.EnvVar))
 			continue
 		}
 
 		conv := convFor(a.configFields[target])
 		if conv == "" {
-			// Log the unsupported types, but skip *http.Client
+			// Report the unsupported types, but skip *http.Client since that is never settable from configuration
 			if a.configFields[target] != "*http.Client" {
-				fmt.Fprintf(os.Stderr, "  warn: [%s] %s maps to unsupported type %q, dropping\n", code, f.EnvVar, a.configFields[target])
+				warnings = append(warnings, fmt.Sprintf("%s maps to unsupported type %q, dropping", f.EnvVar, a.configFields[target]))
 			}
 			continue
 		}
@@ -322,7 +396,51 @@ func mapFields(code string, fields []providerField, a legoAnalysis) []mappedFiel
 		mapped = append(mapped, mappedField{providerField: f, LegoField: target, Conv: conv})
 	}
 
-	return mapped
+	return mapped, warnings
+}
+
+// mapValues returns the values of m
+func mapValues(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for _, v := range m {
+		out = append(out, v)
+	}
+	return out
+}
+
+// fieldEnvVars returns the environment variable of each field, including its aliases
+func fieldEnvVars(fields []providerField) []string {
+	out := make([]string, 0, len(fields))
+	for _, f := range fields {
+		out = append(out, f.EnvVar)
+		out = append(out, f.Aliases...)
+	}
+	return out
+}
+
+// commonEnvPrefix returns the longest prefix shared by every environment variable in the list, truncated to a whole underscore-separated segment
+// It returns an empty string when the list is empty or the names share no complete leading segment
+func commonEnvPrefix(envs []string) string {
+	if len(envs) == 0 {
+		return ""
+	}
+
+	prefix := envs[0]
+	for _, env := range envs[1:] {
+		for !strings.HasPrefix(env, prefix) {
+			prefix = prefix[:len(prefix)-1]
+			if prefix == "" {
+				return ""
+			}
+		}
+	}
+
+	// Keep only whole segments, so LIQUID_WEB_URL and LIQUID_WEB_USERNAME yield LIQUID_WEB_ rather than LIQUID_WEB_U
+	idx := strings.LastIndex(prefix, "_")
+	if idx < 0 {
+		return ""
+	}
+	return prefix[:idx+1]
 }
 
 // convFor returns the conversion kind for a lego Config field type, or "" if unsupported
@@ -332,6 +450,8 @@ func convFor(typ string) string {
 		return "string"
 	case "int":
 		return "int"
+	case "int32":
+		return "int32"
 	case "int64":
 		return "int64"
 	case "bool":
@@ -340,6 +460,10 @@ func convFor(typ string) string {
 		return "duration"
 	case "*url.URL":
 		return "url"
+	case "[]string":
+		return "stringslice"
+	case "map[string]string":
+		return "pairs"
 	default:
 		return ""
 	}
@@ -422,11 +546,17 @@ func writeProviderFile(configDir string, p provider) error {
 	if p.needsStrconv() {
 		b.WriteString("\t\"strconv\"\n")
 	}
+	if p.needsStrings() {
+		b.WriteString("\t\"strings\"\n")
+	}
 	if p.needsTime() {
 		b.WriteString("\t\"time\"\n")
 	}
 	b.WriteString("\n")
 	b.WriteString("\t\"github.com/go-acme/lego/v5/challenge\"\n")
+	if p.needsLegoEnv() {
+		fmt.Fprintf(&b, "\tlegoenv %q\n", legoModule+"/platform/env")
+	}
 	fmt.Fprintf(&b, "\tprov %q\n", p.ImportPath)
 	b.WriteString("\tyaml \"sigs.k8s.io/yaml/goyaml.v3\"\n")
 	b.WriteString(")\n\n")
@@ -442,7 +572,7 @@ func writeProviderFile(configDir string, p provider) error {
 	}
 	fmt.Fprintf(&b, "type %s struct {\n", p.TypeName)
 	for _, f := range p.Fields {
-		fmt.Fprintf(&b, "\t%s string // %s: %s\n", f.GoName, f.EnvVar, oneLine(f.Desc))
+		fmt.Fprintf(&b, "\t%s string // %s: %s\n", f.GoName, f.EnvVar, fieldComment(f))
 	}
 	b.WriteString("}\n\n")
 
@@ -474,6 +604,19 @@ func writeProviderFile(configDir string, p provider) error {
 	return os.WriteFile(name, src, 0o644) //nolint:gosec
 }
 
+// fieldComment returns the single-line description used for a field, with the value format appended when it is not a plain scalar
+func fieldComment(f mappedField) string {
+	desc := oneLine(f.Desc)
+	hint := f.formatHint()
+	if hint == "" {
+		return desc
+	}
+	if desc == "" {
+		return hint
+	}
+	return desc + " (" + hint + ")"
+}
+
 // writeFieldAssignment emits the code that copies a populated field onto the lego Config
 func writeFieldAssignment(b *bytes.Buffer, f mappedField) {
 	fmt.Fprintf(b, "\tif c.%s != \"\" {\n", f.GoName)
@@ -499,6 +642,18 @@ func writeFieldAssignment(b *bytes.Buffer, f mappedField) {
 		fmt.Fprintf(b, "\t\tcfg.%s = time.Duration(v) * time.Second\n", f.LegoField)
 	case "url":
 		fmt.Fprintf(b, "\t\tv, err := url.Parse(c.%s)\n", f.GoName)
+		fmt.Fprintf(b, "\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"invalid value for \\\"%s\\\": %%w\", err)\n\t\t}\n", f.YAMLName)
+		fmt.Fprintf(b, "\t\tcfg.%s = v\n", f.LegoField)
+	case "int32":
+		fmt.Fprintf(b, "\t\tv, err := strconv.ParseInt(c.%s, 10, 32)\n", f.GoName)
+		fmt.Fprintf(b, "\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"invalid value for \\\"%s\\\": %%w\", err)\n\t\t}\n", f.YAMLName)
+		fmt.Fprintf(b, "\t\tcfg.%s = int32(v)\n", f.LegoField)
+	case "stringslice":
+		// lego reads these from a single comma-separated environment variable
+		fmt.Fprintf(b, "\t\tcfg.%s = strings.Split(c.%s, \",\")\n", f.LegoField, f.GoName)
+	case "pairs":
+		// lego parses these from a comma-separated list of key:value pairs, so the same parser is reused here
+		fmt.Fprintf(b, "\t\tv, err := legoenv.ParsePairs(c.%s)\n", f.GoName)
 		fmt.Fprintf(b, "\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"invalid value for \\\"%s\\\": %%w\", err)\n\t\t}\n", f.YAMLName)
 		fmt.Fprintf(b, "\t\tcfg.%s = v\n", f.LegoField)
 	}
@@ -607,6 +762,24 @@ func loadProviderNotes() (map[string]string, error) {
 	return notes, nil
 }
 
+// reportProviderWarnings prints the descriptor fields that could not be mapped onto a lego Config field
+// A provider with an entry in provider-notes.yaml is reported as a note, because the note is how the gap is acknowledged and explained to users
+// Anything still reported as a warning either needs a note or needs the generator taught how to map it
+func reportProviderWarnings(providers []provider, notes map[string]string) {
+	for _, p := range providers {
+		if len(p.Warnings) == 0 {
+			continue
+		}
+		label := "warn"
+		if notes[p.Code] != "" {
+			label = "note"
+		}
+		for _, w := range p.Warnings {
+			fmt.Fprintf(os.Stderr, "  %s: [%s] %s\n", label, p.Code, w)
+		}
+	}
+}
+
 // warnUnknownNotes prints a warning for any note keyed to a provider that does not exist
 // This catches typos in provider-notes.yaml
 func warnUnknownNotes(notes map[string]string, providers []provider) {
@@ -638,6 +811,72 @@ func loadProviderAliases() (map[string]string, error) {
 	}
 
 	return aliases, nil
+}
+
+// loadUnsupportedProviders reads the hand-maintained list of DNS provider codes that are excluded from generation
+// The codes are returned sorted, so the run summary does not churn
+func loadUnsupportedProviders() ([]string, error) {
+	var codes []string
+	data, err := os.ReadFile(unsupportedPath) //nolint:gosec
+	if errors.Is(err, fs.ErrNotExist) {
+		// A missing file is not an error, it just means every lego provider is generated
+		return codes, nil
+	} else if err != nil {
+		return nil, err
+	}
+
+	err = yaml.Unmarshal(data, &codes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse '%s': %w", unsupportedPath, err)
+	}
+
+	sort.Strings(codes)
+	return codes, nil
+}
+
+// validateUnsupportedProviders checks provider-unsupported.yaml against the providers found in lego
+// A code that lego does not have is a hard error, so a typo or a provider lego has renamed or removed shows up rather than quietly excluding nothing
+func validateUnsupportedProviders(unsupported []string, providers []provider) error {
+	known := make(map[string]bool, len(providers))
+	for _, p := range providers {
+		known[p.Code] = true
+	}
+
+	seen := make(map[string]bool, len(unsupported))
+	for _, code := range unsupported {
+		switch {
+		case code == "":
+			return fmt.Errorf("provider-unsupported.yaml has an empty entry")
+		case seen[code]:
+			return fmt.Errorf("provider-unsupported.yaml lists %q more than once", code)
+		case !known[code]:
+			return fmt.Errorf("provider-unsupported.yaml lists %q, which is not a known lego provider - remove the entry", code)
+		}
+		seen[code] = true
+	}
+
+	return nil
+}
+
+// excludeUnsupported returns the providers that are not listed in provider-unsupported.yaml
+func excludeUnsupported(providers []provider, unsupported []string) []provider {
+	if len(unsupported) == 0 {
+		return providers
+	}
+
+	excluded := make(map[string]bool, len(unsupported))
+	for _, code := range unsupported {
+		excluded[code] = true
+	}
+
+	kept := make([]provider, 0, len(providers))
+	for _, p := range providers {
+		if excluded[p.Code] {
+			continue
+		}
+		kept = append(kept, p)
+	}
+	return kept
 }
 
 // sortedMapKeys returns the keys of m in a stable order so the generated output does not churn
@@ -701,7 +940,7 @@ func writeProviderDoc(docsDir string, p provider, note string) error {
 	} else {
 		b.WriteString("  dnsCredentials:\n")
 		for _, f := range p.Fields {
-			fmt.Fprintf(&b, "    # %s: %s\n", f.EnvVar, oneLine(f.Desc))
+			fmt.Fprintf(&b, "    # %s: %s\n", f.EnvVar, fieldComment(f))
 			fmt.Fprintf(&b, "    %s: \"\"\n", f.YAMLName)
 		}
 	}
@@ -1016,6 +1255,8 @@ func exprTypeString(expr ast.Expr) string {
 		return "*" + exprTypeString(e.X)
 	case *ast.ArrayType:
 		return "[]" + exprTypeString(e.Elt)
+	case *ast.MapType:
+		return "map[" + exprTypeString(e.Key) + "]" + exprTypeString(e.Value)
 	default:
 		return ""
 	}
@@ -1023,6 +1264,10 @@ func exprTypeString(expr ast.Expr) string {
 
 // collectFieldEnv inspects a constructor for assignments of a Config field from an env constant
 func collectFieldEnv(d *ast.FuncDecl, consts map[string]string, configFields map[string]string, out map[string]string) {
+	// lego often reads an env var into a local variable first, then assigns that local onto the Config field
+	// Resolving the locals up front keeps the link between the field and its env var
+	locals := collectLocalEnv(d, consts)
+
 	record := func(field string, valueExpr ast.Expr) {
 		_, ok := configFields[field]
 		if !ok {
@@ -1033,6 +1278,9 @@ func collectFieldEnv(d *ast.FuncDecl, consts map[string]string, configFields map
 			return
 		}
 		env := firstEnvConst(valueExpr, consts)
+		if env == "" {
+			env = firstLocalEnv(valueExpr, locals)
+		}
 		if env != "" {
 			out[field] = env
 		}
@@ -1056,6 +1304,57 @@ func collectFieldEnv(d *ast.FuncDecl, consts map[string]string, configFields map
 		}
 		return true
 	})
+}
+
+// collectLocalEnv maps each local variable in a constructor to the env var it is assigned from
+// Only single-name assignments are considered, so a variable holding an error or an unrelated value is never recorded
+func collectLocalEnv(d *ast.FuncDecl, consts map[string]string) map[string]string {
+	locals := make(map[string]string)
+
+	ast.Inspect(d.Body, func(n ast.Node) bool {
+		assign, ok := n.(*ast.AssignStmt)
+		if !ok {
+			return true
+		}
+		for i, lhs := range assign.Lhs {
+			id, ok := lhs.(*ast.Ident)
+			if !ok || id.Name == "_" || i >= len(assign.Rhs) {
+				continue
+			}
+			_, ok = locals[id.Name]
+			if ok {
+				continue
+			}
+			env := firstEnvConst(assign.Rhs[i], consts)
+			if env != "" {
+				locals[id.Name] = env
+			}
+		}
+		return true
+	})
+
+	return locals
+}
+
+// firstLocalEnv returns the env var behind the first known local variable referenced in an expression
+func firstLocalEnv(expr ast.Expr, locals map[string]string) string {
+	found := ""
+	ast.Inspect(expr, func(n ast.Node) bool {
+		if found != "" {
+			return false
+		}
+		id, ok := n.(*ast.Ident)
+		if !ok {
+			return true
+		}
+		env, ok := locals[id.Name]
+		if ok {
+			found = env
+			return false
+		}
+		return true
+	})
+	return found
 }
 
 // firstEnvConst returns the value of the first EnvXxx constant referenced in an expression

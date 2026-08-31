@@ -47,4 +47,10 @@ You may also use the raw lego environment-variable names as keys instead of the 
 In addition to the keys above, Azure DNS supports the Azure SDK's other
 authentication methods (managed identity, Azure CLI, workload identity, and
 client certificates). Those are selected via `authMethod` and resolved by the
-Azure SDK from its own environment variables and files.
+Azure SDK from its own environment variables and files, including
+`AZURE_CLIENT_CERTIFICATE_PATH` for certificate authentication.
+
+`AZURE_ENVIRONMENT` is not supported: lego resolves it to an Azure SDK cloud
+configuration rather than a plain string, and only does so in the code path that
+reads the whole configuration from the environment, which le-cert-server does not
+use. Only the Azure public cloud can be reached at the moment.

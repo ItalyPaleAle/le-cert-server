@@ -25,6 +25,8 @@ letsEncrypt:
     propagationTimeout: ""
     # LWAPI_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 300)
     ttl: ""
+    # LWAPI_URL: Liquid Web API endpoint
+    url: ""
     # LWAPI_ZONE: DNS Zone
     zone: ""
 ```

@@ -148,6 +148,105 @@ func TestCurrentDNSProviderCode(t *testing.T) {
 	}
 }
 
+// TestResolveDNSProvider_NonScalarCredentials verifies the credential kinds that lego does not take as a plain scalar
+// These are the fields the generator used to drop, which left some providers unusable because a required credential had no key
+func TestResolveDNSProvider_NonScalarCredentials(t *testing.T) {
+	tests := []struct {
+		provider string
+		yamlSrc  string
+		assert   func(t *testing.T, pc dnsProviderConfig)
+	}{
+		{
+			// PowerDNS needs the API URL, which lego holds as a *url.URL
+			provider: "pdns",
+			yamlSrc:  "apiKey: secret\napiURL: http://pdns.example.com:8081\n",
+			assert: func(t *testing.T, pc dnsProviderConfig) {
+				t.Helper()
+				cfg, ok := pc.(*PdnsConfig)
+				require.True(t, ok, "expected a *PdnsConfig, got %T", pc)
+				assert.Equal(t, "http://pdns.example.com:8081", cfg.APIURL)
+			},
+		},
+		{
+			// dnsHome.de needs one password per domain, which lego holds as a map
+			provider: "dnshomede",
+			yamlSrc:  "credentials: example.com:pw1,example.org:pw2\n",
+			assert: func(t *testing.T, pc dnsProviderConfig) {
+				t.Helper()
+				cfg, ok := pc.(*DnshomedeConfig)
+				require.True(t, ok, "expected a *DnshomedeConfig, got %T", pc)
+				assert.Equal(t, "example.com:pw1,example.org:pw2", cfg.Credentials)
+			},
+		},
+		{
+			// The zone list is a []string in lego
+			provider: "dnsupdate",
+			yamlSrc:  "nameserver: ns.example.com:53\nzones: example.com,example.org\n",
+			assert: func(t *testing.T, pc dnsProviderConfig) {
+				t.Helper()
+				cfg, ok := pc.(*DnsupdateConfig)
+				require.True(t, ok, "expected a *DnsupdateConfig, got %T", pc)
+				assert.Equal(t, "example.com,example.org", cfg.Zones)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.provider, func(t *testing.T) {
+			c := validConfig()
+			c.LetsEncrypt.DNSProvider = tt.provider
+			c.LetsEncrypt.DNSCredentials = decodeCredentials(t, tt.yamlSrc)
+
+			err := c.Validate(testLogger())
+			require.NoError(t, err)
+
+			tt.assert(t, c.internal.dnsProviderConfig)
+
+			// The value must also survive conversion into the lego config, which is where the parsing happens
+			provider, err := c.NewDNSProvider()
+			require.NoError(t, err)
+			assert.NotNil(t, provider)
+		})
+	}
+}
+
+// TestResolveDNSProvider_InvalidNonScalarValueErrors verifies that malformed non-scalar credentials are rejected when the provider is built
+// The value is parsed before lego is handed the configuration, so these cases never reach the provider's API
+func TestResolveDNSProvider_InvalidNonScalarValueErrors(t *testing.T) {
+	tests := []struct {
+		provider string
+		yamlSrc  string
+		wantErr  string
+	}{
+		{
+			provider: "dnshomede",
+			yamlSrc:  "credentials: not-a-pair\n",
+			wantErr:  "credentials",
+		},
+		{
+			// huaweicloud holds the TTL as an int32, so it takes a different parsing path than the usual int
+			provider: "huaweicloud",
+			yamlSrc:  "accessKeyID: ak\nsecretAccessKey: sk\nregion: cn-north-1\nttl: not-a-number\n",
+			wantErr:  "ttl",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.provider, func(t *testing.T) {
+			c := validConfig()
+			c.LetsEncrypt.DNSProvider = tt.provider
+			c.LetsEncrypt.DNSCredentials = decodeCredentials(t, tt.yamlSrc)
+
+			err := c.Validate(testLogger())
+			require.NoError(t, err)
+
+			_, err = c.NewDNSProvider()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
 func TestResolveDNSProvider_UnknownKeyErrors(t *testing.T) {
 	c := validConfig()
 	c.LetsEncrypt.DNSCredentials = decodeCredentials(t, "notARealKey: value\n")

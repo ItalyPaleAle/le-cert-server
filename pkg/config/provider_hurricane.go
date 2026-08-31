@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-acme/lego/v5/challenge"
+	legoenv "github.com/go-acme/lego/v5/platform/env"
 	prov "github.com/go-acme/lego/v5/providers/dns/hurricane"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
@@ -15,6 +16,7 @@ import (
 // HurricaneConfig holds configuration for the "hurricane" DNS provider (Hurricane Electric DNS)
 // See https://dns.he.net/
 type HurricaneConfig struct {
+	Tokens             string // HURRICANE_TOKENS: TXT record names and tokens (comma-separated list of key:value pairs)
 	PollingInterval    string // HURRICANE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // HURRICANE_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation (Default: 300)
 	SequenceInterval   string // HURRICANE_SEQUENCE_INTERVAL: Time between sequential requests in seconds (Default: 60)
@@ -24,6 +26,13 @@ type HurricaneConfig struct {
 // Credentials are passed directly to lego and never written to the process environment
 func (c *HurricaneConfig) newProvider() (challenge.Provider, error) {
 	cfg := prov.NewDefaultConfig()
+	if c.Tokens != "" {
+		v, err := legoenv.ParsePairs(c.Tokens)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"tokens\": %w", err)
+		}
+		cfg.Credentials = v
+	}
 	if c.PollingInterval != "" {
 		v, err := strconv.Atoi(c.PollingInterval)
 		if err != nil {
@@ -66,6 +75,8 @@ func (c *HurricaneConfig) UnmarshalYAML(value *yaml.Node) error {
 			return err
 		}
 		switch key {
+		case "tokens", "HURRICANE_TOKENS":
+			c.Tokens = val
 		case "pollingInterval", "HURRICANE_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "HURRICANE_PROPAGATION_TIMEOUT":
