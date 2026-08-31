@@ -464,6 +464,9 @@ func convFor(typ string) string {
 		return "stringslice"
 	case "map[string]string":
 		return "pairs"
+	case "cloud.Configuration":
+		// lego selects one of a few fixed Azure SDK cloud configurations from a name, which parseAzureEnvironment does too
+		return "azureenv"
 	default:
 		return ""
 	}
@@ -654,6 +657,11 @@ func writeFieldAssignment(b *bytes.Buffer, f mappedField) {
 	case "pairs":
 		// lego parses these from a comma-separated list of key:value pairs, so the same parser is reused here
 		fmt.Fprintf(b, "\t\tv, err := legoenv.ParsePairs(c.%s)\n", f.GoName)
+		fmt.Fprintf(b, "\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"invalid value for \\\"%s\\\": %%w\", err)\n\t\t}\n", f.YAMLName)
+		fmt.Fprintf(b, "\t\tcfg.%s = v\n", f.LegoField)
+	case "azureenv":
+		// parseAzureEnvironment is hand-written in pkg/config, since the mapping from a cloud name to an Azure SDK configuration cannot be derived from lego's sources
+		fmt.Fprintf(b, "\t\tv, err := parseAzureEnvironment(c.%s)\n", f.GoName)
 		fmt.Fprintf(b, "\t\tif err != nil {\n\t\t\treturn nil, fmt.Errorf(\"invalid value for \\\"%s\\\": %%w\", err)\n\t\t}\n", f.YAMLName)
 		fmt.Fprintf(b, "\t\tcfg.%s = v\n", f.LegoField)
 	}

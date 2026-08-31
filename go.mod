@@ -9,6 +9,7 @@ tool (
 )
 
 require (
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.22.0
 	github.com/go-acme/lego/v5 v5.4.0
 	github.com/italypaleale/go-kit v1.1.0
 	github.com/italypaleale/go-sql-utils v0.3.7
@@ -36,7 +37,6 @@ require (
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/AdamSLevy/jsonrpc2/v14 v14.1.0 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.22.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns v1.2.0 // indirect

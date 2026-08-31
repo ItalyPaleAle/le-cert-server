@@ -192,9 +192,10 @@ func TestConvFor(t *testing.T) {
 		{"*url.URL", "url"},
 		{"[]string", "stringslice"},
 		{"map[string]string", "pairs"},
+		{"cloud.Configuration", "azureenv"},
 		// Types that cannot be built from a configuration string
 		{"map[string]*Seq", ""},
-		{"cloud.Configuration", ""},
+		{"common.ConfigurationProvider", ""},
 		{"*http.Client", ""},
 		{"", ""},
 	}

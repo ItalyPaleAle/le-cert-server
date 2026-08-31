@@ -23,6 +23,8 @@ letsEncrypt:
     authMethod: ""
     # AZURE_AUTH_MSI_TIMEOUT: Managed Identity timeout duration
     authMSITimeout: ""
+    # AZURE_ENVIRONMENT: Azure environment, one of: public, usgovernment, and china
+    environment: ""
     # AZURE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     pollingInterval: ""
     # AZURE_PRIVATE_ZONE: Set to true to use Azure Private DNS Zones and not public
@@ -48,4 +50,4 @@ In addition to the keys above, Azure DNS supports the Azure SDK's other authenti
 Those are selected via `authMethod` and resolved by the
 Azure SDK from its own environment variables and files, including `AZURE_CLIENT_CERTIFICATE_PATH` for certificate authentication.
 
-`AZURE_ENVIRONMENT` is not supported: lego resolves it to an Azure SDK cloud configuration rather than a plain string, and only does so in the code path that reads the whole configuration from the environment, which le-cert-server does not use. Only the Azure public cloud can be reached at the moment.
+`environment` selects the Azure cloud to talk to and accepts `public` (the default), `usgovernment`, or `china`.

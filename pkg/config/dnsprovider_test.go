@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"testing"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/cloud"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
@@ -245,6 +246,50 @@ func TestResolveDNSProvider_InvalidNonScalarValueErrors(t *testing.T) {
 			assert.Contains(t, err.Error(), tt.wantErr)
 		})
 	}
+}
+
+// TestResolveDNSProvider_AzureEnvironment verifies that the Azure cloud is selectable by name
+// lego holds it as an Azure SDK configuration rather than a string, so the name is resolved when the provider is built
+func TestResolveDNSProvider_AzureEnvironment(t *testing.T) {
+	tests := []struct {
+		name    string
+		want    cloud.Configuration
+		wantErr bool
+	}{
+		{name: "public", want: cloud.AzurePublic},
+		{name: "usgovernment", want: cloud.AzureGovernment},
+		{name: "china", want: cloud.AzureChina},
+		// The names are accepted regardless of case, unlike lego's environment variable
+		{name: "USGovernment", want: cloud.AzureGovernment},
+		{name: "not-a-cloud", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseAzureEnvironment(tt.name)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.name)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// TestResolveDNSProvider_AzureEnvironmentInvalidValueErrors verifies that an unknown cloud name is rejected when the provider is built
+func TestResolveDNSProvider_AzureEnvironmentInvalidValueErrors(t *testing.T) {
+	c := validConfig()
+	c.LetsEncrypt.DNSProvider = "azuredns"
+	c.LetsEncrypt.DNSCredentials = decodeCredentials(t, "clientID: id\nclientSecret: secret\ntenantID: tenant\nenvironment: not-a-cloud\n")
+
+	err := c.Validate(testLogger())
+	require.NoError(t, err)
+
+	_, err = c.NewDNSProvider()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "environment")
 }
 
 func TestResolveDNSProvider_UnknownKeyErrors(t *testing.T) {
