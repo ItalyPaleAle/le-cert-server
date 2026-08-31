@@ -15,7 +15,7 @@ letsEncrypt:
   dnsCredentials:
     # INFOMANIAK_ACCESS_TOKEN: Access token
     accessToken: ""
-    # INFOMANIAK_ENDPOINT: https://api.infomaniak.com
+    # INFOMANIAK_ENDPOINT: API endpoint (default: https://api.infomaniak.com)
     endpoint: ""
     # INFOMANIAK_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
     pollingInterval: ""

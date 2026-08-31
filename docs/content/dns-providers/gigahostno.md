@@ -13,15 +13,17 @@ See the [lego documentation](https://go-acme.github.io/lego/dns/gigahostno/) for
 letsEncrypt:
   dnsProvider: "gigahostno"
   dnsCredentials:
-    # GIGAHOSTNO_PASSWORD: Password
+    # GIGAHOSTNO_API_KEY: API key (optionnal of GIGAHOSTNO_USERNAME and GIGAHOSTNO_PASSWORD are defined)
+    apiKey: ""
+    # GIGAHOSTNO_PASSWORD: Password (optional if GIGAHOSTNO_API_KEY is defined)
     password: ""
-    # GIGAHOSTNO_USERNAME: Username
+    # GIGAHOSTNO_USERNAME: Username (optional if GIGAHOSTNO_API_KEY is defined)
     username: ""
     # GIGAHOSTNO_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     pollingInterval: ""
     # GIGAHOSTNO_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
     propagationTimeout: ""
-    # GIGAHOSTNO_SECRET: TOTP secret
+    # GIGAHOSTNO_SECRET: TOTP secret (Only usable with username/password)
     secret: ""
     # GIGAHOSTNO_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
     ttl: ""

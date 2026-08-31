@@ -21,6 +21,8 @@ letsEncrypt:
     pollingInterval: ""
     # ARTFILES_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 360)
     propagationTimeout: ""
+    # ARTFILES_SERVER_NAME: Your server name (Default: dcp)
+    serverName: ""
 ```
 
 Credentials are passed directly to lego using strong types and are never written to the process environment.

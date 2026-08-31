@@ -19,6 +19,8 @@ letsEncrypt:
     pollingInterval: ""
     # ONLINENET_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 240)
     propagationTimeout: ""
+    # ONLINENET_SEQUENCE_INTERVAL: Time between sequential requests in seconds (Default: 60)
+    sequenceInterval: ""
     # ONLINENET_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
     ttl: ""
 ```

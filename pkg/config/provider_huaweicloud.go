@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/huaweicloud"
+	"github.com/go-acme/lego/v5/challenge"
+	prov "github.com/go-acme/lego/v5/providers/dns/huaweicloud"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -21,6 +21,7 @@ type HuaweicloudConfig struct {
 	HTTPTimeout        string // HUAWEICLOUD_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // HUAWEICLOUD_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // HUAWEICLOUD_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
+	TTL                string // HUAWEICLOUD_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 300)
 }
 
 // newProvider builds the lego DNS challenge provider using strong types
@@ -57,11 +58,18 @@ func (c *HuaweicloudConfig) newProvider() (challenge.Provider, error) {
 		}
 		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
+	if c.TTL != "" {
+		v, err := strconv.ParseInt(c.TTL, 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"ttl\": %w", err)
+		}
+		cfg.TTL = int32(v)
+	}
 	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *HuaweicloudConfig) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"huaweicloud\" must be a map")
@@ -90,6 +98,8 @@ func (c *HuaweicloudConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.PollingInterval = val
 		case "propagationTimeout", "HUAWEICLOUD_PROPAGATION_TIMEOUT":
 			c.PropagationTimeout = val
+		case "ttl", "HUAWEICLOUD_TTL":
+			c.TTL = val
 		default:
 			return fmt.Errorf("unknown credential key %q for DNS provider \"huaweicloud\"", key)
 		}

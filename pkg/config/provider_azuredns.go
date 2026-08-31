@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/azuredns"
+	"github.com/go-acme/lego/v5/challenge"
+	prov "github.com/go-acme/lego/v5/providers/dns/azuredns"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -20,6 +20,7 @@ type AzurednsConfig struct {
 	TenantID               string // AZURE_TENANT_ID: Tenant ID
 	AuthMethod             string // AZURE_AUTH_METHOD: Specify which authentication method to use
 	AuthMSITimeout         string // AZURE_AUTH_MSI_TIMEOUT: Managed Identity timeout duration
+	Environment            string // AZURE_ENVIRONMENT: Azure environment, one of: public, usgovernment, and china
 	PollingInterval        string // AZURE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PrivateZone            string // AZURE_PRIVATE_ZONE: Set to true to use Azure Private DNS Zones and not public
 	PropagationTimeout     string // AZURE_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
@@ -52,6 +53,13 @@ func (c *AzurednsConfig) newProvider() (challenge.Provider, error) {
 			return nil, fmt.Errorf("invalid value for \"authMSITimeout\": %w", err)
 		}
 		cfg.AuthMSITimeout = time.Duration(v) * time.Second
+	}
+	if c.Environment != "" {
+		v, err := parseAzureEnvironment(c.Environment)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"environment\": %w", err)
+		}
+		cfg.Environment = v
 	}
 	if c.PollingInterval != "" {
 		v, err := strconv.Atoi(c.PollingInterval)
@@ -97,7 +105,7 @@ func (c *AzurednsConfig) newProvider() (challenge.Provider, error) {
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *AzurednsConfig) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"azuredns\" must be a map")
@@ -124,6 +132,8 @@ func (c *AzurednsConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.AuthMethod = val
 		case "authMSITimeout", "AZURE_AUTH_MSI_TIMEOUT":
 			c.AuthMSITimeout = val
+		case "environment", "AZURE_ENVIRONMENT":
+			c.Environment = val
 		case "pollingInterval", "AZURE_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "privateZone", "AZURE_PRIVATE_ZONE":

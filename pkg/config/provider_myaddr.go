@@ -7,14 +7,16 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/myaddr"
+	"github.com/go-acme/lego/v5/challenge"
+	legoenv "github.com/go-acme/lego/v5/platform/env"
+	prov "github.com/go-acme/lego/v5/providers/dns/myaddr"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
 // MyaddrConfig holds configuration for the "myaddr" DNS provider (myaddr.{tools,dev,io})
 // See https://myaddr.tools/
 type MyaddrConfig struct {
+	PrivateKeysMapping string // MYADDR_PRIVATE_KEYS_MAPPING: Mapping between subdomains and private keys. The format is: `<subdomain1>:<private_key1>,<subdomain2>:<private_key2>,<subdomain3>:<private_key3>` (comma-separated list of key:value pairs)
 	PollingInterval    string // MYADDR_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // MYADDR_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	SequenceInterval   string // MYADDR_SEQUENCE_INTERVAL: Time between sequential requests in seconds (Default: 2)
@@ -25,6 +27,13 @@ type MyaddrConfig struct {
 // Credentials are passed directly to lego and never written to the process environment
 func (c *MyaddrConfig) newProvider() (challenge.Provider, error) {
 	cfg := prov.NewDefaultConfig()
+	if c.PrivateKeysMapping != "" {
+		v, err := legoenv.ParsePairs(c.PrivateKeysMapping)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"privateKeysMapping\": %w", err)
+		}
+		cfg.Credentials = v
+	}
 	if c.PollingInterval != "" {
 		v, err := strconv.Atoi(c.PollingInterval)
 		if err != nil {
@@ -57,7 +66,7 @@ func (c *MyaddrConfig) newProvider() (challenge.Provider, error) {
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *MyaddrConfig) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"myaddr\" must be a map")
@@ -74,6 +83,8 @@ func (c *MyaddrConfig) UnmarshalYAML(value *yaml.Node) error {
 			return err
 		}
 		switch key {
+		case "privateKeysMapping", "MYADDR_PRIVATE_KEYS_MAPPING":
+			c.PrivateKeysMapping = val
 		case "pollingInterval", "MYADDR_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "MYADDR_PROPAGATION_TIMEOUT":

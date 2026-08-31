@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/httpnet"
+	"github.com/go-acme/lego/v5/challenge"
+	prov "github.com/go-acme/lego/v5/providers/dns/httpnet"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -57,7 +57,7 @@ func (c *HttpnetConfig) newProvider() (challenge.Provider, error) {
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *HttpnetConfig) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"httpnet\" must be a map")

@@ -1,0 +1,13 @@
+# Deprecated DNS provider codes and the current code that replaces each one.
+#
+# This file is an input to the gen-dns-providers tool (not generated).
+# After editing it, run `make gen-dns-providers` to regenerate the registry and the documentation index.
+#
+# lego occasionally renames a provider. Listing the old code here keeps configuration files written for an older lego version loading: the old code is still accepted in `letsEncrypt.dnsProvider` and is rewritten to the current one, with a warning logged at startup.
+#
+# Only add an entry when the replacement is a drop-in, meaning it accepts the same credential keys.
+# The generator fails if a key here is also a current lego provider, or if a value is not a known lego provider.
+
+# Renamed in lego v5
+acme-dns: acmedns
+rfc2136: dnsupdate

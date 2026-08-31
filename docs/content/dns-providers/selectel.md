@@ -15,8 +15,6 @@ letsEncrypt:
   dnsCredentials:
     # SELECTEL_API_TOKEN: API token
     apiToken: ""
-    # SELECTEL_BASE_URL: API endpoint URL
-    baseURL: ""
     # SELECTEL_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     pollingInterval: ""
     # SELECTEL_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)

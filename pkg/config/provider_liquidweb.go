@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/liquidweb"
+	"github.com/go-acme/lego/v5/challenge"
+	prov "github.com/go-acme/lego/v5/providers/dns/liquidweb"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -21,6 +21,7 @@ type LiquidwebConfig struct {
 	PollingInterval    string // LWAPI_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // LWAPI_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
 	TTL                string // LWAPI_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 300)
+	URL                string // LWAPI_URL: Liquid Web API endpoint
 	Zone               string // LWAPI_ZONE: DNS Zone
 }
 
@@ -62,6 +63,9 @@ func (c *LiquidwebConfig) newProvider() (challenge.Provider, error) {
 		}
 		cfg.TTL = v
 	}
+	if c.URL != "" {
+		cfg.BaseURL = c.URL
+	}
 	if c.Zone != "" {
 		cfg.Zone = c.Zone
 	}
@@ -69,7 +73,7 @@ func (c *LiquidwebConfig) newProvider() (challenge.Provider, error) {
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *LiquidwebConfig) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"liquidweb\" must be a map")
@@ -98,6 +102,8 @@ func (c *LiquidwebConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.PropagationTimeout = val
 		case "ttl", "LWAPI_TTL":
 			c.TTL = val
+		case "url", "LWAPI_URL":
+			c.URL = val
 		case "zone", "LWAPI_ZONE":
 			c.Zone = val
 		default:

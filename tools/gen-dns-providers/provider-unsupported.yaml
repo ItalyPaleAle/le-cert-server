@@ -1,0 +1,15 @@
+# DNS providers that are excluded from code generation.
+#
+# This file is an input to the gen-dns-providers tool (not generated).
+# After editing it, run `make gen-dns-providers` to regenerate the registry and the documentation.
+#
+# Listed providers get no config type, no registry entry, and no documentation page, so `letsEncrypt.dnsProvider` rejects them as unknown.
+#
+# Only add a provider that genuinely cannot work: lego requires a value that cannot be supplied through `dnsCredentials`, because the field is unexported or is parsed by an unexported function, and lego only populates it in the code path that reads the whole configuration from the environment.
+# The generator fails if an entry is not a known lego provider, so a provider that lego later fixes shows up as an error here rather than staying silently excluded.
+
+# PLESK_SERVER_BASE_URL is required but lands in an unexported Config field
+- plesk
+
+# SELFHOSTDE_RECORDS_MAPPING is required but is parsed by an unexported function into an unexported type
+- selfhostde

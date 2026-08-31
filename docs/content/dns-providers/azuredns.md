@@ -23,6 +23,8 @@ letsEncrypt:
     authMethod: ""
     # AZURE_AUTH_MSI_TIMEOUT: Managed Identity timeout duration
     authMSITimeout: ""
+    # AZURE_ENVIRONMENT: Azure environment, one of: public, usgovernment, and china
+    environment: ""
     # AZURE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     pollingInterval: ""
     # AZURE_PRIVATE_ZONE: Set to true to use Azure Private DNS Zones and not public
@@ -44,7 +46,8 @@ letsEncrypt:
 Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
 
-In addition to the keys above, Azure DNS supports the Azure SDK's other
-authentication methods (managed identity, Azure CLI, workload identity, and
-client certificates). Those are selected via `authMethod` and resolved by the
-Azure SDK from its own environment variables and files.
+In addition to the keys above, Azure DNS supports the Azure SDK's other authentication methods (managed identity, Azure CLI, workload identity, and client certificates).  
+Those are selected via `authMethod` and resolved by the
+Azure SDK from its own environment variables and files, including `AZURE_CLIENT_CERTIFICATE_PATH` for certificate authentication.
+
+`environment` selects the Azure cloud to talk to and accepts `public` (the default), `usgovernment`, or `china`.

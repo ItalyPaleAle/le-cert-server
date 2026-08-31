@@ -23,7 +23,7 @@ letsEncrypt:
     username: ""
     # SELECTELV2_AUTH_REGION: Location for auth endpoint like ResellAPI or Keystone (default: 'ru-1')
     authRegion: ""
-    # SELECTELV2_AUTH_URL: Identity endpoint (defaul: 'https://cloud.api.selcloud.ru/identity/v3/')
+    # SELECTELV2_AUTH_URL: Identity endpoint (default: 'https://cloud.api.selcloud.ru/identity/v3/')
     authURL: ""
     # SELECTELV2_BASE_URL: API endpoint URL
     baseURL: ""

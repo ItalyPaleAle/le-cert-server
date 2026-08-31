@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/bluecatv2"
+	"github.com/go-acme/lego/v5/challenge"
+	prov "github.com/go-acme/lego/v5/providers/dns/bluecatv2"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -22,7 +22,7 @@ type Bluecatv2Config struct {
 	ViewName           string // BLUECATV2_VIEW_NAME: DNS View Name
 	PollingInterval    string // BLUECATV2_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // BLUECATV2_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
-	SkipDeploy         string // BLUECATV2_SKIP_DEPLOY: Skip quick deployements
+	SkipDeploy         string // BLUECATV2_SKIP_DEPLOY: Skip quick deployments
 	TTL                string // BLUECATV2_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
@@ -77,7 +77,7 @@ func (c *Bluecatv2Config) newProvider() (challenge.Provider, error) {
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *Bluecatv2Config) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"bluecatv2\" must be a map")

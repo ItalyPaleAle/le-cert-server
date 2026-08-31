@@ -7,14 +7,16 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/dnshomede"
+	"github.com/go-acme/lego/v5/challenge"
+	legoenv "github.com/go-acme/lego/v5/platform/env"
+	prov "github.com/go-acme/lego/v5/providers/dns/dnshomede"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
 // DnshomedeConfig holds configuration for the "dnshomede" DNS provider (dnsHome.de)
 // See https://www.dnshome.de
 type DnshomedeConfig struct {
+	Credentials        string // DNSHOMEDE_CREDENTIALS: Comma-separated list of domain:password credential pairs (comma-separated list of key:value pairs)
 	PollingInterval    string // DNSHOMEDE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 1200)
 	PropagationTimeout string // DNSHOMEDE_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 2)
 	SequenceInterval   string // DNSHOMEDE_SEQUENCE_INTERVAL: Time between sequential requests in seconds (Default: 120)
@@ -24,6 +26,13 @@ type DnshomedeConfig struct {
 // Credentials are passed directly to lego and never written to the process environment
 func (c *DnshomedeConfig) newProvider() (challenge.Provider, error) {
 	cfg := prov.NewDefaultConfig()
+	if c.Credentials != "" {
+		v, err := legoenv.ParsePairs(c.Credentials)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"credentials\": %w", err)
+		}
+		cfg.Credentials = v
+	}
 	if c.PollingInterval != "" {
 		v, err := strconv.Atoi(c.PollingInterval)
 		if err != nil {
@@ -49,7 +58,7 @@ func (c *DnshomedeConfig) newProvider() (challenge.Provider, error) {
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *DnshomedeConfig) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"dnshomede\" must be a map")
@@ -66,6 +75,8 @@ func (c *DnshomedeConfig) UnmarshalYAML(value *yaml.Node) error {
 			return err
 		}
 		switch key {
+		case "credentials", "DNSHOMEDE_CREDENTIALS":
+			c.Credentials = val
 		case "pollingInterval", "DNSHOMEDE_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "DNSHOMEDE_PROPAGATION_TIMEOUT":

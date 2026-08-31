@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v5/challenge"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -267,7 +267,18 @@ func (c *Config) NewDNSProvider() (challenge.Provider, error) {
 
 // resolveDNSProvider validates the configured DNS provider and decodes its credentials
 // The credentials node is decoded after load because the provider must be known first
-func (c *Config) resolveDNSProvider() error {
+func (c *Config) resolveDNSProvider(logger *slog.Logger) error {
+	// Providers that lego has renamed are accepted under their old code and rewritten to the current one
+	// The replacement takes the same credential keys, so nothing else in the configuration needs to change
+	current, renamed := currentDNSProviderCode(c.LetsEncrypt.DNSProvider)
+	if renamed {
+		logger.Warn("Configuration option 'letsEncrypt.dnsProvider' uses a DNS provider code that lego has renamed; update the configuration to the current code",
+			slog.String("configured", c.LetsEncrypt.DNSProvider),
+			slog.String("renamedTo", current),
+		)
+		c.LetsEncrypt.DNSProvider = current
+	}
+
 	pc, ok := newDNSProviderConfig(c.LetsEncrypt.DNSProvider)
 	if !ok {
 		return fmt.Errorf("configuration option 'letsEncrypt.dnsProvider' has an unknown value '%s'; see https://go-acme.github.io/lego/dns/ for the list of supported providers", c.LetsEncrypt.DNSProvider)
@@ -298,7 +309,7 @@ func (c *Config) Validate(logger *slog.Logger) error {
 	}
 
 	// Resolve the DNS provider
-	err := c.resolveDNSProvider()
+	err := c.resolveDNSProvider(logger)
 	if err != nil {
 		return err
 	}

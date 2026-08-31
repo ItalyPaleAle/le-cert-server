@@ -15,6 +15,8 @@ letsEncrypt:
   dnsCredentials:
     # PDNS_API_KEY: API key
     apiKey: ""
+    # PDNS_API_URL: API URL
+    apiURL: ""
     # PDNS_API_VERSION: Skip API version autodetection and use the provided version number.
     apiVersion: ""
     # PDNS_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)

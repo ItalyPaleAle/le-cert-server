@@ -2,7 +2,7 @@
 
 package config
 
-import "github.com/go-acme/lego/v4/challenge"
+import "github.com/go-acme/lego/v5/challenge"
 
 // dnsProviderConfig is implemented by every generated per-provider credentials struct
 type dnsProviderConfig interface {
@@ -14,8 +14,10 @@ type dnsProviderConfig interface {
 // The second return value is false when the code is not a supported lego DNS provider
 func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 	switch code {
-	case "acme-dns":
-		return &AcmeDNSConfig{}, true
+	case "abion":
+		return &AbionConfig{}, true
+	case "acmedns":
+		return &AcmednsConfig{}, true
 	case "active24":
 		return &Active24Config{}, true
 	case "alidns":
@@ -40,8 +42,6 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &AxelnameConfig{}, true
 	case "azion":
 		return &AzionConfig{}, true
-	case "azure":
-		return &AzureConfig{}, true
 	case "azuredns":
 		return &AzurednsConfig{}, true
 	case "baiducloud":
@@ -58,8 +58,6 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &Bluecatv2Config{}, true
 	case "bookmyname":
 		return &BookmynameConfig{}, true
-	case "brandit":
-		return &BranditConfig{}, true
 	case "bunny":
 		return &BunnyConfig{}, true
 	case "checkdomain":
@@ -74,10 +72,10 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &CloudnsConfig{}, true
 	case "cloudru":
 		return &CloudruConfig{}, true
-	case "cloudxns":
-		return &CloudxnsConfig{}, true
 	case "com35":
 		return &Com35Config{}, true
+	case "connbyte":
+		return &ConnbyteConfig{}, true
 	case "conoha":
 		return &ConohaConfig{}, true
 	case "conohav3":
@@ -88,8 +86,12 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &CorenetworksConfig{}, true
 	case "cpanel":
 		return &CpanelConfig{}, true
+	case "curanet":
+		return &CuranetConfig{}, true
 	case "czechia":
 		return &CzechiaConfig{}, true
+	case "dandomain":
+		return &DandomainConfig{}, true
 	case "ddnss":
 		return &DdnssConfig{}, true
 	case "derak":
@@ -100,18 +102,28 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &DesignateConfig{}, true
 	case "digitalocean":
 		return &DigitaloceanConfig{}, true
+	case "dinahosting":
+		return &DinahostingConfig{}, true
 	case "directadmin":
 		return &DirectadminConfig{}, true
+	case "dns51":
+		return &Dns51Config{}, true
+	case "dnscale":
+		return &DnscaleConfig{}, true
 	case "dnsexit":
 		return &DnsexitConfig{}, true
 	case "dnshomede":
 		return &DnshomedeConfig{}, true
 	case "dnsimple":
 		return &DnsimpleConfig{}, true
+	case "dnsla":
+		return &DnslaConfig{}, true
 	case "dnsmadeeasy":
 		return &DnsmadeeasyConfig{}, true
-	case "dnspod":
-		return &DnspodConfig{}, true
+	case "dnsservices":
+		return &DnsservicesConfig{}, true
+	case "dnsupdate":
+		return &DnsupdateConfig{}, true
 	case "dode":
 		return &DodeConfig{}, true
 	case "domeneshop":
@@ -122,6 +134,8 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &DuckdnsConfig{}, true
 	case "dyn":
 		return &DynConfig{}, true
+	case "dynadot":
+		return &DynadotConfig{}, true
 	case "dyndnsfree":
 		return &DyndnsfreeConfig{}, true
 	case "dynu":
@@ -140,6 +154,8 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &EpikConfig{}, true
 	case "eurodns":
 		return &EurodnsConfig{}, true
+	case "euserv":
+		return &EuservConfig{}, true
 	case "excedo":
 		return &ExcedoConfig{}, true
 	case "exec":
@@ -148,6 +164,8 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &ExoscaleConfig{}, true
 	case "f5xc":
 		return &F5xcConfig{}, true
+	case "fornex":
+		return &FornexConfig{}, true
 	case "freemyip":
 		return &FreemyipConfig{}, true
 	case "gandi":
@@ -158,14 +176,16 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &GcloudConfig{}, true
 	case "gcore":
 		return &GcoreConfig{}, true
+	case "gehirn":
+		return &GehirnConfig{}, true
 	case "gigahostno":
 		return &GigahostnoConfig{}, true
 	case "glesys":
 		return &GlesysConfig{}, true
+	case "gname":
+		return &GnameConfig{}, true
 	case "godaddy":
 		return &GodaddyConfig{}, true
-	case "googledomains":
-		return &GoogledomainsConfig{}, true
 	case "gravity":
 		return &GravityConfig{}, true
 	case "hetzner":
@@ -178,6 +198,8 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &HostingnlConfig{}, true
 	case "hosttech":
 		return &HosttechConfig{}, true
+	case "hostup":
+		return &HostupConfig{}, true
 	case "httpnet":
 		return &HttpnetConfig{}, true
 	case "httpreq":
@@ -190,8 +212,6 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &HyperoneConfig{}, true
 	case "ibmcloud":
 		return &IbmcloudConfig{}, true
-	case "iij":
-		return &IijConfig{}, true
 	case "iijdpf":
 		return &IijdpfConfig{}, true
 	case "infoblox":
@@ -212,12 +232,12 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &IspconfigConfig{}, true
 	case "ispconfigddns":
 		return &IspconfigddnsConfig{}, true
-	case "iwantmyname":
-		return &IwantmynameConfig{}, true
 	case "jdcloud":
 		return &JdcloudConfig{}, true
 	case "joker":
 		return &JokerConfig{}, true
+	case "katapult":
+		return &KatapultConfig{}, true
 	case "keyhelp":
 		return &KeyhelpConfig{}, true
 	case "leaseweb":
@@ -240,6 +260,8 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &MailinaboxConfig{}, true
 	case "manageengine":
 		return &ManageengineConfig{}, true
+	case "manual":
+		return &ManualConfig{}, true
 	case "metaname":
 		return &MetanameConfig{}, true
 	case "metaregistrar":
@@ -264,6 +286,8 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &NamesurferConfig{}, true
 	case "nearlyfreespeech":
 		return &NearlyfreespeechConfig{}, true
+	case "nederhost":
+		return &NederhostConfig{}, true
 	case "neodigit":
 		return &NeodigitConfig{}, true
 	case "netcup":
@@ -272,6 +296,10 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &NetlifyConfig{}, true
 	case "netnod":
 		return &NetnodConfig{}, true
+	case "nexdns":
+		return &NexdnsConfig{}, true
+	case "ngenix":
+		return &NgenixConfig{}, true
 	case "nicmanager":
 		return &NicmanagerConfig{}, true
 	case "nicru":
@@ -286,10 +314,16 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &Ns1Config{}, true
 	case "octenium":
 		return &OcteniumConfig{}, true
+	case "omglol":
+		return &OmglolConfig{}, true
 	case "onecloudru":
 		return &OnecloudruConfig{}, true
 	case "onlinenet":
 		return &OnlinenetConfig{}, true
+	case "openprovider":
+		return &OpenproviderConfig{}, true
+	case "opusdns":
+		return &OpusdnsConfig{}, true
 	case "oraclecloud":
 		return &OraclecloudConfig{}, true
 	case "otc":
@@ -298,12 +332,16 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &OvhConfig{}, true
 	case "pdns":
 		return &PdnsConfig{}, true
-	case "plesk":
-		return &PleskConfig{}, true
+	case "pointdns":
+		return &PointdnsConfig{}, true
 	case "porkbun":
 		return &PorkbunConfig{}, true
+	case "poweradmin":
+		return &PoweradminConfig{}, true
 	case "rackspace":
 		return &RackspaceConfig{}, true
+	case "rage4":
+		return &Rage4Config{}, true
 	case "rainyun":
 		return &RainyunConfig{}, true
 	case "rcodezero":
@@ -312,8 +350,6 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &RegfishConfig{}, true
 	case "regru":
 		return &RegruConfig{}, true
-	case "rfc2136":
-		return &Rfc2136Config{}, true
 	case "rimuhosting":
 		return &RimuhostingConfig{}, true
 	case "route53":
@@ -324,12 +360,12 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &SakuracloudConfig{}, true
 	case "scaleway":
 		return &ScalewayConfig{}, true
+	case "scannet":
+		return &ScannetConfig{}, true
 	case "selectel":
 		return &SelectelConfig{}, true
 	case "selectelv2":
 		return &Selectelv2Config{}, true
-	case "selfhostde":
-		return &SelfhostdeConfig{}, true
 	case "servercow":
 		return &ServercowConfig{}, true
 	case "shellrent":
@@ -346,6 +382,8 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &SyseConfig{}, true
 	case "technitium":
 		return &TechnitiumConfig{}, true
+	case "tele3":
+		return &Tele3Config{}, true
 	case "tencentcloud":
 		return &TencentcloudConfig{}, true
 	case "timewebcloud":
@@ -362,6 +400,8 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &UniteddomainsConfig{}, true
 	case "variomedia":
 		return &VariomediaConfig{}, true
+	case "veesp":
+		return &VeespConfig{}, true
 	case "vegadns":
 		return &VegadnsConfig{}, true
 	case "vercel":
@@ -380,22 +420,28 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &VscaleConfig{}, true
 	case "vultr":
 		return &VultrConfig{}, true
-	case "webnames":
-		return &WebnamesConfig{}, true
+	case "wannafind":
+		return &WannafindConfig{}, true
 	case "webnamesca":
 		return &WebnamescaConfig{}, true
+	case "webnamesru":
+		return &WebnamesruConfig{}, true
 	case "websupport":
 		return &WebsupportConfig{}, true
 	case "wedos":
 		return &WedosConfig{}, true
 	case "westcn":
 		return &WestcnConfig{}, true
+	case "xinnet":
+		return &XinnetConfig{}, true
 	case "yandex":
 		return &YandexConfig{}, true
 	case "yandex360":
 		return &Yandex360Config{}, true
 	case "yandexcloud":
 		return &YandexcloudConfig{}, true
+	case "zilore":
+		return &ZiloreConfig{}, true
 	case "zoneedit":
 		return &ZoneeditConfig{}, true
 	case "zoneee":
@@ -404,5 +450,19 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &ZonomiConfig{}, true
 	default:
 		return nil, false
+	}
+}
+
+// currentDNSProviderCode maps a DNS provider code that lego has renamed to the code that replaces it
+// Renamed codes remain accepted so that configuration files written for an older lego version keep loading, and each replacement takes the same credential keys
+// The second return value reports whether the code was renamed
+func currentDNSProviderCode(code string) (string, bool) {
+	switch code {
+	case "acme-dns":
+		return "acmedns", true
+	case "rfc2136":
+		return "dnsupdate", true
+	default:
+		return code, false
 	}
 }

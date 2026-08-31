@@ -4,11 +4,12 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/versio"
+	"github.com/go-acme/lego/v5/challenge"
+	prov "github.com/go-acme/lego/v5/providers/dns/versio"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -17,6 +18,7 @@ import (
 type VersioConfig struct {
 	Password           string // VERSIO_PASSWORD: Basic authentication password
 	Username           string // VERSIO_USERNAME: Basic authentication username
+	Endpoint           string // VERSIO_ENDPOINT: The endpoint URL of the API Server
 	PollingInterval    string // VERSIO_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 5)
 	PropagationTimeout string // VERSIO_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	SequenceInterval   string // VERSIO_SEQUENCE_INTERVAL: Time between sequential requests in seconds (Default: 60)
@@ -32,6 +34,13 @@ func (c *VersioConfig) newProvider() (challenge.Provider, error) {
 	}
 	if c.Username != "" {
 		cfg.Username = c.Username
+	}
+	if c.Endpoint != "" {
+		v, err := url.Parse(c.Endpoint)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"endpoint\": %w", err)
+		}
+		cfg.BaseURL = v
 	}
 	if c.PollingInterval != "" {
 		v, err := strconv.Atoi(c.PollingInterval)
@@ -65,7 +74,7 @@ func (c *VersioConfig) newProvider() (challenge.Provider, error) {
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *VersioConfig) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"versio\" must be a map")
@@ -86,6 +95,8 @@ func (c *VersioConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.Password = val
 		case "username", "VERSIO_USERNAME":
 			c.Username = val
+		case "endpoint", "VERSIO_ENDPOINT":
+			c.Endpoint = val
 		case "pollingInterval", "VERSIO_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "VERSIO_PROPAGATION_TIMEOUT":

@@ -13,6 +13,8 @@ See the [lego documentation](https://go-acme.github.io/lego/dns/syse/) for full 
 letsEncrypt:
   dnsProvider: "syse"
   dnsCredentials:
+    # SYSE_CREDENTIALS: Comma-separated list of `zone:password` credential pairs (comma-separated list of key:value pairs)
+    credentials: ""
     # SYSE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
     pollingInterval: ""
     # SYSE_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 1200)

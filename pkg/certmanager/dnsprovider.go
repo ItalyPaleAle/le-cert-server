@@ -3,7 +3,7 @@ package certmanager
 import (
 	"fmt"
 
-	"github.com/go-acme/lego/v4/challenge"
+	"github.com/go-acme/lego/v5/challenge"
 
 	"github.com/italypaleale/le-cert-server/pkg/config"
 )

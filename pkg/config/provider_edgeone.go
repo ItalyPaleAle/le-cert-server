@@ -7,8 +7,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/edgeone"
+	"github.com/go-acme/lego/v5/challenge"
+	legoenv "github.com/go-acme/lego/v5/platform/env"
+	prov "github.com/go-acme/lego/v5/providers/dns/edgeone"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -23,6 +24,7 @@ type EdgeoneConfig struct {
 	Region             string // EDGEONE_REGION: Region
 	SessionToken       string // EDGEONE_SESSION_TOKEN: Access Key token
 	TTL                string // EDGEONE_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 60)
+	ZonesMapping       string // EDGEONE_ZONES_MAPPING: Mapping between DNS zones and site IDs. (ex: 'example.org:id1,example.com:id2') (comma-separated list of key:value pairs)
 }
 
 // newProvider builds the lego DNS challenge provider using strong types
@@ -69,11 +71,18 @@ func (c *EdgeoneConfig) newProvider() (challenge.Provider, error) {
 		}
 		cfg.TTL = v
 	}
+	if c.ZonesMapping != "" {
+		v, err := legoenv.ParsePairs(c.ZonesMapping)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"zonesMapping\": %w", err)
+		}
+		cfg.ZonesMapping = v
+	}
 	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *EdgeoneConfig) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"edgeone\" must be a map")
@@ -106,6 +115,8 @@ func (c *EdgeoneConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.SessionToken = val
 		case "ttl", "EDGEONE_TTL":
 			c.TTL = val
+		case "zonesMapping", "EDGEONE_ZONES_MAPPING":
+			c.ZonesMapping = val
 		default:
 			return fmt.Errorf("unknown credential key %q for DNS provider \"edgeone\"", key)
 		}

@@ -13,6 +13,8 @@ See the [lego documentation](https://go-acme.github.io/lego/dns/hurricane/) for 
 letsEncrypt:
   dnsProvider: "hurricane"
   dnsCredentials:
+    # HURRICANE_TOKENS: TXT record names and tokens (comma-separated list of key:value pairs)
+    tokens: ""
     # HURRICANE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     pollingInterval: ""
     # HURRICANE_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation (Default: 300)
@@ -24,7 +26,4 @@ letsEncrypt:
 Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
 
-Hurricane Electric uses one token per domain rather than a single credential.
-Set the `HURRICANE_TOKENS` environment variable to a comma-separated list of
-`domain:token` pairs; this is parsed by lego and cannot be expressed through the
-typed `dnsCredentials` keys.
+Hurricane Electric uses one token per domain rather than a single credential, so `tokens` takes a comma-separated list of `domain:token` pairs, for example `example.com:token1,example.org:token2`.

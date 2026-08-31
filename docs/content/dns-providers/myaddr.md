@@ -13,6 +13,8 @@ See the [lego documentation](https://go-acme.github.io/lego/dns/myaddr/) for ful
 letsEncrypt:
   dnsProvider: "myaddr"
   dnsCredentials:
+    # MYADDR_PRIVATE_KEYS_MAPPING: Mapping between subdomains and private keys. The format is: `<subdomain1>:<private_key1>,<subdomain2>:<private_key2>,<subdomain3>:<private_key3>` (comma-separated list of key:value pairs)
+    privateKeysMapping: ""
     # MYADDR_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     pollingInterval: ""
     # MYADDR_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)

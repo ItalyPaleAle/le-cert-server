@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/scaleway"
+	"github.com/go-acme/lego/v5/challenge"
+	prov "github.com/go-acme/lego/v5/providers/dns/scaleway"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -31,7 +31,7 @@ func (c *ScalewayConfig) newProvider() (challenge.Provider, error) {
 		cfg.ProjectID = c.ProjectID
 	}
 	if c.SecretKey != "" {
-		cfg.Token = c.SecretKey
+		cfg.SecretKey = c.SecretKey
 	}
 	if c.AccessKey != "" {
 		cfg.AccessKey = c.AccessKey
@@ -61,7 +61,7 @@ func (c *ScalewayConfig) newProvider() (challenge.Provider, error) {
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *ScalewayConfig) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"scaleway\" must be a map")

@@ -25,3 +25,5 @@ letsEncrypt:
 
 Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
+
+`HETZNER_HTTP_TIMEOUT` configures the HTTP client that lego builds for this provider, which has no equivalent `dnsCredentials` key. Set it as an environment variable if you need to change it from the default of 30 seconds.
