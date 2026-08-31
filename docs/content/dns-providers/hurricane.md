@@ -26,6 +26,4 @@ letsEncrypt:
 Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
 
-Hurricane Electric uses one token per domain rather than a single credential, so
-`tokens` takes a comma-separated list of `domain:token` pairs, for example
-`example.com:token1,example.org:token2`.
+Hurricane Electric uses one token per domain rather than a single credential, so `tokens` takes a comma-separated list of `domain:token` pairs, for example `example.com:token1,example.org:token2`.

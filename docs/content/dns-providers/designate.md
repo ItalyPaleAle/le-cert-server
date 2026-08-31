@@ -26,7 +26,4 @@ letsEncrypt:
 Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
 
-OpenStack Designate authenticates through gophercloud, which reads the standard
-`OS_*` environment variables (or a `clouds.yaml` selected with `OS_CLOUD`).
-These credentials are resolved by gophercloud and cannot be set through
-`dnsCredentials`.
+OpenStack Designate authenticates through gophercloud, which reads the standard `OS_*` environment variables (or a `clouds.yaml` selected with `OS_CLOUD`). These credentials are resolved by gophercloud and cannot be set through `dnsCredentials`.

@@ -28,6 +28,4 @@ letsEncrypt:
 Credentials are passed directly to lego using strong types and are never written to the process environment.
 You may also use the raw lego environment-variable names as keys instead of the normalized names.
 
-`NAMECHEAP_SANDBOX` selects the Namecheap sandbox API instead of production. It
-chooses a base URL inside lego rather than setting a configuration field, so set it
-as an environment variable rather than through `dnsCredentials`.
+`NAMECHEAP_SANDBOX` selects the Namecheap sandbox API instead of production. It chooses a base URL inside lego rather than setting a configuration field, so set it as an environment variable rather than through `dnsCredentials`.
