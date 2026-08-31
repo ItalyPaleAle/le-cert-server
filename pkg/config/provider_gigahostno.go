@@ -7,19 +7,19 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/gigahostno"
+	"github.com/go-acme/lego/v5/challenge"
+	prov "github.com/go-acme/lego/v5/providers/dns/gigahostno"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
 // GigahostnoConfig holds configuration for the "gigahostno" DNS provider (Gigahost.no)
 // See https://gigahost.no/
 type GigahostnoConfig struct {
-	Password           string // GIGAHOSTNO_PASSWORD: Password
-	Username           string // GIGAHOSTNO_USERNAME: Username
+	Password           string // GIGAHOSTNO_PASSWORD: Password (optional if GIGAHOSTNO_API_KEY is defined)
+	Username           string // GIGAHOSTNO_USERNAME: Username (optional if GIGAHOSTNO_API_KEY is defined)
 	PollingInterval    string // GIGAHOSTNO_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // GIGAHOSTNO_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
-	Secret             string // GIGAHOSTNO_SECRET: TOTP secret
+	Secret             string // GIGAHOSTNO_SECRET: TOTP secret (Only usable with username/password)
 	TTL                string // GIGAHOSTNO_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
@@ -61,7 +61,7 @@ func (c *GigahostnoConfig) newProvider() (challenge.Provider, error) {
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *GigahostnoConfig) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"gigahostno\" must be a map")

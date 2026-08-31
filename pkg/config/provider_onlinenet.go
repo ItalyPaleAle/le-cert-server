@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/onlinenet"
+	"github.com/go-acme/lego/v5/challenge"
+	prov "github.com/go-acme/lego/v5/providers/dns/onlinenet"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -18,6 +18,7 @@ type OnlinenetConfig struct {
 	APIToken           string // ONLINENET_API_TOKEN: API token
 	PollingInterval    string // ONLINENET_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 15)
 	PropagationTimeout string // ONLINENET_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 240)
+	SequenceInterval   string // ONLINENET_SEQUENCE_INTERVAL: Time between sequential requests in seconds (Default: 60)
 	TTL                string // ONLINENET_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
 }
 
@@ -42,6 +43,13 @@ func (c *OnlinenetConfig) newProvider() (challenge.Provider, error) {
 		}
 		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
+	if c.SequenceInterval != "" {
+		v, err := strconv.Atoi(c.SequenceInterval)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for \"sequenceInterval\": %w", err)
+		}
+		cfg.SequenceInterval = time.Duration(v) * time.Second
+	}
 	if c.TTL != "" {
 		v, err := strconv.Atoi(c.TTL)
 		if err != nil {
@@ -53,7 +61,7 @@ func (c *OnlinenetConfig) newProvider() (challenge.Provider, error) {
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *OnlinenetConfig) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"onlinenet\" must be a map")
@@ -76,6 +84,8 @@ func (c *OnlinenetConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.PollingInterval = val
 		case "propagationTimeout", "ONLINENET_PROPAGATION_TIMEOUT":
 			c.PropagationTimeout = val
+		case "sequenceInterval", "ONLINENET_SEQUENCE_INTERVAL":
+			c.SequenceInterval = val
 		case "ttl", "ONLINENET_TTL":
 			c.TTL = val
 		default:

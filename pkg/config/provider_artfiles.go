@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/artfiles"
+	"github.com/go-acme/lego/v5/challenge"
+	prov "github.com/go-acme/lego/v5/providers/dns/artfiles"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -19,6 +19,7 @@ type ArtfilesConfig struct {
 	Username           string // ARTFILES_USERNAME: API username
 	PollingInterval    string // ARTFILES_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // ARTFILES_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 360)
+	ServerName         string // ARTFILES_SERVER_NAME: Your server name (Default: dcp)
 }
 
 // newProvider builds the lego DNS challenge provider using strong types
@@ -45,11 +46,14 @@ func (c *ArtfilesConfig) newProvider() (challenge.Provider, error) {
 		}
 		cfg.PropagationTimeout = time.Duration(v) * time.Second
 	}
+	if c.ServerName != "" {
+		cfg.ServerName = c.ServerName
+	}
 	return prov.NewDNSProviderConfig(cfg)
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *ArtfilesConfig) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"artfiles\" must be a map")
@@ -74,6 +78,8 @@ func (c *ArtfilesConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.PollingInterval = val
 		case "propagationTimeout", "ARTFILES_PROPAGATION_TIMEOUT":
 			c.PropagationTimeout = val
+		case "serverName", "ARTFILES_SERVER_NAME":
+			c.ServerName = val
 		default:
 			return fmt.Errorf("unknown credential key %q for DNS provider \"artfiles\"", key)
 		}

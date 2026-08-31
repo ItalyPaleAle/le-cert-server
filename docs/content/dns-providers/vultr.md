@@ -15,8 +15,6 @@ letsEncrypt:
   dnsCredentials:
     # VULTR_API_KEY: API key
     apiKey: ""
-    # VULTR_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
-    httpTimeout: ""
     # VULTR_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     pollingInterval: ""
     # VULTR_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)

@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/selectelv2"
+	"github.com/go-acme/lego/v5/challenge"
+	prov "github.com/go-acme/lego/v5/providers/dns/selectelv2"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -20,7 +20,7 @@ type Selectelv2Config struct {
 	ProjectID          string // SELECTELV2_PROJECT_ID: Cloud project ID (UUID)
 	Username           string // SELECTELV2_USERNAME: Openstack username
 	AuthRegion         string // SELECTELV2_AUTH_REGION: Location for auth endpoint like ResellAPI or Keystone (default: 'ru-1')
-	AuthURL            string // SELECTELV2_AUTH_URL: Identity endpoint (defaul: 'https://cloud.api.selcloud.ru/identity/v3/')
+	AuthURL            string // SELECTELV2_AUTH_URL: Identity endpoint (default: 'https://cloud.api.selcloud.ru/identity/v3/')
 	BaseURL            string // SELECTELV2_BASE_URL: API endpoint URL
 	PollingInterval    string // SELECTELV2_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 5)
 	PropagationTimeout string // SELECTELV2_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
@@ -81,7 +81,7 @@ func (c *Selectelv2Config) newProvider() (challenge.Provider, error) {
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *Selectelv2Config) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"selectelv2\" must be a map")

@@ -27,7 +27,7 @@ letsEncrypt:
     pollingInterval: ""
     # BLUECAT_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
     propagationTimeout: ""
-    # BLUECAT_SKIP_DEPLOY: Skip deployements
+    # BLUECAT_SKIP_DEPLOY: Skip deployments
     skipDeploy: ""
     # BLUECAT_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
     ttl: ""

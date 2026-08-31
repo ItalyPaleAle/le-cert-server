@@ -13,10 +13,10 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/go-acme/lego/v4/certcrypto"
-	"github.com/go-acme/lego/v4/certificate"
-	"github.com/go-acme/lego/v4/lego"
-	"github.com/go-acme/lego/v4/registration"
+	"github.com/go-acme/lego/v5/acme"
+	"github.com/go-acme/lego/v5/certificate"
+	"github.com/go-acme/lego/v5/lego"
+	"github.com/go-acme/lego/v5/registration"
 	"golang.org/x/sync/singleflight"
 
 	"github.com/italypaleale/le-cert-server/pkg/config"
@@ -53,6 +53,9 @@ type obtainResult struct {
 
 // NewCertManager creates a new certificate manager
 func NewCertManager(store *storage.Storage, appMetrics *metrics.AppMetrics) (CertManager, error) {
+	// Hook up lego's logger
+	setLegoLogger()
+
 	return &certManager{
 		storage:    store,
 		appMetrics: appMetrics,
@@ -62,19 +65,19 @@ func NewCertManager(store *storage.Storage, appMetrics *metrics.AppMetrics) (Cer
 // User implements the lego registration.User interface
 type User struct {
 	Email        string
-	Registration *registration.Resource
-	key          crypto.PrivateKey
+	Registration *acme.ExtendedAccount
+	key          crypto.Signer
 }
 
 func (u *User) GetEmail() string {
 	return u.Email
 }
 
-func (u *User) GetRegistration() *registration.Resource {
+func (u *User) GetRegistration() *acme.ExtendedAccount {
 	return u.Registration
 }
 
-func (u *User) GetPrivateKey() crypto.PrivateKey {
+func (u *User) GetPrivateKey() crypto.Signer {
 	return u.key
 }
 
@@ -88,7 +91,7 @@ func (cm *certManager) getOrCreateUser(ctx context.Context) (*User, error) {
 		return nil, fmt.Errorf("failed to get Let's Encrypt credentials: %w", err)
 	}
 
-	var privateKey crypto.PrivateKey
+	var privateKey crypto.Signer
 
 	if creds != nil {
 		// Parse existing key
@@ -97,9 +100,16 @@ func (cm *certManager) getOrCreateUser(ctx context.Context) (*User, error) {
 			return nil, errors.New("failed to decode PEM block")
 		}
 
-		privateKey, err = x509.ParsePKCS8PrivateKey(block.Bytes)
+		parsed, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse private key: %w", err)
+		}
+
+		// Ensure the account key implements crypto.Signer
+		var ok bool
+		privateKey, ok = parsed.(crypto.Signer)
+		if !ok {
+			return nil, fmt.Errorf("stored private key of type %T does not implement crypto.Signer", parsed)
 		}
 	} else {
 		// Generate new key
@@ -117,7 +127,7 @@ func (cm *certManager) getOrCreateUser(ctx context.Context) (*User, error) {
 	return user, nil
 }
 
-func (cm *certManager) generateNewKey(ctx context.Context, email string) (privateKey crypto.PrivateKey, err error) {
+func (cm *certManager) generateNewKey(ctx context.Context, email string) (privateKey crypto.Signer, err error) {
 	// Generate new key
 	privateKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
@@ -150,17 +160,16 @@ func (cm *certManager) generateNewKey(ctx context.Context, email string) (privat
 }
 
 // createLegoClient creates a lego ACME client
-func (cm *certManager) createLegoClient(user *User) (*lego.Client, error) {
+func (cm *certManager) createLegoClient(ctx context.Context, user *User) (*lego.Client, error) {
 	cfg := config.Get()
 
 	legoConfig := lego.NewConfig(user)
-	legoConfig.Certificate.KeyType = certcrypto.RSA2048
 
 	// Use staging or production
 	if cfg.LetsEncrypt.Staging {
-		legoConfig.CADirURL = lego.LEDirectoryStaging
+		legoConfig.CADirURL = lego.DirectoryURLLetsEncryptStaging
 	} else {
-		legoConfig.CADirURL = lego.LEDirectoryProduction
+		legoConfig.CADirURL = lego.DirectoryURLLetsEncrypt
 	}
 
 	client, err := lego.NewClient(legoConfig)
@@ -170,7 +179,7 @@ func (cm *certManager) createLegoClient(user *User) (*lego.Client, error) {
 
 	// Register if needed
 	if user.Registration == nil {
-		reg, err := client.Registration.Register(registration.RegisterOptions{
+		reg, err := client.Registration.Register(ctx, registration.RegisterOptions{
 			TermsOfServiceAgreed: true,
 		})
 		if err != nil {
@@ -234,7 +243,7 @@ func (cm *certManager) obtainCertificate(ctx context.Context, domain string) (ce
 	}
 
 	// Create lego client
-	client, err := cm.createLegoClient(user)
+	client, err := cm.createLegoClient(ctx, user)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to create client: %w", err)
 	}
@@ -254,7 +263,7 @@ func (cm *certManager) obtainCertificate(ctx context.Context, domain string) (ce
 		PrivateKey: certificatePrivateKey,
 	}
 
-	certificates, err := client.Certificate.Obtain(request)
+	certificates, err := client.Certificate.Obtain(ctx, request)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to obtain certificate: %w", err)
 	}
@@ -331,7 +340,7 @@ func (cm *certManager) renewCertificate(ctx context.Context, domain string) (*st
 	}
 
 	// Create lego client
-	client, err := cm.createLegoClient(user)
+	client, err := cm.createLegoClient(ctx, user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
@@ -340,13 +349,13 @@ func (cm *certManager) renewCertificate(ctx context.Context, domain string) (*st
 	start := time.Now()
 
 	certResource := certificate.Resource{
-		Domain:            domain,
+		Domains:           []string{domain},
 		Certificate:       cert.Certificate,
 		PrivateKey:        cert.PrivateKey,
 		IssuerCertificate: cert.IssuerCert,
 	}
 
-	certificates, err := client.Certificate.RenewWithOptions(certResource, &certificate.RenewOptions{
+	certificates, err := client.Certificate.Renew(ctx, certResource, &certificate.RenewOptions{
 		Bundle: true,
 	})
 	if err != nil {

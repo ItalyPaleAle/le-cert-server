@@ -1,14 +1,12 @@
 # Extra Markdown notes appended to generated DNS provider documentation pages.
 #
-# This file is an input to the gen-dns-providers tool (not generated). After
-# editing it, run `make gen-dns-providers` to regenerate the affected pages.
+# This file is an input to the gen-dns-providers tool (not generated).
+# After editing it, run `make gen-dns-providers` to regenerate the affected pages.
 #
 # Keys are lego provider codes (see https://go-acme.github.io/lego/dns/).
 # Values are Markdown appended to the end of that provider's page.
 #
-# Use this primarily for providers whose credentials are loaded by a third-party
-# cloud SDK from environment variables, shared config files, or instance
-# metadata, since those cannot be passed through `dnsCredentials` as strong types.
+# Use this primarily for providers whose credentials are loaded by a third-party cloud SDK from environment variables, shared config files, or instance metadata, since those cannot be passed through `dnsCredentials` as strong types.
 
 route53: |
   AWS credentials can be provided as the `accessKeyID`/`secretAccessKey` keys above.
@@ -31,12 +29,6 @@ gcloud: |
   `GCE_SERVICE_ACCOUNT_FILE`) to the path of a JSON key file, or rely on the
   metadata server when running on GCP. These are read directly by the Google SDK
   and cannot be set through `dnsCredentials`.
-
-azure: |
-  This is the legacy Azure provider; prefer [`azuredns`](/dns-providers/azuredns) for new setups.
-  Credentials are loaded by the Azure SDK and may also come from the standard
-  `AZURE_*` environment variables or a managed identity, which are read directly
-  by the SDK.
 
 azuredns: |
   In addition to the keys above, Azure DNS supports the Azure SDK's other

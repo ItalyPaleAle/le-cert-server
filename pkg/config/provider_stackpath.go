@@ -7,13 +7,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/stackpath"
+	"github.com/go-acme/lego/v5/challenge"
+	prov "github.com/go-acme/lego/v5/providers/dns/stackpath"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
-// StackpathConfig holds configuration for the "stackpath" DNS provider (Stackpath)
-// See https://www.stackpath.com/
+// StackpathConfig holds configuration for the "stackpath" DNS provider (Stackpath (Deprecated))
+// See https://en.wikipedia.org/wiki/StackPath
 type StackpathConfig struct {
 	ClientID           string // STACKPATH_CLIENT_ID: Client ID
 	ClientSecret       string // STACKPATH_CLIENT_SECRET: Client secret
@@ -61,7 +61,7 @@ func (c *StackpathConfig) newProvider() (challenge.Provider, error) {
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *StackpathConfig) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"stackpath\" must be a map")

@@ -19,7 +19,7 @@ letsEncrypt:
     apiURL: ""
     # EXCEDO_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
     pollingInterval: ""
-    # EXCEDO_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 300)
+    # EXCEDO_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 600)
     propagationTimeout: ""
     # EXCEDO_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 60)
     ttl: ""

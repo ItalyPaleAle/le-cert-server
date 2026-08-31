@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/selectel"
+	"github.com/go-acme/lego/v5/challenge"
+	prov "github.com/go-acme/lego/v5/providers/dns/selectel"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -16,7 +16,6 @@ import (
 // See https://kb.selectel.com/
 type SelectelConfig struct {
 	APIToken           string // SELECTEL_API_TOKEN: API token
-	BaseURL            string // SELECTEL_BASE_URL: API endpoint URL
 	PollingInterval    string // SELECTEL_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // SELECTEL_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
 	TTL                string // SELECTEL_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 60)
@@ -28,9 +27,6 @@ func (c *SelectelConfig) newProvider() (challenge.Provider, error) {
 	cfg := prov.NewDefaultConfig()
 	if c.APIToken != "" {
 		cfg.Token = c.APIToken
-	}
-	if c.BaseURL != "" {
-		cfg.BaseURL = c.BaseURL
 	}
 	if c.PollingInterval != "" {
 		v, err := strconv.Atoi(c.PollingInterval)
@@ -57,7 +53,7 @@ func (c *SelectelConfig) newProvider() (challenge.Provider, error) {
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *SelectelConfig) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"selectel\" must be a map")
@@ -76,8 +72,6 @@ func (c *SelectelConfig) UnmarshalYAML(value *yaml.Node) error {
 		switch key {
 		case "apiToken", "SELECTEL_API_TOKEN":
 			c.APIToken = val
-		case "baseURL", "SELECTEL_BASE_URL":
-			c.BaseURL = val
 		case "pollingInterval", "SELECTEL_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "SELECTEL_PROPAGATION_TIMEOUT":

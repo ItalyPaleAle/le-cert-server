@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/vultr"
+	"github.com/go-acme/lego/v5/challenge"
+	prov "github.com/go-acme/lego/v5/providers/dns/vultr"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -16,7 +16,6 @@ import (
 // See https://www.vultr.com/
 type VultrConfig struct {
 	APIKey             string // VULTR_API_KEY: API key
-	HTTPTimeout        string // VULTR_HTTP_TIMEOUT: API request timeout in seconds (Default: 30)
 	PollingInterval    string // VULTR_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // VULTR_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // VULTR_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
@@ -28,13 +27,6 @@ func (c *VultrConfig) newProvider() (challenge.Provider, error) {
 	cfg := prov.NewDefaultConfig()
 	if c.APIKey != "" {
 		cfg.APIKey = c.APIKey
-	}
-	if c.HTTPTimeout != "" {
-		v, err := strconv.Atoi(c.HTTPTimeout)
-		if err != nil {
-			return nil, fmt.Errorf("invalid value for \"httpTimeout\": %w", err)
-		}
-		cfg.HTTPTimeout = time.Duration(v) * time.Second
 	}
 	if c.PollingInterval != "" {
 		v, err := strconv.Atoi(c.PollingInterval)
@@ -61,7 +53,7 @@ func (c *VultrConfig) newProvider() (challenge.Provider, error) {
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *VultrConfig) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"vultr\" must be a map")
@@ -80,8 +72,6 @@ func (c *VultrConfig) UnmarshalYAML(value *yaml.Node) error {
 		switch key {
 		case "apiKey", "VULTR_API_KEY":
 			c.APIKey = val
-		case "httpTimeout", "VULTR_HTTP_TIMEOUT":
-			c.HTTPTimeout = val
 		case "pollingInterval", "VULTR_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "VULTR_PROPAGATION_TIMEOUT":

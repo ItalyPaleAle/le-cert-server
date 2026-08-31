@@ -15,8 +15,6 @@ letsEncrypt:
   dnsCredentials:
     # VSCALE_API_TOKEN: API token
     apiToken: ""
-    # VSCALE_BASE_URL: API endpoint URL
-    baseURL: ""
     # VSCALE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     pollingInterval: ""
     # VSCALE_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)

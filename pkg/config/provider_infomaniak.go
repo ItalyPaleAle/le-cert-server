@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/infomaniak"
+	"github.com/go-acme/lego/v5/challenge"
+	prov "github.com/go-acme/lego/v5/providers/dns/infomaniak"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -16,7 +16,7 @@ import (
 // See https://www.infomaniak.com/
 type InfomaniakConfig struct {
 	AccessToken        string // INFOMANIAK_ACCESS_TOKEN: Access token
-	Endpoint           string // INFOMANIAK_ENDPOINT: https://api.infomaniak.com
+	Endpoint           string // INFOMANIAK_ENDPOINT: API endpoint (default: https://api.infomaniak.com)
 	PollingInterval    string // INFOMANIAK_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
 	PropagationTimeout string // INFOMANIAK_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
 	TTL                string // INFOMANIAK_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 300)
@@ -57,7 +57,7 @@ func (c *InfomaniakConfig) newProvider() (challenge.Provider, error) {
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *InfomaniakConfig) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"infomaniak\" must be a map")

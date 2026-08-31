@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-acme/lego/v4/challenge"
-	prov "github.com/go-acme/lego/v4/providers/dns/vscale"
+	"github.com/go-acme/lego/v5/challenge"
+	prov "github.com/go-acme/lego/v5/providers/dns/vscale"
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
@@ -16,7 +16,6 @@ import (
 // See https://vscale.io/
 type VscaleConfig struct {
 	APIToken           string // VSCALE_API_TOKEN: API token
-	BaseURL            string // VSCALE_BASE_URL: API endpoint URL
 	PollingInterval    string // VSCALE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // VSCALE_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 120)
 	TTL                string // VSCALE_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 60)
@@ -28,9 +27,6 @@ func (c *VscaleConfig) newProvider() (challenge.Provider, error) {
 	cfg := prov.NewDefaultConfig()
 	if c.APIToken != "" {
 		cfg.Token = c.APIToken
-	}
-	if c.BaseURL != "" {
-		cfg.BaseURL = c.BaseURL
 	}
 	if c.PollingInterval != "" {
 		v, err := strconv.Atoi(c.PollingInterval)
@@ -57,7 +53,7 @@ func (c *VscaleConfig) newProvider() (challenge.Provider, error) {
 }
 
 // UnmarshalYAML decodes the provider credentials
-// It accepts the normalized name, the raw lego environment variable, and documented aliases; unknown keys error
+// It accepts the normalized name, the raw lego environment variable, and documented aliases
 func (c *VscaleConfig) UnmarshalYAML(value *yaml.Node) error {
 	if value.Kind != yaml.MappingNode {
 		return fmt.Errorf("dnsCredentials for DNS provider \"vscale\" must be a map")
@@ -76,8 +72,6 @@ func (c *VscaleConfig) UnmarshalYAML(value *yaml.Node) error {
 		switch key {
 		case "apiToken", "VSCALE_API_TOKEN":
 			c.APIToken = val
-		case "baseURL", "VSCALE_BASE_URL":
-			c.BaseURL = val
 		case "pollingInterval", "VSCALE_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "VSCALE_PROPAGATION_TIMEOUT":
