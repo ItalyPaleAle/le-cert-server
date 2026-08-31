@@ -6,6 +6,13 @@ on:
       - "main"
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      build_all_platforms:
+        description: Build binaries and container images for all supported platforms
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
