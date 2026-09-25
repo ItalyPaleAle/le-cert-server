@@ -120,6 +120,8 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &DnslaConfig{}, true
 	case "dnsmadeeasy":
 		return &DnsmadeeasyConfig{}, true
+	case "dnsmint":
+		return &DnsmintConfig{}, true
 	case "dnsservices":
 		return &DnsservicesConfig{}, true
 	case "dnsupdate":
@@ -164,6 +166,8 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &ExoscaleConfig{}, true
 	case "f5xc":
 		return &F5xcConfig{}, true
+	case "feno":
+		return &FenoConfig{}, true
 	case "fornex":
 		return &FornexConfig{}, true
 	case "freemyip":
@@ -274,6 +278,8 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &MyaddrConfig{}, true
 	case "mydnsjp":
 		return &MydnsjpConfig{}, true
+	case "myra":
+		return &MyraConfig{}, true
 	case "mythicbeasts":
 		return &MythicbeastsConfig{}, true
 	case "namecheap":
@@ -422,6 +428,8 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &VultrConfig{}, true
 	case "wannafind":
 		return &WannafindConfig{}, true
+	case "webglobe":
+		return &WebglobeConfig{}, true
 	case "webnamesca":
 		return &WebnamescaConfig{}, true
 	case "webnamesru":

@@ -16,6 +16,7 @@ import (
 // See https://cloud.google.com
 type GcloudConfig struct {
 	Project                   string // GCE_PROJECT: Project name (by default, the project name is auto-detected by using the metadata service)
+	AccessToken               string // GCE_ACCESS_TOKEN: The OAuth2 access token used by the client to authenticate against the Google Cloud API.
 	AllowPrivateZone          string // GCE_ALLOW_PRIVATE_ZONE: Allows requested domain to be in private DNS zone, works only with a private ACME server (by default: false)
 	ImpersonateServiceAccount string // GCE_IMPERSONATE_SERVICE_ACCOUNT: Service account email to impersonate
 	PollingInterval           string // GCE_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 5)
@@ -30,6 +31,9 @@ func (c *GcloudConfig) newProvider() (challenge.Provider, error) {
 	cfg := prov.NewDefaultConfig()
 	if c.Project != "" {
 		cfg.Project = c.Project
+	}
+	if c.AccessToken != "" {
+		cfg.AccessToken = c.AccessToken
 	}
 	if c.AllowPrivateZone != "" {
 		v, err := strconv.ParseBool(c.AllowPrivateZone)
@@ -88,6 +92,8 @@ func (c *GcloudConfig) UnmarshalYAML(value *yaml.Node) error {
 		switch key {
 		case "project", "GCE_PROJECT":
 			c.Project = val
+		case "accessToken", "GCE_ACCESS_TOKEN":
+			c.AccessToken = val
 		case "allowPrivateZone", "GCE_ALLOW_PRIVATE_ZONE":
 			c.AllowPrivateZone = val
 		case "impersonateServiceAccount", "GCE_IMPERSONATE_SERVICE_ACCOUNT":

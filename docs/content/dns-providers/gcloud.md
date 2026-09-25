@@ -15,6 +15,8 @@ letsEncrypt:
   dnsCredentials:
     # GCE_PROJECT: Project name (by default, the project name is auto-detected by using the metadata service)
     project: ""
+    # GCE_ACCESS_TOKEN: The OAuth2 access token used by the client to authenticate against the Google Cloud API.
+    accessToken: ""
     # GCE_ALLOW_PRIVATE_ZONE: Allows requested domain to be in private DNS zone, works only with a private ACME server (by default: false)
     allowPrivateZone: ""
     # GCE_IMPERSONATE_SERVICE_ACCOUNT: Service account email to impersonate
