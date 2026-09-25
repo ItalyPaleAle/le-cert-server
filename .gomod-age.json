@@ -7,13 +7,8 @@
   ],
   "allow": [
     {
-      "module": "go.opentelemetry.io/otel",
-      "version": "v1.46.0",
-      "reason": ""
-    },
-    {
-      "module": "go.opentelemetry.io/otel/metric",
-      "version": "v1.46.0",
+      "module": "github.com/go-acme/lego/v5",
+      "version": "v5.5.2",
       "reason": ""
     }
   ]
