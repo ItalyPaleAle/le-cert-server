@@ -7,9 +7,12 @@
   ],
   "allow": [
     {
-      "module": "github.com/go-acme/lego/v5",
-      "version": "v5.5.2",
-      "reason": ""
+      "module": "github.com/lestrrat-go/jwx/v4",
+      "version": "v4.6.0"
+    },
+    {
+      "module": "modernc.org/sqlite",
+      "version": "v1.61.0"
     }
   ]
 }
