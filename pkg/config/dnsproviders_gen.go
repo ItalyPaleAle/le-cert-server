@@ -70,6 +70,8 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &CloudflareConfig{}, true
 	case "cloudns":
 		return &CloudnsConfig{}, true
+	case "cloudpress":
+		return &CloudpressConfig{}, true
 	case "cloudru":
 		return &CloudruConfig{}, true
 	case "com35":
@@ -190,6 +192,8 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &GnameConfig{}, true
 	case "godaddy":
 		return &GodaddyConfig{}, true
+	case "godaddyv3":
+		return &Godaddyv3Config{}, true
 	case "gravity":
 		return &GravityConfig{}, true
 	case "hetzner":
@@ -298,6 +302,8 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &NeodigitConfig{}, true
 	case "netcup":
 		return &NetcupConfig{}, true
+	case "netcupv1":
+		return &Netcupv1Config{}, true
 	case "netlify":
 		return &NetlifyConfig{}, true
 	case "netnod":
@@ -316,6 +322,8 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &NjallaConfig{}, true
 	case "nodion":
 		return &NodionConfig{}, true
+	case "nordname":
+		return &NordnameConfig{}, true
 	case "ns1":
 		return &Ns1Config{}, true
 	case "octenium":
@@ -344,6 +352,8 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &PorkbunConfig{}, true
 	case "poweradmin":
 		return &PoweradminConfig{}, true
+	case "primedns":
+		return &PrimednsConfig{}, true
 	case "rackspace":
 		return &RackspaceConfig{}, true
 	case "rage4":
@@ -372,6 +382,8 @@ func newDNSProviderConfig(code string) (dnsProviderConfig, bool) {
 		return &SelectelConfig{}, true
 	case "selectelv2":
 		return &Selectelv2Config{}, true
+	case "selfhostdev2":
+		return &Selfhostdev2Config{}, true
 	case "servercow":
 		return &ServercowConfig{}, true
 	case "shellrent":

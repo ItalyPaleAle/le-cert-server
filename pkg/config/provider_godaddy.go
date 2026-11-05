@@ -12,7 +12,7 @@ import (
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
-// GodaddyConfig holds configuration for the "godaddy" DNS provider (Go Daddy)
+// GodaddyConfig holds configuration for the "godaddy" DNS provider (Go Daddy (DEPRECATED))
 // See https://godaddy.com
 type GodaddyConfig struct {
 	APIKey             string // GODADDY_API_KEY: API key

@@ -15,7 +15,8 @@ import (
 // CuranetConfig holds configuration for the "curanet" DNS provider (Curanet)
 // See https://curanet.dk/
 type CuranetConfig struct {
-	APIKey             string // CURANET_API_KEY: API key
+	ClientID           string // CURANET_CLIENT_ID: Client ID
+	ClientSecret       string // CURANET_CLIENT_SECRET: Client secret
 	PollingInterval    string // CURANET_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // CURANET_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // CURANET_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
@@ -25,8 +26,11 @@ type CuranetConfig struct {
 // Credentials are passed directly to lego and never written to the process environment
 func (c *CuranetConfig) newProvider() (challenge.Provider, error) {
 	cfg := prov.NewDefaultConfig()
-	if c.APIKey != "" {
-		cfg.APIKey = c.APIKey
+	if c.ClientID != "" {
+		cfg.ClientID = c.ClientID
+	}
+	if c.ClientSecret != "" {
+		cfg.ClientSecret = c.ClientSecret
 	}
 	if c.PollingInterval != "" {
 		v, err := strconv.Atoi(c.PollingInterval)
@@ -70,8 +74,10 @@ func (c *CuranetConfig) UnmarshalYAML(value *yaml.Node) error {
 			return err
 		}
 		switch key {
-		case "apiKey", "CURANET_API_KEY":
-			c.APIKey = val
+		case "clientID", "CURANET_CLIENT_ID":
+			c.ClientID = val
+		case "clientSecret", "CURANET_CLIENT_SECRET":
+			c.ClientSecret = val
 		case "pollingInterval", "CURANET_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "CURANET_PROPAGATION_TIMEOUT":

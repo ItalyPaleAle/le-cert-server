@@ -13,8 +13,10 @@ See the [lego documentation](https://go-acme.github.io/lego/dns/wannafind/) for 
 letsEncrypt:
   dnsProvider: "wannafind"
   dnsCredentials:
-    # WANNAFIND_API_KEY: API key
-    apiKey: ""
+    # WANNAFIND_CLIENT_ID: Client ID
+    clientID: ""
+    # WANNAFIND_CLIENT_SECRET: Client secret
+    clientSecret: ""
     # WANNAFIND_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     pollingInterval: ""
     # WANNAFIND_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)

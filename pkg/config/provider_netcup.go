@@ -12,7 +12,7 @@ import (
 	yaml "sigs.k8s.io/yaml/goyaml.v3"
 )
 
-// NetcupConfig holds configuration for the "netcup" DNS provider (Netcup)
+// NetcupConfig holds configuration for the "netcup" DNS provider (Netcup (Legacy API))
 // See https://www.netcup.eu/
 type NetcupConfig struct {
 	APIKey             string // NETCUP_API_KEY: API key

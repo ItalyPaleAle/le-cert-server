@@ -13,8 +13,6 @@ See the [lego documentation](https://go-acme.github.io/lego/dns/simply/) for ful
 letsEncrypt:
   dnsProvider: "simply"
   dnsCredentials:
-    # SIMPLY_ACCOUNT_NAME: Account name
-    accountName: ""
     # SIMPLY_API_KEY: API key
     apiKey: ""
     # SIMPLY_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)

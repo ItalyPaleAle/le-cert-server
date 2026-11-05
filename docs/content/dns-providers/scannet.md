@@ -13,8 +13,10 @@ See the [lego documentation](https://go-acme.github.io/lego/dns/scannet/) for fu
 letsEncrypt:
   dnsProvider: "scannet"
   dnsCredentials:
-    # SCANNET_API_KEY: API key
-    apiKey: ""
+    # SCANNET_CLIENT_ID: Client ID
+    clientID: ""
+    # SCANNET_CLIENT_SECRET: Client secret
+    clientSecret: ""
     # SCANNET_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     pollingInterval: ""
     # SCANNET_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)

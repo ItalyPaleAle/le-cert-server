@@ -13,8 +13,10 @@ See the [lego documentation](https://go-acme.github.io/lego/dns/dandomain/) for 
 letsEncrypt:
   dnsProvider: "dandomain"
   dnsCredentials:
-    # DANDOMAIN_API_KEY: API key
-    apiKey: ""
+    # DANDOMAIN_CLIENT_ID: Client ID
+    clientID: ""
+    # DANDOMAIN_CLIENT_SECRET: Client secret
+    clientSecret: ""
     # DANDOMAIN_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     pollingInterval: ""
     # DANDOMAIN_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)

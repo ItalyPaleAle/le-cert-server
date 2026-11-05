@@ -15,7 +15,8 @@ import (
 // DandomainConfig holds configuration for the "dandomain" DNS provider (DanDomain)
 // See https://dandomain.dk/
 type DandomainConfig struct {
-	APIKey             string // DANDOMAIN_API_KEY: API key
+	ClientID           string // DANDOMAIN_CLIENT_ID: Client ID
+	ClientSecret       string // DANDOMAIN_CLIENT_SECRET: Client secret
 	PollingInterval    string // DANDOMAIN_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // DANDOMAIN_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // DANDOMAIN_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
@@ -25,8 +26,11 @@ type DandomainConfig struct {
 // Credentials are passed directly to lego and never written to the process environment
 func (c *DandomainConfig) newProvider() (challenge.Provider, error) {
 	cfg := prov.NewDefaultConfig()
-	if c.APIKey != "" {
-		cfg.APIKey = c.APIKey
+	if c.ClientID != "" {
+		cfg.ClientID = c.ClientID
+	}
+	if c.ClientSecret != "" {
+		cfg.ClientSecret = c.ClientSecret
 	}
 	if c.PollingInterval != "" {
 		v, err := strconv.Atoi(c.PollingInterval)
@@ -70,8 +74,10 @@ func (c *DandomainConfig) UnmarshalYAML(value *yaml.Node) error {
 			return err
 		}
 		switch key {
-		case "apiKey", "DANDOMAIN_API_KEY":
-			c.APIKey = val
+		case "clientID", "DANDOMAIN_CLIENT_ID":
+			c.ClientID = val
+		case "clientSecret", "DANDOMAIN_CLIENT_SECRET":
+			c.ClientSecret = val
 		case "pollingInterval", "DANDOMAIN_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "DANDOMAIN_PROPAGATION_TIMEOUT":

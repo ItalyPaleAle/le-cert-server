@@ -15,7 +15,6 @@ import (
 // SimplyConfig holds configuration for the "simply" DNS provider (Simply.com)
 // See https://www.simply.com/en/domains/
 type SimplyConfig struct {
-	AccountName        string // SIMPLY_ACCOUNT_NAME: Account name
 	APIKey             string // SIMPLY_API_KEY: API key
 	PollingInterval    string // SIMPLY_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 10)
 	PropagationTimeout string // SIMPLY_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 300)
@@ -26,9 +25,6 @@ type SimplyConfig struct {
 // Credentials are passed directly to lego and never written to the process environment
 func (c *SimplyConfig) newProvider() (challenge.Provider, error) {
 	cfg := prov.NewDefaultConfig()
-	if c.AccountName != "" {
-		cfg.AccountName = c.AccountName
-	}
 	if c.APIKey != "" {
 		cfg.APIKey = c.APIKey
 	}
@@ -74,8 +70,6 @@ func (c *SimplyConfig) UnmarshalYAML(value *yaml.Node) error {
 			return err
 		}
 		switch key {
-		case "accountName", "SIMPLY_ACCOUNT_NAME":
-			c.AccountName = val
 		case "apiKey", "SIMPLY_API_KEY":
 			c.APIKey = val
 		case "pollingInterval", "SIMPLY_POLLING_INTERVAL":

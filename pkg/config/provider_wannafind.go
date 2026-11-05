@@ -15,7 +15,8 @@ import (
 // WannafindConfig holds configuration for the "wannafind" DNS provider (Wannafind)
 // See https://www.wannafind.dk/
 type WannafindConfig struct {
-	APIKey             string // WANNAFIND_API_KEY: API key
+	ClientID           string // WANNAFIND_CLIENT_ID: Client ID
+	ClientSecret       string // WANNAFIND_CLIENT_SECRET: Client secret
 	PollingInterval    string // WANNAFIND_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
 	PropagationTimeout string // WANNAFIND_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
 	TTL                string // WANNAFIND_TTL: The TTL of the TXT record used for the DNS challenge in seconds (Default: 120)
@@ -25,8 +26,11 @@ type WannafindConfig struct {
 // Credentials are passed directly to lego and never written to the process environment
 func (c *WannafindConfig) newProvider() (challenge.Provider, error) {
 	cfg := prov.NewDefaultConfig()
-	if c.APIKey != "" {
-		cfg.APIKey = c.APIKey
+	if c.ClientID != "" {
+		cfg.ClientID = c.ClientID
+	}
+	if c.ClientSecret != "" {
+		cfg.ClientSecret = c.ClientSecret
 	}
 	if c.PollingInterval != "" {
 		v, err := strconv.Atoi(c.PollingInterval)
@@ -70,8 +74,10 @@ func (c *WannafindConfig) UnmarshalYAML(value *yaml.Node) error {
 			return err
 		}
 		switch key {
-		case "apiKey", "WANNAFIND_API_KEY":
-			c.APIKey = val
+		case "clientID", "WANNAFIND_CLIENT_ID":
+			c.ClientID = val
+		case "clientSecret", "WANNAFIND_CLIENT_SECRET":
+			c.ClientSecret = val
 		case "pollingInterval", "WANNAFIND_POLLING_INTERVAL":
 			c.PollingInterval = val
 		case "propagationTimeout", "WANNAFIND_PROPAGATION_TIMEOUT":

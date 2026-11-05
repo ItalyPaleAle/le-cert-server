@@ -13,8 +13,10 @@ See the [lego documentation](https://go-acme.github.io/lego/dns/curanet/) for fu
 letsEncrypt:
   dnsProvider: "curanet"
   dnsCredentials:
-    # CURANET_API_KEY: API key
-    apiKey: ""
+    # CURANET_CLIENT_ID: Client ID
+    clientID: ""
+    # CURANET_CLIENT_SECRET: Client secret
+    clientSecret: ""
     # CURANET_POLLING_INTERVAL: Time between DNS propagation check in seconds (Default: 2)
     pollingInterval: ""
     # CURANET_PROPAGATION_TIMEOUT: Maximum waiting time for DNS propagation in seconds (Default: 60)
